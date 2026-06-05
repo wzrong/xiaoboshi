@@ -1,0 +1,432 @@
+// data.jsx — scenario definitions + mock authoritative content
+// All content is illustrative mock data for the prototype.
+
+const SCENARIOS = [
+  {
+    id: "find",
+    name: "找资源",
+    tagline: "从权威库精准检索",
+    desc: "20 年三审三校精品资源，按学段·学科·版本智能匹配",
+    icon: "search",
+    hue: 150,
+    sample: "人教版七年级上册《有理数》的随堂练习",
+  },
+  {
+    id: "paper",
+    name: "出卷子",
+    tagline: "组卷一键成型",
+    desc: "从权威题库智能组卷，难度梯度、知识点全覆盖",
+    icon: "paper",
+    hue: 25,
+    sample: "一份初二物理《光的折射》单元测试卷",
+  },
+  {
+    id: "courseware",
+    name: "做课件",
+    tagline: "PPT 与互动课件",
+    desc: "依据课标与权威教案生成课件，支持传统 PPT 与可交互的互动课件",
+    icon: "slides",
+    hue: 255,
+    sample: "《纪念白求恩》两课时的教学课件",
+    forms: ["传统 PPT 课件", "互动课件 · HTML"],
+    badge: "含互动课件",
+  },
+  {
+    id: "lesson",
+    name: "写教案",
+    tagline: "教学设计成稿",
+    desc: "对齐课程标准，三维目标、重难点一应俱全",
+    icon: "lesson",
+    hue: 320,
+    sample: "高一数学《函数的单调性》详案",
+  },
+  {
+    id: "textbook",
+    name: "问教材",
+    tagline: "教材问答有据可依",
+    desc: "答案逐条引用教材原文，章节页码可溯源",
+    icon: "book",
+    hue: 200,
+    sample: "光合作用的两个阶段有什么区别？",
+  },
+  {
+    id: "mindmap",
+    name: "画导图",
+    tagline: "知识结构可视化",
+    desc: "把章节知识点梳理成清晰的思维导图",
+    icon: "mindmap",
+    hue: 95,
+    sample: "《细胞的结构》知识点思维导图",
+  },
+];
+
+// 通用助手 — fallback scenario when intent doesn't match a specific tool.
+// Also the place where intent recognition first happens before handing off.
+const GENERAL = {
+  id: "general",
+  name: "通用助手",
+  tagline: "有问必答，自动判断该用哪个工具",
+  desc: "教学问题随便问，识别到具体需求会带你进入对应工作台",
+  icon: "spark",
+  hue: 230,
+  sample: "帮我想几个《有理数》的课堂导入点子",
+};
+
+// Mock resource results for 找资源
+const RESOURCES = [
+  {
+    id: 1,
+    title: "人教版数学七年级上册 1.2 有理数 同步练习（含解析）",
+    type: "同步练习",
+    grade: "七年级",
+    subject: "数学",
+    edition: "人教版",
+    diff: "基础",
+    match: 98,
+    downloads: "3.2万",
+    pages: 6,
+    qcount: 24,
+    reviewed: true,
+    updated: "2025-08",
+    tags: ["有理数", "随堂", "含答案"],
+  },
+  {
+    id: 2,
+    title: "《有理数及其运算》单元检测卷 A 卷",
+    type: "单元测试",
+    grade: "七年级",
+    subject: "数学",
+    edition: "人教版",
+    diff: "中等",
+    match: 95,
+    downloads: "1.8万",
+    pages: 4,
+    qcount: 22,
+    reviewed: true,
+    updated: "2025-07",
+    tags: ["单元卷", "梯度难度"],
+  },
+  {
+    id: 3,
+    title: "有理数的加减法 微课 + 配套学案",
+    type: "微课·学案",
+    grade: "七年级",
+    subject: "数学",
+    edition: "人教版",
+    diff: "基础",
+    match: 92,
+    downloads: "9621",
+    pages: 8,
+    qcount: 16,
+    reviewed: true,
+    updated: "2025-09",
+    tags: ["微课", "学案", "新授"],
+  },
+  {
+    id: 4,
+    title: "有理数易错题精选 30 题（培优）",
+    type: "专项突破",
+    grade: "七年级",
+    subject: "数学",
+    edition: "通用",
+    diff: "拔高",
+    match: 88,
+    downloads: "1.1万",
+    pages: 5,
+    qcount: 30,
+    reviewed: true,
+    updated: "2025-06",
+    tags: ["易错", "培优", "压轴"],
+  },
+  {
+    id: 5,
+    title: "有理数概念课 教学课件（精品）",
+    type: "教学课件",
+    grade: "七年级",
+    subject: "数学",
+    edition: "人教版",
+    diff: "基础",
+    match: 84,
+    downloads: "2.4万",
+    pages: 28,
+    qcount: 0,
+    reviewed: true,
+    updated: "2025-08",
+    tags: ["课件", "新授", "情境导入"],
+  },
+];
+
+// Mock VIDEO resources for 找资源
+const VIDEOS = [
+  {
+    id: "v1",
+    kind: "video",
+    title: "【实验】探究凸透镜成像规律 演示实验",
+    cat: "实验视频",
+    subject: "物理",
+    grade: "八年级",
+    edition: "人教版",
+    duration: "12:34",
+    quality: "1080P",
+    plays: "5.6万",
+    match: 96,
+    reviewed: true,
+    updated: "2025-09",
+    chapters: [
+      { t: "00:00", name: "实验器材与原理" },
+      { t: "02:18", name: "u>2f 成倒立缩小实像" },
+      { t: "05:40", name: "f<u<2f 成倒立放大实像" },
+      { t: "08:55", name: "u<f 成正立放大虚像" },
+      { t: "11:02", name: "数据记录与结论" },
+    ],
+  },
+  {
+    id: "v2",
+    kind: "video",
+    title: "【化学实验】氧气的实验室制取与性质",
+    cat: "实验视频",
+    subject: "化学",
+    grade: "九年级",
+    edition: "人教版",
+    duration: "09:48",
+    quality: "1080P",
+    plays: "3.9万",
+    match: 90,
+    reviewed: true,
+    updated: "2025-08",
+    chapters: [
+      { t: "00:00", name: "药品与装置选择" },
+      { t: "03:12", name: "加热高锰酸钾制氧气" },
+      { t: "06:30", name: "氧气的验满与收集" },
+      { t: "08:05", name: "氧气的性质实验" },
+    ],
+  },
+  {
+    id: "v3",
+    kind: "video",
+    title: "【生物实验】观察根尖分生区细胞的有丝分裂",
+    cat: "实验视频",
+    subject: "生物",
+    grade: "高中必修1",
+    edition: "人教版",
+    duration: "14:20",
+    quality: "1080P",
+    plays: "2.1万",
+    match: 88,
+    reviewed: true,
+    updated: "2025-07",
+    chapters: [
+      { t: "00:00", name: "装片的制作：解离·漂洗·染色·制片" },
+      { t: "05:24", name: "显微镜下观察各分裂时期" },
+      { t: "10:10", name: "绘图与时期判断" },
+    ],
+  },
+  {
+    id: "v4",
+    kind: "video",
+    title: "【教师研修】新课标下的大单元教学设计",
+    cat: "研修视频",
+    subject: "通用",
+    grade: "全学段",
+    edition: "通用",
+    duration: "38:12",
+    quality: "1080P",
+    plays: "1.4万",
+    match: 84,
+    reviewed: true,
+    updated: "2025-06",
+    chapters: [
+      { t: "00:00", name: "为什么要做大单元教学" },
+      { t: "08:30", name: "单元目标的提取与分解" },
+      { t: "19:45", name: "学习任务群的设计" },
+      { t: "30:10", name: "评价量规与课例展示" },
+    ],
+  },
+];
+
+// Mock ALBUM (专辑/合集) resources for 找资源
+const ALBUMS = [
+  {
+    id: "a1",
+    kind: "album",
+    title: "【上好课】2025-2026学年六年级语文下学期期末考点大串讲",
+    subject: "语文",
+    grade: "六年级",
+    edition: "统编版",
+    total: 28,
+    downloads: "8.7万",
+    match: 94,
+    reviewed: true,
+    updated: "2025-12",
+    composition: [
+      { type: "课件", n: 8 },
+      { type: "教案", n: 6 },
+      { type: "试卷", n: 8 },
+      { type: "习题", n: 6 },
+    ],
+    items: [
+      { type: "课件", title: "第一单元 考点精讲串讲课件", fmt: "PPTX", pages: 32 },
+      { type: "教案", title: "第一单元 复习课教学设计", fmt: "DOCX", pages: 9 },
+      { type: "微课", title: "阅读理解答题技巧 精讲微课", fmt: "MP4", dur: "09:21" },
+      { type: "试卷", title: "期末模拟检测卷（一）含答案", fmt: "DOCX", pages: 6, q: 26 },
+      { type: "习题", title: "易错字词·古诗文默写专项", fmt: "DOCX", pages: 5 },
+      { type: "课件", title: "习作复习：写人记事考点串讲", fmt: "PPTX", pages: 28 },
+      { type: "试卷", title: "期末真题汇编卷（近三年）", fmt: "DOCX", pages: 8, q: 30 },
+      { type: "教案", title: "口语交际与综合性学习 教案", fmt: "DOCX", pages: 7 },
+    ],
+  },
+  {
+    id: "a2",
+    kind: "album",
+    title: "【一轮复习】高三数学《函数与导数》专题突破合集",
+    subject: "数学",
+    grade: "高三",
+    edition: "通用",
+    total: 22,
+    downloads: "5.2万",
+    match: 89,
+    reviewed: true,
+    updated: "2025-11",
+    composition: [
+      { type: "课件", n: 7 },
+      { type: "试卷", n: 9 },
+      { type: "习题", n: 6 },
+    ],
+    items: [
+      { type: "课件", title: "函数的概念与性质 一轮精讲", fmt: "PPTX", pages: 40 },
+      { type: "试卷", title: "函数专题滚动训练卷（一）", fmt: "DOCX", pages: 6, q: 22 },
+      { type: "习题", title: "导数的几何意义 易错题精选", fmt: "DOCX", pages: 5 },
+      { type: "课件", title: "导数与函数单调性 专题突破", fmt: "PPTX", pages: 36 },
+      { type: "试卷", title: "函数与导数 综合检测卷", fmt: "DOCX", pages: 8, q: 24 },
+      { type: "习题", title: "压轴题：导数中的恒成立问题", fmt: "DOCX", pages: 4 },
+    ],
+  },
+];
+
+// Mock textbook Q&A for 问教材
+const TEXTBOOK_TREE = {
+  edition: "人教版",
+  subject: "生物",
+  grade: "高中必修1",
+  chapters: [
+    {
+      name: "第5章 细胞的能量供应和利用",
+      sections: [
+        { name: "第1节 降低化学反应活化能的酶", active: false },
+        { name: "第2节 细胞的能量\"货币\"ATP", active: false },
+        { name: "第3节 ATP的主要来源——细胞呼吸", active: false },
+        { name: "第4节 光合作用与能量转化", active: true },
+      ],
+    },
+    {
+      name: "第6章 细胞的生命历程",
+      sections: [
+        { name: "第1节 细胞的增殖", active: false },
+        { name: "第2节 细胞的分化", active: false },
+      ],
+    },
+  ],
+};
+
+const TEXTBOOK_ANSWER = {
+  question: "光合作用的光反应和暗反应有什么区别？",
+  summary:
+    "光反应与暗反应是光合作用相互衔接的两个阶段，主要区别在于场所、条件、物质变化和能量变化四个方面。",
+  points: [
+    {
+      label: "场所",
+      light: "类囊体薄膜上",
+      dark: "叶绿体基质中",
+    },
+    {
+      label: "条件",
+      light: "需要光、色素、酶",
+      dark: "有光无光均可进行，需要多种酶",
+    },
+    {
+      label: "物质变化",
+      light: "水的光解释放 O₂，生成 [H] 和 ATP",
+      dark: "CO₂ 的固定与 C₃ 的还原，生成有机物",
+    },
+    {
+      label: "能量变化",
+      light: "光能 → 活跃化学能（ATP）",
+      dark: "活跃化学能 → 有机物中稳定化学能",
+    },
+  ],
+  citations: [
+    {
+      id: "c1",
+      source: "人教版生物 必修1",
+      loc: "第5章 第4节 · P103",
+      quote:
+        "光反应阶段必须有光才能进行，在这个阶段中，叶绿体的色素吸收光能……水在光下分解为 [H] 和 O₂。",
+    },
+    {
+      id: "c2",
+      source: "人教版生物 必修1",
+      loc: "第5章 第4节 · P104",
+      quote:
+        "暗反应阶段有光、无光都能进行……CO₂ 被 C₅ 固定形成 C₃，再被 [H] 还原成有机物。",
+    },
+  ],
+};
+
+// ---- AI memory / learned teacher profile (mock) ----
+const USER_MEMORY = {
+  teacher: "李",
+  role: "初中数学教师",
+  updated: "今天 09:24",
+  summary:
+    "最近一个月你主要在准备七年级数学，偏好人教版、难度多设为中等。常做随堂练习与单元测试，重点关注《有理数》《整式的加减》等章节；也收藏了不少配套微课与同步课件。",
+  tags: [
+    { k: "学科", v: "数学" },
+    { k: "学段", v: "七年级·上册" },
+    { k: "常用版本", v: "人教版" },
+    { k: "偏好难度", v: "中等" },
+    { k: "常做", v: "随堂练习" },
+  ],
+  stats: [
+    { icon: "slides", label: "课件", n: 12 },
+    { icon: "paper", label: "卷子", n: 8 },
+    { icon: "lesson", label: "教案", n: 5 },
+    { icon: "layers", label: "收藏", n: 36 },
+    { icon: "download", label: "下载", n: 120 },
+  ],
+  recent: [
+    { scenario: "paper", icon: "paper", hue: 25, title: "《有理数》随堂练习卷", meta: "人教版 · 七年级 · 中等", when: "昨天", done: true },
+    { scenario: "courseware", icon: "slides", hue: 255, title: "《整式的加减》互动课件", meta: "人教版 · 七年级 · 2 课时", when: "3 天前", done: true },
+    { scenario: "find", icon: "search", hue: 150, title: "一元一次方程 同步微课", meta: "已收藏 5 个资源", when: "上周", done: true },
+  ],
+  // discrete memories the AI has formed — shown & editable in 记忆管理
+  entries: [
+    { id: "e1", icon: "book", text: "常用人教版教材", basis: "近 30 天 25 次创作中 23 次选择人教版", on: true },
+    { id: "e2", icon: "filter", text: "出题偏好「中等」难度", basis: "组卷 / 选题时多次设为中等", on: true },
+    { id: "e3", icon: "paper", text: "当前重点是七年级上册数学", basis: "近期创作集中在《有理数》《整式的加减》", on: true },
+    { id: "e4", icon: "lesson", text: "教案偏好「情境导入」结构", basis: "近 3 份教案均包含情境导入环节", on: true },
+    { id: "e5", icon: "search", text: "喜欢配套微课与实验视频", basis: "收藏夹中有 12 个视频类资源", on: true },
+  ],
+  // last textbook the teacher was reading in 问教材
+  textbook: { edition: "人教版", stage: "高中", book: "生物 · 必修1", section: "第5章 第4节 · 能量之源——光合作用", when: "2 天前" },
+  // 历史对话 — past chat SESSIONS (process). Click to resume the conversation.
+  conversations: [
+    { id: "v1", scenario: "paper", icon: "paper", hue: 25, title: "《有理数》随堂练习卷", last: "再把第 5 题换成应用题", when: "今天" },
+    { id: "v2", scenario: "courseware", icon: "slides", hue: 255, title: "《整式的加减》互动课件", last: "加一个抢答环节", when: "昨天" },
+    { id: "v3", scenario: "textbook", icon: "book", hue: 210, title: "问：光反应和暗反应的区别", last: "已标注教材 P103–104", when: "3 天前" },
+    { id: "v4", scenario: "find", icon: "search", hue: 150, title: "一元一次方程 同步微课", last: "收藏了 5 个资源", when: "上周" },
+    { id: "v5", scenario: "lesson", icon: "lesson", hue: 320, title: "《数轴》教案（情境导入）", last: "导出为 Word", when: "上周" },
+  ],
+  // 我的内容 — everything the teacher has: AI-generated, downloaded from 学科网, 备课组件…
+  works: [
+    { id: "w1", scenario: "paper", icon: "paper", hue: 25, title: "《有理数》随堂练习卷", kind: "试卷", source: "AI 生成", meta: "人教版 · 七年级 · 中等 · 12 题", when: "昨天", status: "done" },
+    { id: "w2", scenario: "courseware", icon: "slides", hue: 255, title: "《整式的加减》互动课件", kind: "互动课件", source: "AI 生成", meta: "人教版 · 七年级 · 18 页 · 2 课时", when: "3 天前", status: "done" },
+    { id: "w3", scenario: "lesson", icon: "lesson", hue: 320, title: "《数轴》教学设计", kind: "教案", source: "AI 生成", meta: "人教版 · 七年级 · 情境导入", when: "上周", status: "done" },
+    { id: "w7", scenario: "find", icon: "slides", hue: 210, title: "《一元一次方程》名师同步课件", kind: "课件", source: "学科网下载", meta: "人教版 · 七年级 · 来自资源库", when: "上周", status: "saved" },
+    { id: "w4", scenario: "paper", icon: "paper", hue: 25, title: "第一单元《有理数》单元测试", kind: "试卷", source: "学科网下载", meta: "人教版 · 七年级 · 中等偏难 · 24 题", when: "上周", status: "saved" },
+    { id: "w5", scenario: "courseware", icon: "slides", hue: 255, title: "《正数和负数》导入课件", kind: "PPT 课件", source: "AI 生成", meta: "人教版 · 七年级 · 12 页", when: "2 周前", status: "draft" },
+    { id: "w6", scenario: "mindmap", icon: "mindmap", hue: 175, title: "《有理数》知识网络图", kind: "思维导图", source: "AI 生成", meta: "人教版 · 七年级 · 一章", when: "2 周前", status: "done" },
+    { id: "w8", scenario: "find", icon: "interactive", hue: 45, title: "《有理数运算》闯关备课组件", kind: "备课组件", source: "备课产品", meta: "人教版 · 七年级 · 课堂活动", when: "2 周前", status: "saved" },
+  ],
+};
+
+window.AIDATA = { SCENARIOS, GENERAL, RESOURCES, TEXTBOOK_TREE, TEXTBOOK_ANSWER, VIDEOS, ALBUMS, USER_MEMORY };
