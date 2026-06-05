@@ -41,8 +41,9 @@ npm start
 1. 在 GitHub 新建一个仓库。
 2. 把本项目推送到仓库的 `main` 分支。
 3. 打开仓库的 `Settings` → `Pages`。
-4. 在 `Build and deployment` 里选择 `GitHub Actions`。
-5. 等待 `Deploy to GitHub Pages` 工作流完成。
+4. 在 `Build and deployment` 里选择 `Deploy from a branch`。
+5. `Branch` 选择 `main`，目录选择 `/ (root)`。
+6. 保存后等待 GitHub Pages 发布完成。
 
 发布后，站点地址通常是：
 
