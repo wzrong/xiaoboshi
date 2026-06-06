@@ -56,13 +56,19 @@ https://你的用户名.github.io/仓库名/
 修改代码后，在项目目录执行：
 
 ```bash
-npm run deploy -- "你的提交说明"
+./scripts/deploy.sh "你的提交说明"
 ```
 
 例如：
 
 ```bash
-npm run deploy -- "Improve mobile layout"
+./scripts/deploy.sh "Improve mobile layout"
 ```
 
 这个脚本会自动提交当前改动并推送到 GitHub。GitHub Pages 发布完成后，线上站点会自动更新。
+
+如果不写提交说明，脚本会使用默认说明 `Update site`：
+
+```bash
+./scripts/deploy.sh
+```
