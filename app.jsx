@@ -17,6 +17,7 @@ function applyTheme(t) {
 
 function App() {
   const [t, setTweak] = useTweaks(TWEAK_DEFAULTS);
+  useBodyMobileFlag();
   const [screen, setScreen] = aS("home"); // home | recognizing | workspace
   const [query, setQuery] = aS("");
   const [scenarioId, setScenarioId] = aS(null);

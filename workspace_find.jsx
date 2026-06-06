@@ -71,20 +71,25 @@ function ChatResizer({ children }) {
   );
 }
 
-function WorkspaceShell({ scenario, onHome, onSwitch, children, right, titleMeta, subtitleOverride, recognizing, headerRecognizing }) {
+function WorkspaceShell({ scenario, onHome, onSwitch, children, right, titleMeta, subtitleOverride, recognizing, headerRecognizing, mobilePanelLabel = "结果", mobilePanelIcon = "layers" }) {
   const showRec = recognizing || headerRecognizing;
   const [switcher, setSwitcher] = React.useState(false);
+  const mobile = useIsMobile();
+  const [sheetOpen, setSheetOpen] = React.useState(false);
   const SC = window.AIDATA.SCENARIOS;
   const GEN = window.AIDATA.GENERAL;
   const canSwitch = typeof onSwitch === "function" && !showRec;
+  const kids = React.Children.toArray(children);
+  const isChatLed = !recognizing && kids.length >= 2 && kids[0] && kids[0].type === ChatPanel;
   return (
-    <div style={{ height: "100vh", display: "flex", flexDirection: "column", background: "var(--canvas)" }}>
+    <WSMobileContext.Provider value={{ mobile, sheetOpen, setSheetOpen, isChatLed }}>
+    <div style={{ height: "100dvh", display: "flex", flexDirection: "column", background: "var(--canvas)" }}>
       <header
         style={{
           display: "flex",
           alignItems: "center",
-          gap: 12,
-          padding: "12px 22px",
+          gap: mobile ? 8 : 12,
+          padding: mobile ? "10px 12px" : "12px 22px",
           background: "var(--surface)",
           borderBottom: "1px solid var(--line)",
           flexShrink: 0,
@@ -153,7 +158,7 @@ function WorkspaceShell({ scenario, onHome, onSwitch, children, right, titleMeta
                   {titleMeta}
                   {canSwitch && <span style={{ color: "var(--ink-3)", display: "grid", placeItems: "center", transition: "transform .2s", transform: switcher ? "rotate(180deg)" : "none" }}><Icon name="chevron" size={15} /></span>}
                 </div>
-                <div style={{ fontSize: 11.5, color: "var(--ink-3)", fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{subtitleOverride || scenario.tagline}</div>
+                {!mobile && <div style={{ fontSize: 11.5, color: "var(--ink-3)", fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{subtitleOverride || scenario.tagline}</div>}
               </div>
             </button>
             {switcher && (
@@ -203,18 +208,24 @@ function WorkspaceShell({ scenario, onHome, onSwitch, children, right, titleMeta
           </div>
         )}
         <div style={{ flex: 1 }} />
-        {!showRec && right}
+        {!showRec && (mobile && isChatLed ? <SheetPill label={mobilePanelLabel} icon={mobilePanelIcon} onClick={() => setSheetOpen(true)} /> : right)}
       </header>
-      <div style={{ flex: 1, minHeight: 0, display: "flex" }}>
-        {(() => {
-          const kids = React.Children.toArray(children);
-          if (!recognizing && kids.length >= 2 && kids[0] && kids[0].type === ChatPanel) {
-            return <ChatResizer>{children}</ChatResizer>;
-          }
-          return children;
-        })()}
+      <div style={{ flex: 1, minHeight: 0, display: "flex", position: "relative" }}>
+        {mobile && isChatLed ? (
+          <React.Fragment>
+            {React.cloneElement(kids[0], { width: "100%" })}
+            <MobileSheet open={sheetOpen} onClose={() => setSheetOpen(false)} title={mobilePanelLabel} headerRight={right}>
+              {kids.slice(1)}
+            </MobileSheet>
+          </React.Fragment>
+        ) : isChatLed ? (
+          <ChatResizer>{children}</ChatResizer>
+        ) : (
+          children
+        )}
       </div>
     </div>
+    </WSMobileContext.Provider>
   );
 }
 
@@ -576,7 +587,7 @@ function FindWorkspace({ scenario, query, onHome, onSwitch, fromIntent, resume, 
   }
 
   return (
-    <WorkspaceShell scenario={scenario} onHome={onHome} onSwitch={onSwitch} headerRecognizing={headerRecognizing} right={
+    <WorkspaceShell scenario={scenario} onHome={onHome} onSwitch={onSwitch} headerRecognizing={headerRecognizing} mobilePanelLabel="资源" mobilePanelIcon="search" right={
       <button style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 13px", borderRadius: 10, border: "1px solid var(--line)", background: "var(--surface)", color: "var(--ink-2)", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "var(--font-zh)" }}>
         <Icon name="layers" size={15} /> 我的资源夹
       </button>
@@ -673,6 +684,7 @@ function HandoffBar({ topic, onSwitch, query }) {
 // cold-start panel: shown when teacher entered 找资源 without any input
 function FindColdStart({ onPick, loggedIn }) {
   const M = window.AIDATA.USER_MEMORY;
+  const mobile = useIsMobile();
   // memory-driven personalization (logged-in teacher with a profile)
   const memExamples = [
     { kind: "贴合你的班级", hue: 25, icon: "search", items: ["人教版七年级《有理数》随堂练习，中等偏上", "人教版七年级数学《整式的加减》易错题专项"] },
@@ -729,7 +741,7 @@ function FindColdStart({ onPick, loggedIn }) {
         </div>
 
         {/* examples by type */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12 }}>
+        <div style={{ display: "grid", gridTemplateColumns: mobile ? "1fr" : "repeat(3, 1fr)", gap: 12 }}>
           {examples.map((ex) => (
             <div key={ex.kind} style={{ border: "1px solid var(--line)", borderRadius: 14, padding: 14, background: "var(--surface)" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 11 }}>
@@ -795,12 +807,12 @@ function ResourceCard({ r, onPreview, onDownload }) {
               <span key={i} style={{ padding: "3px 9px", borderRadius: 7, background: "var(--surface-2)", border: "1px solid var(--line)", fontSize: 11.5, fontWeight: 600, color: "var(--ink-3)" }}>{t}</span>
             ))}
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 16, marginTop: 11, fontSize: 12, color: "var(--ink-3)" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 16, marginTop: 11, fontSize: 12, color: "var(--ink-3)", flexWrap: "wrap", rowGap: 8 }}>
             <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}><Icon name="download" size={13} /> {r.downloads} 次下载</span>
             {r.qcount > 0 && <span>{r.qcount} 题</span>}
             <span>{r.pages} 页</span>
             <span>更新 {r.updated}</span>
-            <div style={{ flex: 1 }} />
+            <div style={{ flex: 1, minWidth: 8 }} />
             <button onClick={(e) => { e.stopPropagation(); onPreview(); }} style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "6px 12px", borderRadius: 9, border: "1px solid var(--line)", background: "var(--surface)", color: "var(--ink-2)", fontWeight: 700, fontSize: 12.5, cursor: "pointer", fontFamily: "var(--font-zh)" }}>
               <Icon name="eye" size={14} /> 预览
             </button>

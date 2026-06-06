@@ -13,6 +13,7 @@ function TextbookWorkspace({ scenario, query, onHome, onSwitch, fromIntent, logg
   const A = window.AIDATA.TEXTBOOK_ANSWER;
   const CMP = window.AIDATA.TEXTBOOK_COMPARE;
   const M = window.AIDATA.USER_MEMORY;
+  const mobile = useIsMobile();
   const isCompareQ = (q) => /哪些教材|哪些版本|各版本|各个版本|不同版本|不同教材|跨教材|对比.*教材|教材.*对比|几个版本|都出现|哪几本/.test(q || "");
   const startAnswered = !fromIntent && !!(query && /[?？]|区别|为什么|什么|怎么|原理|讲|解释/.test(query));
   const [activeCite, setActiveCite] = tS(null);
@@ -26,7 +27,8 @@ function TextbookWorkspace({ scenario, query, onHome, onSwitch, fromIntent, logg
   const viaMemory = !query && !!memBook;
 
   // ---- layout: collapsible catalog + resizable citation pane ----
-  const [navOpen, setNavOpen] = tS(true);
+  const [navOpen, setNavOpen] = tS(!mobile);
+  const [citeOpen, setCiteOpen] = tS(false);
   const [citeW, setCiteW] = tS(() => { const s = parseInt(localStorage.getItem("aida_cite_w") || "", 10); return Number.isFinite(s) && s >= MIN_CITE_W ? s : 332; });
   const [citeDragging, setCiteDragging] = tS(false);
   const citeRef = tR(null);
@@ -109,9 +111,11 @@ function TextbookWorkspace({ scenario, query, onHome, onSwitch, fromIntent, logg
 
   return (
     <WorkspaceShell scenario={scenario} onHome={onHome} onSwitch={onSwitch} headerRecognizing={headerRecognizing}>
-      {/* left: textbook navigator (collapsible) */}
-      {navOpen ? (
-      <div style={{ width: 252, flexShrink: 0, background: "var(--surface)", borderRight: "1px solid var(--line)", display: "flex", flexDirection: "column", overflow: "hidden" }}>
+      {/* left: textbook navigator (collapsible / drawer on mobile) */}
+      {(navOpen || mobile) ? (
+      <React.Fragment>
+      {mobile && <div onClick={() => setNavOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 80, background: "rgba(20,16,10,.42)", backdropFilter: "blur(2px)", opacity: navOpen ? 1 : 0, pointerEvents: navOpen ? "auto" : "none", transition: "opacity .26s" }} />}
+      <div style={mobile ? { position: "fixed", top: 0, left: 0, bottom: 0, width: "min(300px,84vw)", zIndex: 81, background: "var(--surface)", borderRight: "1px solid var(--line)", display: "flex", flexDirection: "column", overflow: "hidden", transform: navOpen ? "translateX(0)" : "translateX(-102%)", transition: "transform .3s cubic-bezier(.32,.72,0,1)", boxShadow: navOpen ? "0 20px 60px -20px rgba(0,0,0,.5)" : "none" } : { width: 252, flexShrink: 0, background: "var(--surface)", borderRight: "1px solid var(--line)", display: "flex", flexDirection: "column", overflow: "hidden" }}>
         <div style={{ padding: 16, borderBottom: "1px solid var(--line)" }}>
           <div style={{ display: "flex", gap: 11 }}>
             <div className="ph-stripe" style={{ width: 46, height: 62, borderRadius: 6, flexShrink: 0, display: "grid", placeItems: "center", color: "var(--ink-3)", fontSize: 9, fontWeight: 700, textAlign: "center" }}>
@@ -160,6 +164,7 @@ function TextbookWorkspace({ scenario, query, onHome, onSwitch, fromIntent, logg
           ))}
         </div>
       </div>
+      </React.Fragment>
       ) : (
         <div style={{ width: 50, flexShrink: 0, background: "var(--surface)", borderRight: "1px solid var(--line)", display: "flex", flexDirection: "column", alignItems: "center", paddingTop: 14, gap: 12 }}>
           <button onClick={() => setNavOpen(true)} title="展开教材目录" style={{ width: 32, height: 32, borderRadius: 9, border: "1px solid var(--line)", background: "var(--surface)", color: "var(--ink-2)", display: "grid", placeItems: "center", cursor: "pointer" }}>
@@ -171,7 +176,18 @@ function TextbookWorkspace({ scenario, query, onHome, onSwitch, fromIntent, logg
 
       {/* center: Q&A */}
       <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", background: "var(--canvas)" }}>
-        <div ref={scrollRef} style={{ flex: 1, overflowY: "auto", padding: "24px clamp(20px, 5%, 60px)" }}>
+        {mobile && (
+          <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", borderBottom: "1px solid var(--line)", background: "var(--surface)", flexShrink: 0 }}>
+            <button onClick={() => setNavOpen(true)} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "7px 12px", borderRadius: 10, border: "1px solid var(--line)", background: "var(--surface)", color: "var(--ink-2)", fontSize: 12.5, fontWeight: 700, cursor: "pointer", fontFamily: "var(--font-zh)" }}>
+              <Icon name="book" size={15} /> 教材目录
+            </button>
+            <div style={{ flex: 1 }} />
+            <button onClick={() => setCiteOpen(true)} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "7px 12px", borderRadius: 10, border: "1px solid var(--brand-soft-border)", background: "var(--brand-soft)", color: "var(--brand-deep)", fontSize: 12.5, fontWeight: 700, cursor: "pointer", fontFamily: "var(--font-zh)" }}>
+              <Icon name="shield" size={15} /> 教材依据{answered === "compare" ? ` · ${CMP.editions.length}` : answered ? ` · ${A.citations.length}` : ""}
+            </button>
+          </div>
+        )}
+        <div ref={scrollRef} style={{ flex: 1, overflowY: "auto", padding: mobile ? "18px 16px" : "24px clamp(20px, 5%, 60px)" }}>
           <div style={{ maxWidth: 720, margin: "0 auto", display: "flex", flexDirection: "column", gap: 18 }}>
             {viaMemory && answered === false && thread.length <= 1 && (
               <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "11px 14px", borderRadius: 12, background: "var(--brand-soft)", border: "1px solid var(--brand-soft-border)" }}>
@@ -201,7 +217,7 @@ function TextbookWorkspace({ scenario, query, onHome, onSwitch, fromIntent, logg
           </div>
         </div>
         {/* sample questions + input */}
-        <div style={{ padding: "0 clamp(20px, 5%, 60px)", borderTop: "1px solid var(--line)", background: "var(--surface)" }}>
+        <div style={{ padding: mobile ? "0 16px" : "0 clamp(20px, 5%, 60px)", borderTop: "1px solid var(--line)", background: "var(--surface)" }}>
           <div style={{ maxWidth: 720, margin: "0 auto", padding: "12px 0 14px" }}>
             {!answered && (
               <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 10 }}>
@@ -218,6 +234,7 @@ function TextbookWorkspace({ scenario, query, onHome, onSwitch, fromIntent, logg
       </div>
 
       {/* resizer: center ↔ citation panel */}
+      {!mobile && (
       <div
         className={"ws-resizer" + (citeDragging ? " dragging" : "")}
         onPointerDown={startCiteDrag}
@@ -226,13 +243,21 @@ function TextbookWorkspace({ scenario, query, onHome, onSwitch, fromIntent, logg
       >
         <span className="ws-resizer-grip" />
       </div>
+      )}
 
-      {/* right: citation / evidence panel */}
-      <div ref={citeRef} style={{ width: citeW, flexShrink: 0, background: "var(--surface)", borderLeft: "1px solid var(--line)", display: "flex", flexDirection: "column" }}>
+      {/* right: citation / evidence panel (bottom sheet on mobile) */}
+      {mobile && <div onClick={() => setCiteOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 70, background: "rgba(20,16,10,.42)", backdropFilter: "blur(2px)", opacity: citeOpen ? 1 : 0, pointerEvents: citeOpen ? "auto" : "none", transition: "opacity .26s" }} />}
+      <div ref={citeRef} style={mobile ? { position: "fixed", left: 0, right: 0, bottom: 0, height: "82dvh", zIndex: 71, background: "var(--surface)", borderTop: "1px solid var(--line)", borderRadius: "18px 18px 0 0", display: "flex", flexDirection: "column", transform: citeOpen ? "translateY(0)" : "translateY(101%)", transition: "transform .3s cubic-bezier(.32,.72,0,1)", boxShadow: "0 -18px 50px -24px rgba(0,0,0,.5)", overflow: "hidden" } : { width: citeW, flexShrink: 0, background: "var(--surface)", borderLeft: "1px solid var(--line)", display: "flex", flexDirection: "column" }}>
+        {mobile && <div style={{ width: 40, height: 4, borderRadius: 999, background: "var(--line)", margin: "8px auto 0", flexShrink: 0 }} />}
         <div style={{ padding: "14px 18px", borderBottom: "1px solid var(--line)", display: "flex", alignItems: "center", gap: 8 }}>
           <Icon name="shield" size={16} sw={2} />
           <span style={{ fontSize: 14, fontWeight: 800, color: "var(--ink)" }}>教材依据</span>
           <span style={{ fontSize: 11, color: "var(--ink-3)", marginLeft: "auto" }}>{answered === "compare" ? `${CMP.editions.length} 个版本` : answered ? `${A.citations.length} 处引用` : "等待提问"}</span>
+          {mobile && (
+            <button onClick={() => setCiteOpen(false)} aria-label="关闭" style={{ width: 30, height: 30, marginLeft: 8, borderRadius: 9, border: "1px solid var(--line)", background: "var(--surface)", color: "var(--ink-2)", display: "grid", placeItems: "center", cursor: "pointer", flexShrink: 0 }}>
+              <Icon name="close" size={15} sw={2.4} />
+            </button>
+          )}
         </div>
         <div style={{ flex: 1, overflowY: "auto", padding: 16 }}>
           {!answered ? (
@@ -410,6 +435,7 @@ function AnswerBlock({ A, activeCite, setActiveCite }) {
 
 // ---- cold-start textbook picker (shown when no memory / not logged in) ----
 function TextbookPicker({ onOpen, demoBook }) {
+  const mobile = useIsMobile();
   const [stage, setStage] = tS("");
   const [subject, setSubject] = tS("");
   const [edition, setEdition] = tS("");
@@ -446,7 +472,7 @@ function TextbookPicker({ onOpen, demoBook }) {
         <div style={{ fontSize: 12.5, fontWeight: 700, color: "var(--ink-3)", marginBottom: 10, display: "flex", alignItems: "center", gap: 6 }}>
           <Icon name="spark" size={14} /> 热门教材
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10, marginBottom: 22 }}>
+        <div style={{ display: "grid", gridTemplateColumns: mobile ? "1fr" : "repeat(3, 1fr)", gap: 10, marginBottom: 22 }}>
           {HOT.map((b, i) => (
             <button key={i} onClick={() => onOpen(b)} style={{ textAlign: "left", padding: 14, borderRadius: 14, border: b.recommend ? "1px solid var(--brand-soft-border)" : "1px solid var(--line)", background: b.recommend ? "var(--brand-soft)" : "var(--surface)", cursor: "pointer", fontFamily: "var(--font-zh)", transition: "all .15s", position: "relative" }} onMouseEnter={(e) => { e.currentTarget.style.transform = "translateY(-2px)"; e.currentTarget.style.borderColor = "var(--brand)"; }} onMouseLeave={(e) => { e.currentTarget.style.transform = "none"; e.currentTarget.style.borderColor = b.recommend ? "var(--brand-soft-border)" : "var(--line)"; }}>
               {b.recommend && <span style={{ position: "absolute", top: 10, right: 10, fontSize: 9.5, fontWeight: 700, color: "#fff", background: "var(--brand)", padding: "2px 6px", borderRadius: 999 }}>推荐</span>}
@@ -477,6 +503,7 @@ function TextbookPicker({ onOpen, demoBook }) {
 }
 
 function CompareBlock({ CMP, activeCite, setActiveCite, onAsk }) {
+  const mobile = useIsMobile();
   const depthColor = (d) => (d.includes("深入") ? { c: "var(--brand-deep)", bg: "var(--brand-soft)", bd: "var(--brand-soft-border)" } : { c: "oklch(0.45 0.11 175)", bg: "oklch(0.95 0.04 175)", bd: "oklch(0.86 0.06 175)" });
   return (
     <div className="cite-pop" style={{ display: "flex", gap: 11 }}>
@@ -491,7 +518,7 @@ function CompareBlock({ CMP, activeCite, setActiveCite, onAsk }) {
         </div>
 
         {/* edition cards */}
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+        <div style={{ display: "grid", gridTemplateColumns: mobile ? "1fr" : "1fr 1fr", gap: 10 }}>
           {CMP.editions.map((e, i) => {
             const dc = depthColor(e.depth);
             const on = activeCite === "e" + i;

@@ -144,6 +144,16 @@
     box-shadow: 0 1px 5px rgba(0,0,0,.14); opacity: 0; transition: opacity .15s;
   }
   .ws-resizer:hover .ws-resizer-grip, .ws-resizer.dragging .ws-resizer-grip { opacity: 1; }
+
+  /* ---- mobile / tablet-portrait base ---- */
+  @media (max-width: 900px) {
+    /* let fixed-height app shells use the dynamic viewport height on phones */
+    body.is-mobile { overflow-x: hidden; }
+    /* tame horizontal overflow from wide flex rows */
+    .is-mobile #root { overflow-x: hidden; }
+  }
+  /* drawer (left nav) animation */
+  @keyframes navDrawerIn { from { transform: translateX(-100%); } to { transform: translateX(0); } }
 </style>
 </head>
 <body>
@@ -163,6 +173,7 @@
 <script type="text/babel" src="tweaks-panel.jsx"></script>
 <script type="text/babel" src="data.jsx"></script>
 <script type="text/babel" src="icons.jsx"></script>
+<script type="text/babel" src="responsive.jsx"></script>
 <script type="text/babel" src="components.jsx"></script>
 <script type="text/babel" src="homepage.jsx"></script>
 <script type="text/babel" src="intentflow.jsx"></script>

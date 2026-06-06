@@ -147,6 +147,7 @@ function CoursewareWorkspace({ scenario, query, onHome, onSwitch, fromIntent, re
     : null;
 
   const [cfg, setCfg] = cwS(isResume ? resumeCfg : null); // null until confirmed
+  const mobile = useIsMobile();
   const [active, setActive] = cwS(0);
   const [built, setBuilt] = cwS(isResume);
   const [toast, setToast] = cwS(null);
@@ -218,6 +219,8 @@ function CoursewareWorkspace({ scenario, query, onHome, onSwitch, fromIntent, re
       onHome={onHome}
       onSwitch={onSwitch}
       headerRecognizing={headerRecognizing}
+      mobilePanelLabel="课件"
+      mobilePanelIcon="slides"
       titleMeta={formBadge}
       subtitleOverride={cfg ? `${cfg.grade || ""}${cfg.subject || ""} · ${cfg.topic}` : "在对话中确认形式与课标，开始制作"}
       right={cfg &&
@@ -243,7 +246,7 @@ function CoursewareWorkspace({ scenario, query, onHome, onSwitch, fromIntent, re
         ) : (
         <React.Fragment>
         {/* content meta strip */}
-        <div style={{ padding: "10px 22px", borderBottom: "1px solid var(--line)", background: "var(--surface)", display: "flex", alignItems: "center", gap: 12 }}>
+        <div style={{ padding: mobile ? "9px 14px" : "10px 22px", borderBottom: "1px solid var(--line)", background: "var(--surface)", display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", rowGap: 7 }}>
           <span style={{ fontSize: 12.5, color: "var(--ink-3)", display: "inline-flex", alignItems: "center", gap: 5 }}>
             <Icon name="shield" size={13} /> 已对齐 <b style={{ color: "var(--ink-2)" }}>{cfg.standard}</b>
           </span>
@@ -261,11 +264,11 @@ function CoursewareWorkspace({ scenario, query, onHome, onSwitch, fromIntent, re
           <span style={{ fontSize: 12, color: "var(--ink-3)", whiteSpace: "nowrap" }}>{isInteractive ? `${list.length} 个互动` : `${list.length} 页`}</span>
         </div>
 
-        <div style={{ flex: 1, minHeight: 0, display: "flex" }}>
+        <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: mobile ? "column" : "row" }}>
           {/* outline rail */}
-          <div style={{ width: 190, flexShrink: 0, borderRight: "1px solid var(--line)", background: "var(--surface)", overflowY: "auto", padding: 10 }}>
+          <div style={{ width: mobile ? "100%" : 190, flexShrink: 0, borderRight: mobile ? "none" : "1px solid var(--line)", borderBottom: mobile ? "1px solid var(--line)" : "none", background: "var(--surface)", overflowY: mobile ? "hidden" : "auto", overflowX: mobile ? "auto" : "hidden", display: mobile ? "flex" : "block", flexDirection: "row", gap: mobile ? 6 : 0, padding: 10 }}>
             {list.map((s, i) => (
-              <button key={i} onClick={() => setActive(i)} style={{ width: "100%", textAlign: "left", display: "flex", gap: 9, padding: "9px 10px", borderRadius: 10, marginBottom: 5, cursor: "pointer", border: "none", fontFamily: "var(--font-zh)", background: active === i ? "var(--brand-soft)" : "transparent", transition: "background .15s" }}>
+              <button key={i} onClick={() => setActive(i)} style={{ width: mobile ? "auto" : "100%", flexShrink: mobile ? 0 : 1, textAlign: "left", display: "flex", gap: 9, padding: "9px 10px", borderRadius: 10, marginBottom: mobile ? 0 : 5, cursor: "pointer", border: mobile ? "1px solid var(--line)" : "none", fontFamily: "var(--font-zh)", background: active === i ? "var(--brand-soft)" : mobile ? "var(--surface)" : "transparent", transition: "background .15s", whiteSpace: mobile ? "nowrap" : "normal" }}>
                 <span style={{ width: 20, height: 20, flexShrink: 0, borderRadius: 6, background: active === i ? "var(--brand)" : "var(--line)", color: active === i ? "#fff" : "var(--ink-3)", fontSize: 11, fontWeight: 800, display: "grid", placeItems: "center", fontFamily: "var(--font-num)" }}>{i + 1}</span>
                 <span style={{ minWidth: 0 }}>
                   <span style={{ display: "block", fontSize: 12.5, fontWeight: 700, color: active === i ? "var(--brand-deep)" : "var(--ink-2)", lineHeight: 1.35, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{s.t}</span>
@@ -273,7 +276,7 @@ function CoursewareWorkspace({ scenario, query, onHome, onSwitch, fromIntent, re
                 </span>
               </button>
             ))}
-            <button onClick={() => showToast("已新增，可继续编辑")} style={{ width: "100%", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 5, padding: "8px", borderRadius: 10, border: "1px dashed var(--line)", background: "transparent", color: "var(--ink-3)", fontSize: 12.5, fontWeight: 600, cursor: "pointer", fontFamily: "var(--font-zh)", marginTop: 4 }}>
+            <button onClick={() => showToast("已新增，可继续编辑")} style={{ width: mobile ? "auto" : "100%", flexShrink: mobile ? 0 : 1, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 5, padding: mobile ? "9px 14px" : "8px", borderRadius: 10, border: "1px dashed var(--line)", background: "transparent", color: "var(--ink-3)", fontSize: 12.5, fontWeight: 600, cursor: "pointer", fontFamily: "var(--font-zh)", marginTop: mobile ? 0 : 4, whiteSpace: "nowrap" }}>
               <Icon name="plus" size={14} /> {isInteractive ? "加互动" : "加一页"}
             </button>
           </div>
@@ -344,10 +347,10 @@ function PptStage({ slide, idx, topic, built }) {
         </div>
         <div style={{ position: "absolute", bottom: 12, right: 18, fontSize: 11, color: "#aab2c0", fontWeight: 600 }}>{topic} · {idx + 1} / {PPT_SLIDES.length}</div>
       </div>
-      <div style={{ marginTop: 14, display: "flex", alignItems: "center", gap: 10 }}>
+      <div style={{ marginTop: 14, display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", rowGap: 8 }}>
         <span style={{ fontSize: 13, fontWeight: 700, color: "var(--ink-2)" }}>第 {idx + 1} 页 · {slide.t}</span>
         <span style={{ fontSize: 12.5, color: "var(--ink-3)" }}>{slide.sub}</span>
-        <div style={{ flex: 1 }} />
+        <div style={{ flex: 1, minWidth: 8 }} />
         <Btn size="sm" kind="soft" icon="refresh">重写本页</Btn>
         <Btn size="sm" kind="ghost" icon="spark">配图</Btn>
       </div>
@@ -371,10 +374,10 @@ function InteractiveStage({ block, idx, topic, onToast }) {
         </div>
         <div style={{ position: "absolute", bottom: 10, right: 16, fontSize: 10.5, color: `oklch(0.55 0.08 ${block.hue})`, fontWeight: 700 }}>HTML 互动 · 可在课堂直接操作</div>
       </div>
-      <div style={{ marginTop: 14, display: "flex", alignItems: "center", gap: 10 }}>
+      <div style={{ marginTop: 14, display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", rowGap: 8 }}>
         <span style={{ fontSize: 13, fontWeight: 700, color: "var(--ink-2)" }}>互动 {idx + 1} · {block.type}</span>
         <span style={{ fontSize: 12.5, color: "var(--ink-3)" }}>上方可直接试玩</span>
-        <div style={{ flex: 1 }} />
+        <div style={{ flex: 1, minWidth: 8 }} />
         <Btn size="sm" kind="soft" icon="refresh">换个玩法</Btn>
         <Btn size="sm" kind="ghost" icon="spark">改题目</Btn>
       </div>

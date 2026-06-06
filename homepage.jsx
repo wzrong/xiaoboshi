@@ -133,16 +133,17 @@ function SmartInput({ value, setValue, onSubmit, big, placeholder }) {
 // ---------- Direction A: 对话优先 ----------
 function HomeConversation({ value, setValue, onSubmit, onPick, onResume, loggedIn, onLogin, onManageMemory, onOpenWorks }) {
   const S = window.AIDATA.SCENARIOS;
+  const mobile = useIsMobile();
   return (
-    <div className="home-fade" style={{ padding: "4vh 24px 40px", textAlign: "center" }}>
+    <div className="home-fade" style={{ padding: mobile ? "2vh 16px 36px" : "4vh 24px 40px", textAlign: "center" }}>
       <div style={{ maxWidth: 760, margin: "0 auto" }}>
-        <div style={{ display: "flex", justifyContent: "center", marginBottom: 20 }}>
-          <BotAvatar size={66} glow />
+        <div style={{ display: "flex", justifyContent: "center", marginBottom: mobile ? 16 : 20 }}>
+          <BotAvatar size={mobile ? 54 : 66} glow />
         </div>
-        <h1 style={{ fontSize: 34, fontWeight: 800, color: "var(--ink)", margin: "0 0 10px", letterSpacing: "-0.5px" }}>
+        <h1 style={{ fontSize: mobile ? 25 : 34, fontWeight: 800, color: "var(--ink)", margin: "0 0 10px", letterSpacing: "-0.5px" }}>
           老师好，今天想准备点什么？
         </h1>
-        <p style={{ fontSize: 16, color: "var(--ink-2)", margin: "0 0 28px", lineHeight: 1.6 }}>
+        <p style={{ fontSize: mobile ? 14.5 : 16, color: "var(--ink-2)", margin: "0 0 28px", lineHeight: 1.6 }}>
           说出你的需求，我会从<b style={{ color: "var(--brand-deep)" }}>学科网资源库</b>出发，陪你一起完成。
         </p>
         <SmartInput
@@ -257,6 +258,7 @@ function LoginHook({ onLogin }) {
 function MemoryPanel({ onResume, onManageMemory, onOpenWorks }) {
   const M = window.AIDATA.USER_MEMORY;
   const S = window.AIDATA.SCENARIOS;
+  const mobile = useIsMobile();
   const [dismissed, setDismissed] = useState(() => localStorage.getItem("aida_mem_floor") === "0");
   useEffect(() => { try { localStorage.setItem("aida_mem_floor", dismissed ? "0" : "1"); } catch (e) {} }, [dismissed]);
 
@@ -320,9 +322,9 @@ function MemoryPanel({ onResume, onManageMemory, onOpenWorks }) {
         </button>
       </div>
       {/* body */}
-      <div className="mem-grid" style={{ display: "grid" }}>
+      <div className="mem-grid" style={{ display: "grid", gridTemplateColumns: mobile ? "1fr" : "1.15fr 0.85fr" }}>
         {/* left: summary + tags + stats */}
-        <div className="mem-left" style={{ padding: "16px 18px" }}>
+        <div className="mem-left" style={{ padding: "16px 18px", borderRight: mobile ? "none" : undefined, borderBottom: mobile ? "1px solid var(--line)" : undefined }}>
           <p style={{ margin: "0 0 13px", fontSize: 13.5, color: "var(--ink-2)", lineHeight: 1.7 }}>
             {M.summary}
           </p>
@@ -380,17 +382,20 @@ function MemoryPanel({ onResume, onManageMemory, onOpenWorks }) {
 // ---------- Direction B: 场景宫格 (same shell as 对话优先, scenarios as a balanced grid) ----------
 function HomeGrid({ value, setValue, onSubmit, onPick, onResume, loggedIn, onLogin, onManageMemory, onOpenWorks }) {
   const S = window.AIDATA.SCENARIOS;
+  const mobile = useIsMobile();
+  const narrow = useIsMobile(NARROW_BP);
   const cols = Math.ceil(S.length / 2); // 6→3+3, 7→4+3, 8→4+4
+  const gridCols = narrow ? 1 : mobile ? 2 : cols;
   return (
-    <div className="home-fade" style={{ padding: "4vh 24px 40px", textAlign: "center" }}>
+    <div className="home-fade" style={{ padding: mobile ? "2vh 16px 36px" : "4vh 24px 40px", textAlign: "center" }}>
       <div style={{ maxWidth: 760, margin: "0 auto" }}>
-        <div style={{ display: "flex", justifyContent: "center", marginBottom: 20 }}>
-          <BotAvatar size={66} glow />
+        <div style={{ display: "flex", justifyContent: "center", marginBottom: mobile ? 16 : 20 }}>
+          <BotAvatar size={mobile ? 54 : 66} glow />
         </div>
-        <h1 style={{ fontSize: 34, fontWeight: 800, color: "var(--ink)", margin: "0 0 10px", letterSpacing: "-0.5px" }}>
+        <h1 style={{ fontSize: mobile ? 24 : 34, fontWeight: 800, color: "var(--ink)", margin: "0 0 10px", letterSpacing: "-0.5px" }}>
           选个场景，或直接告诉我你的需求
         </h1>
-        <p style={{ fontSize: 16, color: "var(--ink-2)", margin: "0 0 28px", lineHeight: 1.6 }}>
+        <p style={{ fontSize: mobile ? 14.5 : 16, color: "var(--ink-2)", margin: "0 0 28px", lineHeight: 1.6 }}>
           说出你的需求，我会从<b style={{ color: "var(--brand-deep)" }}>学科网资源库</b>出发，陪你一起完成。
         </p>
         <SmartInput
@@ -404,10 +409,10 @@ function HomeGrid({ value, setValue, onSubmit, onPick, onResume, loggedIn, onLog
       <div
         style={{
           maxWidth: 1000,
-          margin: "26px auto 0",
+          margin: mobile ? "20px auto 0" : "26px auto 0",
           display: "grid",
-          gridTemplateColumns: `repeat(${cols}, 1fr)`,
-          gap: 16,
+          gridTemplateColumns: `repeat(${gridCols}, 1fr)`,
+          gap: mobile ? 12 : 16,
         }}
       >
         {S.map((s) => (
@@ -469,12 +474,13 @@ function HomeGrid({ value, setValue, onSubmit, onPick, onResume, loggedIn, onLog
 function HomePersona({ value, setValue, onSubmit, onPick, onResume, loggedIn, onLogin, onManageMemory, onOpenWorks }) {
   const S = window.AIDATA.SCENARIOS;
   const M = window.AIDATA.USER_MEMORY;
+  const mobile = useIsMobile();
   return (
-    <div className="home-fade" style={{ maxWidth: 1080, margin: "0 auto", padding: "2vh 24px 40px" }}>
-    <div style={{ display: "grid", gridTemplateColumns: "minmax(300px, 0.9fr) 1.1fr", gap: 40, alignItems: "start" }}>
+    <div className="home-fade" style={{ maxWidth: 1080, margin: "0 auto", padding: mobile ? "1vh 16px 36px" : "2vh 24px 40px" }}>
+    <div style={{ display: "grid", gridTemplateColumns: mobile ? "1fr" : "minmax(300px, 0.9fr) 1.1fr", gap: mobile ? 18 : 40, alignItems: "start" }}>
       {/* left: the assistant — who I am + what I remember about you */}
       <div>
-        <BotAvatar size={88} glow />
+        <BotAvatar size={mobile ? 68 : 88} glow />
         <div
           style={{
             marginTop: 20,
@@ -676,6 +682,11 @@ function AuthorityStrip() {
 function Homepage({ page, layout, value, setValue, onSubmit, onPick, onResume, loggedIn, onLogin, onLogout, onNavigate, onNewChat, onRequireLogin }) {
   const Comp =
     layout === "场景宫格" ? HomeGrid : layout === "助手人格" ? HomePersona : HomeConversation;
+  const mobile = useIsMobile();
+  const [navOpen, setNavOpen] = useState(false);
+  const closeNav = () => setNavOpen(false);
+  const navTo = (p) => { onNavigate(p); closeNav(); };
+  const newChat = () => { onNewChat(); closeNav(); };
   const gate = (fn) => (loggedIn ? fn : onRequireLogin);
   const memProps = {
     onResume: loggedIn ? onResume : (() => onRequireLogin()),
@@ -685,17 +696,37 @@ function Homepage({ page, layout, value, setValue, onSubmit, onPick, onResume, l
     onOpenWorks: () => (loggedIn ? onNavigate("works") : onRequireLogin()),
   };
   return (
-    <div style={{ height: "100vh", display: "flex", overflow: "hidden" }}>
+    <div style={{ height: "100dvh", display: "flex", overflow: "hidden" }}>
       <LeftRail
         page={page}
         loggedIn={loggedIn}
-        onNavigate={onNavigate}
-        onNewChat={onNewChat}
-        onResume={onResume}
+        onNavigate={navTo}
+        onNewChat={newChat}
+        onResume={(it) => { onResume && onResume(it); closeNav(); }}
         onLogout={onLogout}
         onRequireLogin={onRequireLogin}
+        mobile={mobile}
+        mobileOpen={navOpen}
+        onCloseMobile={closeNav}
       />
       <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
+        {mobile && (
+          <div style={{ flexShrink: 0, display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", background: "var(--surface)", borderBottom: "1px solid var(--line)", zIndex: 5 }}>
+            <button onClick={() => setNavOpen(true)} aria-label="打开菜单" style={{ width: 40, height: 40, flexShrink: 0, borderRadius: 11, border: "1px solid var(--line)", background: "var(--surface)", color: "var(--ink-2)", display: "grid", placeItems: "center", cursor: "pointer" }}>
+              <Icon name="menu" size={20} />
+            </button>
+            <div style={{ flex: 1, minWidth: 0, display: "flex", alignItems: "center", gap: 9 }}>
+              <BotAvatar size={32} glow />
+              <div style={{ minWidth: 0, lineHeight: 1.2 }}>
+                <div style={{ fontWeight: 800, fontSize: 15, color: "var(--ink)" }}>AI 小博士</div>
+                <div style={{ fontSize: 10.5, color: "var(--ink-3)", fontWeight: 600 }}>你的备课教学助手</div>
+              </div>
+            </div>
+            <button onClick={newChat} aria-label="新对话" style={{ width: 40, height: 40, flexShrink: 0, borderRadius: 11, border: "none", background: "var(--brand)", color: "#fff", display: "grid", placeItems: "center", cursor: "pointer", boxShadow: "0 4px 14px -6px var(--brand-glow)" }}>
+              <Icon name="plus" size={20} sw={2.4} />
+            </button>
+          </div>
+        )}
         <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", overflowY: "auto" }}>
           {loggedIn && page === "memory" ? (
             <MemoryPage onResume={onResume} />
@@ -717,11 +748,12 @@ function Homepage({ page, layout, value, setValue, onSubmit, onPick, onResume, l
 }
 
 // ---------- Left navigation rail (always visible) ----------
-function LeftRail({ page, loggedIn, onNavigate, onNewChat, onResume, onLogout, onRequireLogin }) {
+function LeftRail({ page, loggedIn, onNavigate, onNewChat, onResume, onLogout, onRequireLogin, mobile, mobileOpen, onCloseMobile }) {
   const M = window.AIDATA.USER_MEMORY;
-  const [open, setOpen] = useState(() => localStorage.getItem("aida_rail_open") !== "0");
+  const [openState, setOpen] = useState(() => localStorage.getItem("aida_rail_open") !== "0");
+  const open = mobile ? true : openState; // on mobile the drawer always shows full content
   const [acctMenu, setAcctMenu] = useState(false);
-  useEffect(() => { try { localStorage.setItem("aida_rail_open", open ? "1" : "0"); } catch (e) {} }, [open]);
+  useEffect(() => { try { localStorage.setItem("aida_rail_open", openState ? "1" : "0"); } catch (e) {} }, [openState]);
 
   const go = (p) => (loggedIn ? onNavigate(p) : onRequireLogin());
 
@@ -738,8 +770,16 @@ function LeftRail({ page, loggedIn, onNavigate, onNewChat, onResume, onLogout, o
     </button>
   );
 
+  const asideStyle = mobile
+    ? { position: "fixed", top: 0, left: 0, bottom: 0, width: "min(300px, 84vw)", zIndex: 81, background: "var(--surface)", borderRight: "1px solid var(--line)", display: "flex", flexDirection: "column", transform: mobileOpen ? "translateX(0)" : "translateX(-102%)", transition: "transform .3s cubic-bezier(.32,.72,0,1)", boxShadow: mobileOpen ? "0 20px 60px -20px rgba(0,0,0,.5)" : "none" }
+    : { width: open ? 252 : 72, flexShrink: 0, background: "var(--surface)", borderRight: "1px solid var(--line)", display: "flex", flexDirection: "column", transition: "width .2s" };
+
   return (
-    <aside style={{ width: open ? 252 : 72, flexShrink: 0, background: "var(--surface)", borderRight: "1px solid var(--line)", display: "flex", flexDirection: "column", transition: "width .2s" }}>
+    <React.Fragment>
+    {mobile && (
+      <div onClick={onCloseMobile} style={{ position: "fixed", inset: 0, zIndex: 80, background: "rgba(20,16,10,.42)", backdropFilter: "blur(2px)", opacity: mobileOpen ? 1 : 0, pointerEvents: mobileOpen ? "auto" : "none", transition: "opacity .26s ease" }} />
+    )}
+    <aside style={asideStyle}>
       {/* brand + collapse */}
       <div style={{ display: "flex", alignItems: "center", gap: 9, padding: open ? "15px 14px 12px" : "15px 0 12px", justifyContent: "center" }}>
         {open ? (
@@ -749,8 +789,8 @@ function LeftRail({ page, loggedIn, onNavigate, onNewChat, onResume, onLogout, o
               <div style={{ fontWeight: 800, fontSize: 15.5, color: "var(--ink)" }}>AI 小博士</div>
               <div style={{ fontSize: 11, color: "var(--ink-3)", fontWeight: 600, marginTop: 1 }}>你的备课教学助手</div>
             </div>
-            <button onClick={() => setOpen(false)} title="收起侧栏" style={{ width: 26, height: 26, borderRadius: 8, border: "1px solid var(--line)", background: "var(--surface)", color: "var(--ink-3)", display: "grid", placeItems: "center", cursor: "pointer", flexShrink: 0 }}>
-              <Icon name="sidebar" size={15} />
+            <button onClick={() => (mobile ? onCloseMobile() : setOpen(false))} title={mobile ? "关闭菜单" : "收起侧栏"} style={{ width: 26, height: 26, borderRadius: 8, border: "1px solid var(--line)", background: "var(--surface)", color: "var(--ink-3)", display: "grid", placeItems: "center", cursor: "pointer", flexShrink: 0 }}>
+              <Icon name={mobile ? "close" : "sidebar"} size={15} sw={mobile ? 2.4 : 1.8} />
             </button>
           </React.Fragment>
         ) : (
@@ -879,6 +919,7 @@ function LeftRail({ page, loggedIn, onNavigate, onNewChat, onResume, onLogout, o
         )}
       </div>
     </aside>
+    </React.Fragment>
   );
 }
 
@@ -898,6 +939,7 @@ function MemSwitch({ on, onClick }) {
 
 function MemoryPage({ onResume }) {
   const M = window.AIDATA.USER_MEMORY;
+  const mobile = useIsMobile();
   const [tags, setTags] = useState(M.tags);
   const [entries, setEntries] = useState(M.entries.map((e) => ({ ...e })));
   const [cleared, setCleared] = useState(false);
@@ -923,7 +965,7 @@ function MemoryPage({ onResume }) {
   );
 
   return (
-    <div className="home-fade" style={{ flex: 1, overflowY: "auto", padding: "10px 24px 60px" }}>
+    <div className="home-fade" style={{ flex: 1, overflowY: "auto", padding: mobile ? "8px 16px 48px" : "10px 24px 60px" }}>
       <div style={{ maxWidth: 760, margin: "0 auto" }}>
         {/* page heading */}
         <div style={{ display: "flex", alignItems: "center", gap: 14, padding: "8px 0 22px" }}>
@@ -1024,6 +1066,7 @@ function MemoryPage({ onResume }) {
 // ---------- 我的内容 (all content: generated, downloaded, 备课 products…) ----------
 function WorksPage({ onResume, onNewChat }) {
   const M = window.AIDATA.USER_MEMORY;
+  const mobile = useIsMobile();
   const SOURCES = ["全部", "AI 生成", "学科网下载", "备课产品"];
   const [filter, setFilter] = useState("全部");
   const items = M.works.filter((w) => filter === "全部" || w.source === filter);
@@ -1034,7 +1077,7 @@ function WorksPage({ onResume, onNewChat }) {
   };
 
   return (
-    <div className="home-fade" style={{ flex: 1, overflowY: "auto", padding: "10px 24px 60px" }}>
+    <div className="home-fade" style={{ flex: 1, overflowY: "auto", padding: mobile ? "8px 16px 48px" : "10px 24px 60px" }}>
       <div style={{ maxWidth: 980, margin: "0 auto" }}>
         {/* heading */}
         <div style={{ display: "flex", alignItems: "center", gap: 14, padding: "8px 0 16px" }}>
@@ -1093,8 +1136,9 @@ function WorksPage({ onResume, onNewChat }) {
 // ---------- 历史对话 (all chat sessions) ----------
 function HistoryPage({ onResume, onNewChat }) {
   const M = window.AIDATA.USER_MEMORY;
+  const mobile = useIsMobile();
   return (
-    <div className="home-fade" style={{ flex: 1, overflowY: "auto", padding: "10px 24px 60px" }}>
+    <div className="home-fade" style={{ flex: 1, overflowY: "auto", padding: mobile ? "8px 16px 48px" : "10px 24px 60px" }}>
       <div style={{ maxWidth: 760, margin: "0 auto" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 14, padding: "8px 0 18px" }}>
           <span style={{ width: 46, height: 46, borderRadius: 14, background: "var(--brand-soft)", border: "1px solid var(--brand-soft-border)", display: "grid", placeItems: "center", color: "var(--brand-deep)", flexShrink: 0 }}>

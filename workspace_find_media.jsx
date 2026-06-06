@@ -14,16 +14,17 @@ function fmtTime(s) {
 
 // ---- VIDEO CARD ----
 function VideoCard({ v, onPlay, onDownload }) {
+  const mobile = useIsMobile();
   return (
     <div
       className="res-card"
-      style={{ background: "var(--surface)", border: "1px solid var(--line)", borderRadius: 16, padding: 14, display: "flex", gap: 16, cursor: "pointer", transition: "box-shadow .2s, border-color .2s" }}
+      style={{ background: "var(--surface)", border: "1px solid var(--line)", borderRadius: 16, padding: 14, display: "flex", flexDirection: mobile ? "column" : "row", gap: mobile ? 12 : 16, cursor: "pointer", transition: "box-shadow .2s, border-color .2s" }}
       onClick={onPlay}
       onMouseEnter={(e) => { e.currentTarget.style.boxShadow = "0 12px 28px -18px rgba(0,0,0,.3)"; e.currentTarget.style.borderColor = "var(--brand-soft-border)"; }}
       onMouseLeave={(e) => { e.currentTarget.style.boxShadow = "none"; e.currentTarget.style.borderColor = "var(--line)"; }}
     >
       {/* thumbnail */}
-      <div className="ph-stripe" style={{ width: 188, flexShrink: 0, aspectRatio: "16/9", borderRadius: 11, position: "relative", display: "grid", placeItems: "center", overflow: "hidden" }}>
+      <div className="ph-stripe" style={{ width: mobile ? "100%" : 188, flexShrink: 0, aspectRatio: "16/9", borderRadius: 11, position: "relative", display: "grid", placeItems: "center", overflow: "hidden" }}>
         <div style={{ width: 44, height: 44, borderRadius: "50%", background: "rgba(255,255,255,.92)", display: "grid", placeItems: "center", boxShadow: "0 4px 14px rgba(0,0,0,.25)", color: "var(--brand-deep)" }}>
           <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z" /></svg>
         </div>
@@ -41,11 +42,11 @@ function VideoCard({ v, onPlay, onDownload }) {
           ))}
         </div>
         <div style={{ flex: 1 }} />
-        <div style={{ display: "flex", alignItems: "center", gap: 16, marginTop: 11, fontSize: 12, color: "var(--ink-3)" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 16, marginTop: 11, fontSize: 12, color: "var(--ink-3)", flexWrap: "wrap", rowGap: 8 }}>
           <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}><Icon name="eye" size={13} /> {v.plays} 次播放</span>
           <span>{v.chapters.length} 个章节</span>
           <span>更新 {v.updated}</span>
-          <div style={{ flex: 1 }} />
+          <div style={{ flex: 1, minWidth: 12 }} />
           <button onClick={(e) => { e.stopPropagation(); onPlay(); }} style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "6px 14px", borderRadius: 9, border: "none", background: "var(--brand)", color: "#fff", fontWeight: 700, fontSize: 12.5, cursor: "pointer", fontFamily: "var(--font-zh)" }}>
             <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z" /></svg> 播放
           </button>
@@ -60,6 +61,7 @@ function VideoCard({ v, onPlay, onDownload }) {
 
 // ---- VIDEO PLAYER (modal) ----
 function VideoPlayer({ v, onClose, onDownload, onAsk }) {
+  const mobile = useIsMobile();
   const total = parseDur(v.duration);
   const [playing, setPlaying] = mS(true);
   const [cur, setCur] = mS(0);
@@ -104,9 +106,9 @@ function VideoPlayer({ v, onClose, onDownload, onAsk }) {
           </div>
         </div>
       )}
-      <div style={{ flex: 1, minHeight: 0, display: "flex" }}>
+      <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: mobile ? "column" : "row" }}>
           {/* stage + controls */}
-          <div style={{ flex: 1, minWidth: 0, background: "#0c0b0a", display: "flex", flexDirection: "column" }}>
+          <div style={{ flex: 1, minWidth: 0, minHeight: mobile ? 220 : 0, background: "#0c0b0a", display: "flex", flexDirection: "column" }}>
             <div style={{ position: "relative", flex: 1, minHeight: 0, background: "radial-gradient(circle at 50% 40%, #2a2722, #0c0b0a)", display: "grid", placeItems: "center" }}>
               <div onClick={() => setPlaying((p) => !p)} style={{ width: 70, height: 70, borderRadius: "50%", background: "rgba(255,255,255,.16)", backdropFilter: "blur(4px)", display: "grid", placeItems: "center", cursor: "pointer", color: "#fff", border: "2px solid rgba(255,255,255,.5)" }}>
                 {playing ? (
@@ -144,7 +146,7 @@ function VideoPlayer({ v, onClose, onDownload, onAsk }) {
             </div>
           </div>
           {/* chapters sidebar */}
-          <div style={{ width: 268, flexShrink: 0, borderLeft: "1px solid var(--line)", display: "flex", flexDirection: "column", minHeight: 0 }}>
+          <div style={{ width: mobile ? "100%" : 268, flexShrink: 0, borderLeft: mobile ? "none" : "1px solid var(--line)", borderTop: mobile ? "1px solid var(--line)" : "none", display: "flex", flexDirection: "column", minHeight: 0, maxHeight: mobile ? "42%" : "none" }}>
             <div style={{ padding: "14px 16px", borderBottom: "1px solid var(--line)" }}>
               <span style={{ fontSize: 14, fontWeight: 800, color: "var(--ink)" }}>视频章节</span>
             </div>
@@ -208,11 +210,11 @@ function AlbumCard({ a, onOpen }) {
               </span>
             ))}
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 16, marginTop: 12, fontSize: 12, color: "var(--ink-3)" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 16, marginTop: 12, fontSize: 12, color: "var(--ink-3)", flexWrap: "wrap", rowGap: 8 }}>
             <span>{a.edition} · {a.grade} · {a.subject}</span>
             <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}><Icon name="download" size={13} /> {a.downloads}</span>
             <span>更新 {a.updated}</span>
-            <div style={{ flex: 1 }} />
+            <div style={{ flex: 1, minWidth: 8 }} />
             <button onClick={(e) => { e.stopPropagation(); onOpen(); }} style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "7px 15px", borderRadius: 9, border: "none", background: "var(--brand)", color: "#fff", fontWeight: 700, fontSize: 12.5, cursor: "pointer", fontFamily: "var(--font-zh)" }}>
               查看专辑 <Icon name="arrow" size={14} />
             </button>
@@ -225,6 +227,7 @@ function AlbumCard({ a, onOpen }) {
 
 // ---- ALBUM PAGE (overlay) ----
 function AlbumPage({ a, onClose, onPreviewItem, onPlayItem, onDownload }) {
+  const mobile = useIsMobile();
   const total = a.composition.reduce((s, c) => s + c.n, 0);
   return (
     <div className="drawer-pop" style={{ position: "absolute", inset: 0, background: "var(--canvas)", zIndex: 25, display: "flex", flexDirection: "column" }}>
@@ -246,11 +249,11 @@ function AlbumPage({ a, onClose, onPreviewItem, onPlayItem, onDownload }) {
               <span style={{ display: "inline-flex", alignItems: "center", gap: 5, background: "var(--brand)", color: "#fff", fontSize: 11.5, fontWeight: 800, padding: "3px 10px", borderRadius: 6 }}><Icon name="layers" size={13} /> 专辑合集</span>
             </div>
             <h2 style={{ fontSize: 19, fontWeight: 800, color: "var(--ink)", margin: "0 0 10px", lineHeight: 1.4 }}>{a.title}</h2>
-            <div style={{ display: "flex", alignItems: "center", gap: 18, fontSize: 12.5, color: "var(--ink-3)" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: mobile ? 12 : 18, fontSize: 12.5, color: "var(--ink-3)", flexWrap: "wrap", rowGap: 10 }}>
               <span>{a.edition} · {a.grade} · {a.subject}</span>
               <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}><Icon name="download" size={13} /> {a.downloads} 次下载</span>
               <span>更新 {a.updated}</span>
-              <div style={{ flex: 1 }} />
+              <div style={{ flex: 1, minWidth: mobile ? 0 : 12 }} />
               <Btn kind="primary" icon="download" onClick={() => onDownload("已开始打包下载整个专辑")}>一键打包下载</Btn>
             </div>
           </div>
