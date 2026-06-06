@@ -216,6 +216,7 @@ function CoursewareWorkspace({ scenario, query, onHome, onSwitch, fromIntent, re
     <WorkspaceShell
       scenario={scenario}
       onHome={onHome}
+      onSwitch={onSwitch}
       headerRecognizing={headerRecognizing}
       titleMeta={formBadge}
       subtitleOverride={cfg ? `${cfg.grade || ""}${cfg.subject || ""} · ${cfg.topic}` : "在对话中确认形式与课标，开始制作"}

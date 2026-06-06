@@ -125,7 +125,7 @@ function GeneralWorkspace({ query, fromIntent, onHome, onSwitch }) {
   };
 
   return (
-    <WorkspaceShell scenario={GEN} onHome={onHome} recognizing={recognizing}>
+    <WorkspaceShell scenario={GEN} onHome={onHome} onSwitch={onSwitch} recognizing={recognizing}>
       <CenteredChat
         messages={messages}
         onSend={handleSend}

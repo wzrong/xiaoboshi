@@ -71,15 +71,19 @@ function ChatResizer({ children }) {
   );
 }
 
-function WorkspaceShell({ scenario, onHome, children, right, titleMeta, subtitleOverride, recognizing, headerRecognizing }) {
+function WorkspaceShell({ scenario, onHome, onSwitch, children, right, titleMeta, subtitleOverride, recognizing, headerRecognizing }) {
   const showRec = recognizing || headerRecognizing;
+  const [switcher, setSwitcher] = React.useState(false);
+  const SC = window.AIDATA.SCENARIOS;
+  const GEN = window.AIDATA.GENERAL;
+  const canSwitch = typeof onSwitch === "function" && !showRec;
   return (
     <div style={{ height: "100vh", display: "flex", flexDirection: "column", background: "var(--canvas)" }}>
       <header
         style={{
           display: "flex",
           alignItems: "center",
-          gap: 14,
+          gap: 12,
           padding: "12px 22px",
           background: "var(--surface)",
           borderBottom: "1px solid var(--line)",
@@ -89,23 +93,28 @@ function WorkspaceShell({ scenario, onHome, children, right, titleMeta, subtitle
       >
         <button
           onClick={onHome}
+          title="返回首页"
+          aria-label="返回首页"
           style={{
             display: "inline-flex",
             alignItems: "center",
-            gap: 6,
-            padding: "8px 12px",
-            borderRadius: 10,
+            justifyContent: "center",
+            width: 38,
+            height: 38,
+            borderRadius: 11,
             border: "1px solid var(--line)",
             background: "var(--surface)",
             color: "var(--ink-2)",
-            fontSize: 13,
-            fontWeight: 600,
             cursor: "pointer",
-            fontFamily: "var(--font-zh)",
+            flexShrink: 0,
+            transition: "background .15s, color .15s, border-color .15s",
           }}
+          onMouseEnter={(e) => { e.currentTarget.style.background = "var(--brand-soft)"; e.currentTarget.style.color = "var(--brand-deep)"; e.currentTarget.style.borderColor = "var(--brand-soft-border)"; }}
+          onMouseLeave={(e) => { e.currentTarget.style.background = "var(--surface)"; e.currentTarget.style.color = "var(--ink-2)"; e.currentTarget.style.borderColor = "var(--line)"; }}
         >
-          <Icon name="back" size={16} /> 首页
+          <Icon name="home" size={18} />
         </button>
+        <div style={{ width: 1, height: 24, background: "var(--line)", flexShrink: 0 }} />
         {showRec ? (
           <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
             <BotAvatar size={32} glow />
@@ -117,15 +126,80 @@ function WorkspaceShell({ scenario, onHome, children, right, titleMeta, subtitle
             </div>
           </div>
         ) : (
-          <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
-            <ScenarioGlyph icon={scenario.icon} hue={scenario.hue} size={34} />
-            <div style={{ minWidth: 0 }}>
-              <div style={{ fontSize: 15.5, fontWeight: 800, color: "var(--ink)", display: "flex", alignItems: "center", gap: 9, whiteSpace: "nowrap" }}>
-                {scenario.name}
-                {titleMeta}
+          <div style={{ position: "relative", minWidth: 0 }}>
+            <button
+              onClick={() => canSwitch && setSwitcher((s) => !s)}
+              title={canSwitch ? "切换场景" : undefined}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 10,
+                minWidth: 0,
+                padding: "5px 10px 5px 6px",
+                borderRadius: 12,
+                border: "1px solid " + (switcher ? "var(--brand-soft-border)" : "transparent"),
+                background: switcher ? "var(--brand-soft)" : "transparent",
+                cursor: canSwitch ? "pointer" : "default",
+                fontFamily: "var(--font-zh)",
+                transition: "background .15s, border-color .15s",
+              }}
+              onMouseEnter={(e) => { if (canSwitch && !switcher) e.currentTarget.style.background = "var(--surface-2)"; }}
+              onMouseLeave={(e) => { if (canSwitch && !switcher) e.currentTarget.style.background = "transparent"; }}
+            >
+              <ScenarioGlyph icon={scenario.icon} hue={scenario.hue} size={34} />
+              <div style={{ minWidth: 0, textAlign: "left" }}>
+                <div style={{ fontSize: 15.5, fontWeight: 800, color: "var(--ink)", display: "flex", alignItems: "center", gap: 7, whiteSpace: "nowrap" }}>
+                  {scenario.name}
+                  {titleMeta}
+                  {canSwitch && <span style={{ color: "var(--ink-3)", display: "grid", placeItems: "center", transition: "transform .2s", transform: switcher ? "rotate(180deg)" : "none" }}><Icon name="chevron" size={15} /></span>}
+                </div>
+                <div style={{ fontSize: 11.5, color: "var(--ink-3)", fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{subtitleOverride || scenario.tagline}</div>
               </div>
-              <div style={{ fontSize: 11.5, color: "var(--ink-3)", fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{subtitleOverride || scenario.tagline}</div>
-            </div>
+            </button>
+            {switcher && (
+              <React.Fragment>
+                <div onClick={() => setSwitcher(false)} style={{ position: "fixed", inset: 0, zIndex: 40 }} />
+                <div className="enter-pop" style={{ position: "absolute", top: "calc(100% + 8px)", left: 0, width: 320, maxWidth: "calc(100vw - 40px)", background: "var(--surface)", border: "1px solid var(--line)", borderRadius: 16, boxShadow: "0 24px 60px -28px rgba(0,0,0,.45)", padding: 8, zIndex: 41 }}>
+                  <div style={{ padding: "6px 10px 8px", fontSize: 11.5, fontWeight: 700, color: "var(--ink-3)", display: "flex", alignItems: "center", gap: 6 }}>
+                    <Icon name="spark" size={13} /> 切换到其他场景
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                    {SC.map((s) => {
+                      const active = s.id === scenario.id;
+                      return (
+                        <button
+                          key={s.id}
+                          onClick={() => { setSwitcher(false); if (!active) onSwitch(s.id, ""); }}
+                          style={{ display: "flex", alignItems: "center", gap: 11, padding: "9px 10px", borderRadius: 11, border: "none", background: active ? "var(--brand-soft)" : "transparent", cursor: active ? "default" : "pointer", fontFamily: "var(--font-zh)", textAlign: "left", transition: "background .15s" }}
+                          onMouseEnter={(e) => { if (!active) e.currentTarget.style.background = "var(--surface-2)"; }}
+                          onMouseLeave={(e) => { if (!active) e.currentTarget.style.background = "transparent"; }}
+                        >
+                          <ScenarioGlyph icon={s.icon} hue={s.hue} size={32} active={active} />
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontSize: 13.5, fontWeight: 700, color: active ? "var(--brand-deep)" : "var(--ink)" }}>{s.name}</div>
+                            <div style={{ fontSize: 11, color: "var(--ink-3)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{s.tagline}</div>
+                          </div>
+                          {active && <span style={{ color: "var(--brand-deep)", flexShrink: 0 }}><Icon name="check" size={16} sw={2.4} /></span>}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <div style={{ height: 1, background: "var(--line)", margin: "6px 6px" }} />
+                  <button
+                    onClick={() => { setSwitcher(false); if (scenario.id !== "general") onSwitch("general", ""); }}
+                    style={{ width: "100%", display: "flex", alignItems: "center", gap: 11, padding: "9px 10px", borderRadius: 11, border: "none", background: "transparent", cursor: "pointer", fontFamily: "var(--font-zh)", textAlign: "left" }}
+                    onMouseEnter={(e) => (e.currentTarget.style.background = "var(--surface-2)")}
+                    onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+                  >
+                    <span style={{ width: 32, height: 32, borderRadius: 9, background: "var(--brand-soft)", border: "1px solid var(--brand-soft-border)", display: "grid", placeItems: "center", color: "var(--brand-deep)", flexShrink: 0 }}><Icon name="spark" size={16} /></span>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 13.5, fontWeight: 700, color: "var(--ink)" }}>{GEN.name}</div>
+                      <div style={{ fontSize: 11, color: "var(--ink-3)" }}>不确定用哪个？交给小博士判断</div>
+                    </div>
+                  </button>
+                </div>
+              </React.Fragment>
+            )}
           </div>
         )}
         <div style={{ flex: 1 }} />
@@ -154,7 +228,7 @@ function RecognizingPanel() {
           <span className="bot-ring" />
         </div>
         <h2 style={{ fontSize: 18, fontWeight: 800, color: "var(--ink)", margin: "0 0 8px" }}>正在识别你的需求…</h2>
-        <p style={{ fontSize: 13.5, color: "var(--ink-2)", lineHeight: 1.65, margin: 0 }}>小博士正从<b style={{ color: "var(--brand-deep)" }}>学科网权威库</b>判断最合适的场景，稍候就为你打开对应的工作台。</p>
+        <p style={{ fontSize: 13.5, color: "var(--ink-2)", lineHeight: 1.65, margin: 0 }}>小博士正从<b style={{ color: "var(--brand-deep)" }}>学科网资源库</b>判断最合适的场景，稍候就为你打开对应的工作台。</p>
       </div>
     </div>
   );
@@ -281,7 +355,7 @@ const MORE_FILTERS = [
 ];
 
 const HANDOFF = [
-  { id: "paper", icon: "paper", label: "直接出一份卷子", hue: 25, hint: "从权威题库智能组卷" },
+  { id: "paper", icon: "paper", label: "直接出一份卷子", hue: 25, hint: "从学科网题库智能组卷" },
   { id: "lesson", icon: "lesson", label: "生成配套教案", hue: 320, hint: "对齐课标的教学设计" },
   { id: "courseware", icon: "slides", label: "做成课件", hue: 255, hint: "结构清晰的 PPT" },
 ];
@@ -296,6 +370,32 @@ const SUBJ_LIST = ["语文", "数学", "英语", "物理", "化学", "生物", "
 const GRADE_LIST = ["七年级", "八年级", "九年级", "高一", "高二", "高三", "六年级", "五年级", "四年级", "三年级"];
 function pickSubject(q) { return q ? SUBJ_LIST.find((s) => q.includes(s)) : null; }
 function pickGrade(q) { return q ? GRADE_LIST.find((g) => q.includes(g)) : null; }
+// content-aware, self-consistent replies grounded in a resource/video's REAL fields
+function replyForResource(q, item) {
+  const isVideo = item && (item.kind === "video" || item.cat || item.chapters);
+  const t = (item && item.title) || "这份资料";
+  const tags = (item && item.tags) || [];
+  const tagStr = tags.length ? tags.join("、") : "本节核心知识点";
+
+  if (/出卷|出题|组卷|生成|做一份|出一份|出份/.test(q)) {
+    if (isVideo) return <span>《{t}》是<b>{item.cat || "教学视频"}</b>，我可以按它讲解的知识点，<b style={{ color: "var(--brand-deep)" }}>配一套同步练习</b>。对我说「出卷子」即可带着这些知识点过去。</span>;
+    return <span>没问题 —— 我可以基于《{t}》的知识点（{tagStr}）与<b>{item && item.diff ? item.diff : "中等"}</b>难度，<b style={{ color: "var(--brand-deep)" }}>直接组一份新卷子</b>。点下方「送去出卷子」，或对我说「出卷子」。</span>;
+  }
+  if (/适合|学情|班级|难不难|难度/.test(q)) {
+    if (isVideo) return <span>《{t}》为 <b>{item.grade}{item.subject}</b>、{item.duration} {item.quality}，{item.chapters ? `分 ${item.chapters.length} 个章节、可按需跳转` : "时长适中"}，{item.cat === "实验视频" ? "适合课堂演示或课前预习" : "适合课堂讲解或研修"}。</span>;
+    return <span>《{t}》为 <b>{item.grade}{item.subject} · {item.edition}</b>、难度<b>{item.diff || "中等"}</b>{item.qcount ? `、含 ${item.qcount} 题` : ""}，与你班级常用难度匹配度较高{item.match ? `（匹配度 ${item.match}%）` : ""}。需要更基础或更拔高的版本，我可再筛一批。</span>;
+  }
+  if (isVideo && /环节|哪个|什么时候|怎么用|课堂/.test(q)) {
+    const chap = item.chapters && item.chapters[1];
+    return <span>建议把《{t}》用在<b>新授或探究环节</b>：{item.chapters ? <span>例如「{chap.name}」一段（{chap.t} 起）很适合定格讲解。</span> : "可整段播放后组织讨论。"}已为 {item.grade}{item.subject} 学情做过校验。</span>;
+  }
+  if (isVideo) {
+    const names = (item.chapters || []).slice(0, 3).map((c) => c.name).join("、");
+    return <span>《{t}》是 <b>{item.cat}</b>（{item.duration}）：{item.chapters ? <span>依次讲解 {names} 等 {item.chapters.length} 个环节</span> : "完整呈现了该知识点"}，画质 {item.quality}，已播放 {item.plays}。需要我<b>提取讲解要点</b>或<b>配套出题</b>都可以。</span>;
+  }
+  return <span>我已通读《{t}》：<b>{item ? item.type : "资料"}</b>，{item && item.pages ? `共 ${item.pages} 页` : "篇幅适中"}{item && item.qcount ? `、含 ${item.qcount} 道题` : ""}，覆盖 {tagStr}，{item && item.reviewed ? "已通过学科网审校，" : ""}可直接用于课堂。需要我<b>提取讲解要点</b>或<b>据此出卷</b>都行。</span>;
+}
+
 function detectKind(q) {
   if (!q) return "all";
   if (/专辑|合集|套|打包|串讲|资源包|大单元|上好课/.test(q)) return "album";
@@ -303,7 +403,7 @@ function detectKind(q) {
   return "all";
 }
 
-function FindWorkspace({ scenario, query, onHome, onSwitch, fromIntent, resume }) {
+function FindWorkspace({ scenario, query, onHome, onSwitch, fromIntent, resume, loggedIn }) {
   const ALL = window.AIDATA.RESOURCES;
   const isResume = !!resume;
   const initKind = detectKind(query);
@@ -323,9 +423,9 @@ function FindWorkspace({ scenario, query, onHome, onSwitch, fromIntent, resume }
   const [started, setStarted] = uS(!!query && !fromIntent);
 
   const kindGreet = {
-    video: <span>收到！已从<b style={{ color: "var(--brand-deep)" }}>学科网权威视频库</b>为你找到相关教学视频，支持<b>在线播放、按章节跳转</b>，也可下载。想看实验类还是研修类，直接跟我说。</span>,
-    album: <span>收到！我为你匹配到成套的<b style={{ color: "var(--brand-deep)" }}>精品专辑</b>（含课件 / 教案 / 试卷等），可<b>整套打包</b>或挑单份下载，全部经三审三校。</span>,
-    all: <span>收到！我已从<b style={{ color: "var(--brand-deep)" }}>学科网权威库</b>为你检索，结果包含<b>文档、视频、专辑</b>三类，可在上方切换。想更精准，直接跟我说就行。</span>,
+    video: <span>收到！已从<b style={{ color: "var(--brand-deep)" }}>学科网视频库</b>为你找到相关教学视频，支持<b>在线播放、按章节跳转</b>，也可下载。想看实验类还是研修类，直接跟我说。</span>,
+    album: <span>收到！我为你匹配到成套的<b style={{ color: "var(--brand-deep)" }}>精品专辑</b>（含课件 / 教案 / 试卷等），可<b>整套打包</b>或挑单份下载，全部来自学科网资源库。</span>,
+    all: <span>收到！我已从<b style={{ color: "var(--brand-deep)" }}>学科网资源库</b>为你检索，结果包含<b>文档、视频、专辑</b>三类，可在上方切换。想更精准，直接跟我说就行。</span>,
   };
 
   const greetMsg = () => ({ role: "ai", node: <div>{kindGreet[initKind] || kindGreet.all}</div> });
@@ -343,7 +443,7 @@ function FindWorkspace({ scenario, query, onHome, onSwitch, fromIntent, resume }
       ];
     }
     if (query) return [{ role: "user", text: query }, greetMsg()];
-    return [{ role: "ai", node: (<div>你好老师，告诉我你要找什么 —— 文档、<b>实验/研修视频</b>、还是<b>成套专辑</b>都行，例如「凸透镜成像的实验视频」「六年级语文期末复习专辑」。我会从<b style={{ color: "var(--auth-ink)" }}>三审三校</b>权威库为你精准匹配。</div>) }];
+    return [{ role: "ai", node: (<div>你好老师，告诉我你要找什么 —— 文档、<b>实验/研修视频</b>、还是<b>成套专辑</b>都行，例如「凸透镜成像的实验视频」「六年级语文期末复习专辑」。我会从<b style={{ color: "var(--auth-ink)" }}>学科网资源库</b>为你精准匹配。</div>) }];
   });
   const initSug = {
     video: ["只看实验视频", "教师研修视频", "有没有高清的", "下载这个视频"],
@@ -376,6 +476,16 @@ function FindWorkspace({ scenario, query, onHome, onSwitch, fromIntent, resume }
 
   const handleSend = (text, files) => {
     setMessages((m) => [...m, { role: "user", text, files }]);
+    // #3 — if the chat isn't about the currently-open right-side content (a doc
+    // detail / video player / album), the right pane should follow the chat:
+    // close the overlay so the results reflect the new request. Messages that
+    // explicitly reference the open item (这个 / 这份 / 当前…) keep it open.
+    const aboutCurrent = /这个|这份|这节|这道|这段|这本|它|当前|上面|本视频|本资料|本节|刚才/.test(text || "");
+    if (!aboutCurrent && (preview || player || album)) {
+      setPreview(null);
+      setPlayer(null);
+      setAlbum(null);
+    }
     if (!started) {
       // cold start: first input → infer subject/grade/kind from it
       const k = detectKind(text);
@@ -383,31 +493,31 @@ function FindWorkspace({ scenario, query, onHome, onSwitch, fromIntent, resume }
       if (sj || gr) setFilters((f) => ({ ...f, subject: sj || f.subject, grade: gr || f.grade }));
       if (k !== "all") setTab(k);
       setStarted(true);
-      aiReply(<span>收到！已从<b style={{ color: "var(--brand-deep)" }}>学科网权威库</b>为你检索「{text}」，结果在右侧，可按文档 / 视频 / 专辑切换。</span>, initSug[k] || initSug.all);
+      aiReply(<span>收到！已从<b style={{ color: "var(--brand-deep)" }}>学科网资源库</b>为你检索「{text}」，结果在右侧，可按文档 / 视频 / 专辑切换。</span>, initSug[k] || initSug.all);
       return;
     }
     if (files && files.length) {
       pulse();
-      aiReply(<span>已收到你上传的参考材料，我会<b>结合它</b>从权威库筛选最贴合的资源。</span>, ["难度再高一点", "只要含答案的", "找不到就帮我生成"]);
+      aiReply(<span>已收到你上传的参考材料，我会<b>结合它</b>从学科网资源库筛选最贴合的资源。</span>, ["难度再高一点", "只要含答案的", "找不到就帮我生成"]);
       return;
     }
     if (/专辑|合集|套|打包|串讲|资源包/.test(text)) {
       setTab("album"); pulse();
-      aiReply(<span>已切到<b>专辑 / 合集</b>视图。整套资料经三审三校，可一键打包，也能展开挑单份。</span>, ["展开专辑内容", "整套打包下载", "只要试卷部分"]);
+      aiReply(<span>已切到<b>专辑 / 合集</b>视图。整套资料来自学科网资源库，可一键打包，也能展开挑单份。</span>, ["展开专辑内容", "整套打包下载", "只要试卷部分"]);
       return;
     }
     if (/视频|实验|研修|播放|示范课/.test(text)) {
       setTab("video"); pulse();
-      aiReply(<span>已切到<b>视频</b>视图。支持在线播放与章节跳转，全部为权威教学/实验视频。</span>, ["只看实验视频", "教师研修视频", "下载这个视频"]);
+      aiReply(<span>已切到<b>视频</b>视图。支持在线播放与章节跳转，全部为学科网教学 / 实验视频。</span>, ["只看实验视频", "教师研修视频", "下载这个视频"]);
       return;
     }
     if (/文档|资料|课件|教案|习题|练习/.test(text)) setTab("doc");
     if (text.includes("答案") || text.includes("解析")) {
       setFilters((f) => ({ ...f, type: "同步练习" })); setTab("doc"); pulse();
-      aiReply(<span>已为你筛选<b>含答案解析</b>的文档，均来自三审三校精品库。</span>, ["难度再高一点", "我要单元测试卷", "都不太合适"]);
+      aiReply(<span>已为你筛选<b>含答案解析</b>的文档，均来自学科网资源库。</span>, ["难度再高一点", "我要单元测试卷", "都不太合适"]);
     } else if (text.includes("难") || text.includes("高") || text.includes("拔高") || text.includes("培优")) {
       setFilters((f) => ({ ...f, diff: "拔高", type: null })); setTab("doc"); pulse();
-      aiReply(<span>已切换到<b>拔高 / 培优</b>难度，题目经编辑团队<b style={{ color: "var(--auth-ink)" }}>三审三校</b>校验。</span>, ["要易错题专项", "再降一点难度", "都不太合适"]);
+      aiReply(<span>已切换到<b>拔高 / 培优</b>难度，题目均来自学科网<b style={{ color: "var(--auth-ink)" }}>资源库</b>。</span>, ["要易错题专项", "再降一点难度", "都不太合适"]);
     } else if (text.includes("北师")) {
       setFilters((f) => ({ ...f, edition: "北师大版" })); pulse();
       aiReply(<span>已切换到<b>北师大版</b>。如该版本暂缺，我会用通用精品资源补齐。</span>, ["只要含答案的", "难度再高一点", "都不太合适"]);
@@ -415,17 +525,26 @@ function FindWorkspace({ scenario, query, onHome, onSwitch, fromIntent, resume }
       setFilters((f) => ({ ...f, type: "单元测试", diff: null })); setTab("doc"); pulse();
       aiReply(<span>已筛选<b>单元测试卷</b>。需要的话我可以直接把它送进「出卷子」二次编辑。</span>, ["难度再高一点", "送去出卷子", "只要含答案的"]);
     } else if (text.includes("生成") || text.includes("不合适") || text.includes("找不到") || text.includes("没有")) {
-      aiReply(<span>没问题 —— 现成资源不完全合适时，我可以<b style={{ color: "var(--brand-deep)" }}>基于同一权威库直接为你生成</b>。看右侧底部，选一个方向即可。</span>, ["直接出卷子", "生成配套教案"]);
+      aiReply(<span>没问题 —— 现成资源不完全合适时，我可以<b style={{ color: "var(--brand-deep)" }}>基于同一资源库直接为你生成</b>。看右侧底部，选一个方向即可。</span>, ["直接出卷子", "生成配套教案"]);
     } else if (text.includes("出卷")) {
       onSwitch && onSwitch("paper", query || "基于检索结果的练习");
     } else {
       pulse();
-      aiReply(<span>我已根据「{text}」重新排序，结果均标注<b style={{ color: "var(--auth-ink)" }}>权威来源</b>。</span>, ["只看视频", "有没有成套专辑", "难度再高一点"]);
+      aiReply(<span>我已根据「{text}」重新排序，结果均标注<b style={{ color: "var(--auth-ink)" }}>学科网来源</b>。</span>, ["只看视频", "有没有成套专辑", "难度再高一点"]);
     }
   };
 
   const setF = (key, val) => { setFilters((f) => ({ ...f, [key]: f[key] === val ? null : val })); pulse(); };
   const { headerRecognizing, send } = useSmartSend({ scenarioId: scenario.id, onSwitch, setMessages, localSend: handleSend });
+
+  // ask the AI about a specific resource / video while it stays open on the right.
+  // Replies are GROUNDED in the item's real fields so everything stays self-consistent.
+  const askAbout = (q, item) => {
+    setMessages((m) => [...m, { role: "user", text: q }, { role: "ai", typing: true }]);
+    setTimeout(() => {
+      setMessages((m) => [...m.slice(0, -1), { role: "ai", node: replyForResource(q, item) }]);
+    }, 750);
+  };
 
   const conditions = [
     filters.edition && { key: "edition", label: filters.edition },
@@ -457,7 +576,7 @@ function FindWorkspace({ scenario, query, onHome, onSwitch, fromIntent, resume }
   }
 
   return (
-    <WorkspaceShell scenario={scenario} onHome={onHome} headerRecognizing={headerRecognizing} right={
+    <WorkspaceShell scenario={scenario} onHome={onHome} onSwitch={onSwitch} headerRecognizing={headerRecognizing} right={
       <button style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 13px", borderRadius: 10, border: "1px solid var(--line)", background: "var(--surface)", color: "var(--ink-2)", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "var(--font-zh)" }}>
         <Icon name="layers" size={15} /> 我的资源夹
       </button>
@@ -465,18 +584,13 @@ function FindWorkspace({ scenario, query, onHome, onSwitch, fromIntent, resume }
       <ChatPanel messages={messages} onSend={send} suggestions={suggestions} placeholder="例如：只看实验视频 / 整套打包下载" />
       {/* results */}
       <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", position: "relative" }}>
-        {!started && <FindColdStart onPick={(q) => handleSend(q)} />}
+        {!started && <FindColdStart loggedIn={!resume && loggedIn} onPick={(q) => handleSend(q)} />}
         {started && <React.Fragment>
-        {!isResume && (
-          <div style={{ padding: "10px 22px 0" }}>
-            <MemoryNote text={<span>已按你的<b style={{ color: "var(--brand-deep)" }}>记忆</b>默认筛选 人教版 · 七年级 · 数学 —— 想换条件，直接在左侧对我说，或点下方筛选。</span>} />
-          </div>
-        )}
-        {/* AI-understood conditions bar */}
+        {/* AI-understood conditions bar — folds in the memory context */}
         <div style={{ padding: "13px 22px 12px", borderBottom: "1px solid var(--line)", background: "var(--surface)" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-            <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12.5, color: "var(--ink-3)", fontWeight: 700 }}>
-              <Icon name="spark" size={14} /> 小博士已理解
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12.5, color: "var(--brand-deep)", fontWeight: 700 }}>
+              <Icon name="spark" size={14} /> {isResume ? "小博士已为你恢复" : "小博士已按你的记忆理解为"}
             </span>
             {isResume && (
               <span style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "5px 10px", borderRadius: 999, background: "var(--surface-2)", border: "1px solid var(--line)", fontSize: 12, fontWeight: 700, color: "var(--ink-3)" }}>
@@ -490,26 +604,8 @@ function FindWorkspace({ scenario, query, onHome, onSwitch, fromIntent, resume }
                 {!c.fixed && <span onClick={() => removeCond(c.key)} style={{ display: "inline-flex", cursor: "pointer", opacity: 0.55 }}><Icon name="close" size={12} sw={2.6} /></span>}
               </span>
             ))}
-            <span style={{ fontSize: 11.5, color: "var(--ink-3)" }}>· 点 × 放宽，或在左侧直接对我说</span>
-            <div style={{ flex: 1 }} />
-            <button onClick={() => setShowMore((s) => !s)} style={{ display: "inline-flex", alignItems: "center", gap: 5, background: "none", border: "none", color: "var(--ink-3)", fontSize: 12.5, fontWeight: 600, cursor: "pointer", fontFamily: "var(--font-zh)" }}>
-              <Icon name="filter" size={14} /> {showMore ? "收起精确筛选" : "精确筛选"}
-            </button>
+            <span style={{ fontSize: 11.5, color: "var(--ink-3)" }}>· 想换条件，点 × 放宽，或直接在左侧对我说</span>
           </div>
-          {showMore && (
-            <div className="trace-pop" style={{ marginTop: 12, paddingTop: 12, borderTop: "1px dashed var(--line)", display: "flex", flexWrap: "wrap", gap: 16 }}>
-              {MORE_FILTERS.map((fd) => (
-                <div key={fd.key} style={{ display: "flex", alignItems: "center", gap: 7 }}>
-                  <span style={{ fontSize: 12, color: "var(--ink-3)", fontWeight: 700 }}>{fd.label}</span>
-                  <div style={{ display: "flex", gap: 5 }}>
-                    {fd.opts.map((o) => (
-                      <button key={o} onClick={() => setF(fd.key, o)} style={{ padding: "5px 11px", borderRadius: 8, fontSize: 12.5, fontWeight: 600, cursor: "pointer", fontFamily: "var(--font-zh)", border: filters[fd.key] === o ? "1px solid var(--brand)" : "1px solid var(--line)", background: filters[fd.key] === o ? "var(--brand-soft)" : "var(--surface)", color: filters[fd.key] === o ? "var(--brand-deep)" : "var(--ink-3)", transition: "all .15s" }}>{o}</button>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
         </div>
         {/* content-type tabs */}
         <div style={{ padding: "12px 22px 0", display: "flex", alignItems: "center", gap: 8 }}>
@@ -523,7 +619,7 @@ function FindWorkspace({ scenario, query, onHome, onSwitch, fromIntent, resume }
           </div>
           <div style={{ flex: 1 }} />
           <div style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, color: "var(--auth-ink)", fontWeight: 600 }}>
-            <Icon name="shield" size={14} /> 全部来自三审三校权威库
+            <Icon name="shield" size={14} /> 全部来自学科网资源库
           </div>
         </div>
         {/* result list */}
@@ -533,8 +629,8 @@ function FindWorkspace({ scenario, query, onHome, onSwitch, fromIntent, resume }
         </React.Fragment>}
 
         {album && <AlbumPage a={album} onClose={() => setAlbum(null)} onPreviewItem={previewItem} onPlayItem={playItem} onDownload={(msg) => showToast(msg)} />}
-        {preview && <PreviewDrawer r={preview} onClose={() => setPreview(null)} onDownload={() => showToast("已开始下载，可在「我的资源夹」查看")} />}
-        {player && <VideoPlayer v={player} onClose={() => setPlayer(null)} onDownload={() => showToast(`已开始下载视频《${player.title.slice(0, 12)}…》`)} />}
+        {preview && <PreviewDrawer r={preview} onClose={() => setPreview(null)} onAsk={askAbout} onDownload={() => showToast("已开始下载，可在「我的资源夹」查看")} />}
+        {player && <VideoPlayer v={player} onClose={() => setPlayer(null)} onAsk={askAbout} onDownload={() => showToast(`已开始下载视频《${player.title.slice(0, 12)}…》`)} />}
         {toast && (
           <div className="enter-pop" style={{ position: "absolute", bottom: 22, left: "50%", transform: "translateX(-50%)", background: "var(--ink)", color: "var(--surface)", padding: "11px 18px", borderRadius: 12, fontSize: 13.5, fontWeight: 600, boxShadow: "0 12px 30px -12px rgba(0,0,0,.5)", display: "inline-flex", alignItems: "center", gap: 8, zIndex: 60 }}>
             <Icon name="check" size={16} sw={2.6} /> {toast}
@@ -550,7 +646,7 @@ function HandoffBar({ topic, onSwitch, query }) {
     <div style={{ marginTop: 4, padding: 16, borderRadius: 16, border: "1px dashed var(--brand-soft-border)", background: "var(--brand-soft)" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
         <Icon name="sparkArrow" size={17} />
-        <span style={{ fontSize: 13.5, fontWeight: 700, color: "var(--brand-deep)" }}>没找到完全合适的？让小博士基于权威库直接生成</span>
+        <span style={{ fontSize: 13.5, fontWeight: 700, color: "var(--brand-deep)" }}>没找到完全合适的？让小博士基于学科网资源库直接生成</span>
       </div>
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
         {HANDOFF.map((h) => (
@@ -575,26 +671,55 @@ function HandoffBar({ topic, onSwitch, query }) {
 }
 
 // cold-start panel: shown when teacher entered 找资源 without any input
-function FindColdStart({ onPick }) {
-  const examples = [
+function FindColdStart({ onPick, loggedIn }) {
+  const M = window.AIDATA.USER_MEMORY;
+  // memory-driven personalization (logged-in teacher with a profile)
+  const memExamples = [
+    { kind: "贴合你的班级", hue: 25, icon: "search", items: ["人教版七年级《有理数》随堂练习，中等偏上", "人教版七年级数学《整式的加减》易错题专项"] },
+    { kind: "你常找的视频", hue: 200, icon: "interactive", items: ["七年级数学《数轴》讲解视频", "初中数学 公开课 / 研修视频"] },
+    { kind: "成套备课专辑", hue: 255, icon: "layers", items: ["人教版七年级数学下册期末复习专辑", "初一数学一元一次方程一轮复习合集"] },
+  ];
+  const genExamples = [
     { kind: "文档", hue: 150, icon: "search", items: ["人教版七年级《有理数》随堂练习", "九年级化学《溶液》单元测试卷，含答案"] },
     { kind: "视频", hue: 200, icon: "interactive", items: ["凸透镜成像规律的实验视频", "氧气的实验室制取 实验视频"] },
     { kind: "专辑", hue: 255, icon: "layers", items: ["六年级语文下册期末复习专辑", "高三数学函数与导数一轮复习合集"] },
   ];
-  const hot = ["有理数 随堂练习", "光合作用 课件", "中考物理压轴题", "古诗文默写专项", "新课标 大单元教学"];
+  const memHot = ["有理数 易错题", "整式的加减 课件", "七年级数学 期中卷", "数轴 讲解视频", "一元一次方程 专辑"];
+  const genHot = ["有理数 随堂练习", "光合作用 课件", "中考物理压轴题", "古诗文默写专项", "新课标 大单元教学"];
+
+  const examples = loggedIn ? memExamples : genExamples;
+  const hot = loggedIn ? memHot : genHot;
+
   return (
     <div style={{ flex: 1, overflowY: "auto", display: "grid", placeItems: "center", padding: "30px 24px" }}>
       <div className="home-fade" style={{ width: "min(660px, 100%)" }}>
-        <div style={{ textAlign: "center", marginBottom: 26 }}>
+        <div style={{ textAlign: "center", marginBottom: 22 }}>
           <div style={{ display: "inline-flex", marginBottom: 12 }}><BotAvatar size={50} glow /></div>
           <h2 style={{ fontSize: 21, fontWeight: 800, color: "var(--ink)", margin: "0 0 7px" }}>想找点什么教学资源？</h2>
           <p style={{ fontSize: 13.5, color: "var(--ink-2)", margin: 0, lineHeight: 1.6 }}>在左侧用一句话描述需求即可。结果会涵盖<b style={{ color: "var(--brand-deep)" }}>文档、视频、成套专辑</b>三类。</p>
         </div>
 
+        {/* memory banner — only when we actually have a profile */}
+        {loggedIn ? (
+          <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "11px 15px", borderRadius: 13, background: "var(--brand-soft)", border: "1px solid var(--brand-soft-border)", marginBottom: 22 }}>
+            <span style={{ width: 28, height: 28, borderRadius: 8, background: "var(--surface)", border: "1px solid var(--brand-soft-border)", display: "grid", placeItems: "center", color: "var(--brand-deep)", flexShrink: 0 }}><Icon name="spark" size={15} /></span>
+            <div style={{ flex: 1, minWidth: 0, fontSize: 12.5, color: "var(--ink-2)", lineHeight: 1.55 }}>
+              已结合你的记忆 <b style={{ color: "var(--brand-deep)" }}>人教版 · 七年级 · 数学</b> 为你推荐，下面都是按你的偏好挑的。
+            </div>
+          </div>
+        ) : (
+          <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "11px 15px", borderRadius: 13, background: "var(--surface-2)", border: "1px dashed var(--line)", marginBottom: 22 }}>
+            <span style={{ width: 28, height: 28, borderRadius: 8, background: "var(--surface)", border: "1px solid var(--line)", display: "grid", placeItems: "center", color: "var(--ink-3)", flexShrink: 0 }}><Icon name="spark" size={15} /></span>
+            <div style={{ flex: 1, minWidth: 0, fontSize: 12.5, color: "var(--ink-3)", lineHeight: 1.55 }}>
+              登录后，小博士会记住你的学段学科，把推荐变得更懂你。现在先看看大家都在找什么 ——
+            </div>
+          </div>
+        )}
+
         {/* hot searches */}
         <div style={{ marginBottom: 24 }}>
           <div style={{ fontSize: 12.5, fontWeight: 700, color: "var(--ink-3)", marginBottom: 10, display: "flex", alignItems: "center", gap: 6 }}>
-            <Icon name="spark" size={14} /> 热门检索
+            <Icon name={loggedIn ? "spark" : "search"} size={14} /> {loggedIn ? "为你推荐" : "热门检索"}
           </div>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
             {hot.map((h, i) => (
@@ -632,7 +757,7 @@ function NotFound({ topic, onSwitch, query }) {
       </div>
       <div style={{ fontSize: 16, fontWeight: 800, color: "var(--ink)", marginBottom: 6 }}>当前条件下暂无现成资源完全匹配</div>
       <div style={{ fontSize: 13.5, color: "var(--ink-3)", marginBottom: 22, lineHeight: 1.6 }}>
-        在左侧对我说「放宽难度 / 换个版本」，或者 —— 让小博士基于权威库<b style={{ color: "var(--brand-deep)" }}>直接为你生成</b>
+        在左侧对我说「放宽难度 / 换个版本」，或者 —— 让小博士基于学科网资源库<b style={{ color: "var(--brand-deep)" }}>直接为你生成</b>
       </div>
       <div style={{ maxWidth: 560, margin: "0 auto" }}>
         <HandoffBar topic={topic} onSwitch={onSwitch} query={query} />
@@ -689,45 +814,57 @@ function ResourceCard({ r, onPreview, onDownload }) {
   );
 }
 
-function PreviewDrawer({ r, onClose, onDownload }) {
+function PreviewDrawer({ r, onClose, onDownload, onAsk }) {
+  const asks = ["总结这份资料的内容", "这份适合我的班级吗", "提取讲解重点", "据此出一份同类卷子"];
   return (
-    <div style={{ position: "fixed", inset: 0, zIndex: 40, display: "flex", justifyContent: "flex-end" }}>
-      <div onClick={onClose} style={{ position: "absolute", inset: 0, background: "rgba(20,16,10,.4)", animation: "pulseBg .01s" }} />
-      <div className="drawer-pop" style={{ position: "relative", width: "min(560px, 92vw)", height: "100%", background: "var(--canvas)", boxShadow: "-20px 0 60px -30px rgba(0,0,0,.5)", display: "flex", flexDirection: "column" }}>
-        {/* drawer header */}
-        <div style={{ padding: "16px 20px", borderBottom: "1px solid var(--line)", background: "var(--surface)", display: "flex", alignItems: "flex-start", gap: 12 }}>
-          <div style={{ flex: 1 }}>
-            <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 7 }}>
-              <span style={{ fontSize: 11.5, color: "var(--ink-3)" }}>{r.pages} 页 · {r.qcount > 0 ? `${r.qcount} 题` : "课件"} · 更新 {r.updated}</span>
-            </div>
-            <div style={{ fontSize: 16, fontWeight: 800, color: "var(--ink)", lineHeight: 1.4 }}>{r.title}</div>
+    <div className="drawer-pop" style={{ position: "absolute", inset: 0, zIndex: 25, background: "var(--canvas)", display: "flex", flexDirection: "column" }}>
+      {/* header */}
+      <div style={{ padding: "14px 20px", borderBottom: "1px solid var(--line)", background: "var(--surface)", display: "flex", alignItems: "flex-start", gap: 12 }}>
+        <button onClick={onClose} title="返回结果" style={{ width: 34, height: 34, borderRadius: 9, border: "1px solid var(--line)", background: "var(--surface)", color: "var(--ink-2)", display: "grid", placeItems: "center", cursor: "pointer", flexShrink: 0 }}>
+          <Icon name="back" size={16} />
+        </button>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 15.5, fontWeight: 800, color: "var(--ink)", lineHeight: 1.4 }}>{r.title}</div>
+          <div style={{ fontSize: 11.5, color: "var(--ink-3)", marginTop: 3 }}>{r.pages} 页 · {r.qcount > 0 ? `${r.qcount} 题` : "课件"} · 更新 {r.updated}</div>
+        </div>
+        <button onClick={onClose} style={{ width: 32, height: 32, borderRadius: 9, border: "1px solid var(--line)", background: "var(--surface)", color: "var(--ink-2)", display: "grid", placeItems: "center", cursor: "pointer", flexShrink: 0 }}>
+          <Icon name="close" size={16} sw={2.4} />
+        </button>
+      </div>
+      {/* keep-collaborating hint + quick asks (chat stays usable on the left) */}
+      {onAsk && (
+        <div style={{ padding: "11px 20px", borderBottom: "1px solid var(--line)", background: "var(--brand-soft)", display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 700, color: "var(--brand-deep)" }}>
+            <Icon name="spark" size={14} /> 边看边问小博士
+          </span>
+          <div style={{ display: "flex", gap: 7, flexWrap: "wrap" }}>
+            {asks.map((q, i) => (
+              <button key={i} onClick={() => onAsk(q, r)} style={{ padding: "5px 11px", borderRadius: 999, border: "1px solid var(--brand-soft-border)", background: "var(--surface)", color: "var(--brand-deep)", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "var(--font-zh)" }}>{q}</button>
+            ))}
           </div>
-          <button onClick={onClose} style={{ width: 32, height: 32, borderRadius: 9, border: "1px solid var(--line)", background: "var(--surface)", color: "var(--ink-2)", display: "grid", placeItems: "center", cursor: "pointer", flexShrink: 0 }}>
-            <Icon name="close" size={16} sw={2.4} />
-          </button>
         </div>
-        {/* pages preview */}
-        <div style={{ flex: 1, overflowY: "auto", padding: "20px 24px", display: "flex", flexDirection: "column", gap: 16 }}>
-          {[0, 1].map((p) => (
-            <div key={p} style={{ background: "#fff", borderRadius: 8, boxShadow: "0 6px 20px -12px rgba(0,0,0,.3)", border: "1px solid var(--line)", padding: "26px 28px", aspectRatio: "1 / 1.414" }}>
-              <div style={{ fontSize: 13, fontWeight: 800, color: "#1a1a1a", textAlign: "center", marginBottom: 4 }}>{r.title}</div>
-              <div style={{ fontSize: 10.5, color: "#888", textAlign: "center", marginBottom: 18 }}>学科网 · 三审三校精品资源 · 第 {p + 1} 页</div>
-              {[...Array(6)].map((_, k) => (
-                <div key={k} style={{ marginBottom: 14 }}>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: "#333", marginBottom: 6 }}>{p * 6 + k + 1}. 题目内容预览</div>
-                  <div style={{ height: 7, background: "#eee", borderRadius: 3, marginBottom: 5, width: "92%" }} />
-                  <div style={{ height: 7, background: "#eee", borderRadius: 3, width: `${60 + ((k * 13) % 35)}%` }} />
-                </div>
-              ))}
-            </div>
-          ))}
-        </div>
-        {/* drawer footer */}
-        <div style={{ padding: 16, borderTop: "1px solid var(--line)", background: "var(--surface)", display: "flex", gap: 10 }}>
-          <Btn kind="primary" icon="download" onClick={onDownload} style={{ flex: 1 }}>下载原件</Btn>
-          <Btn kind="soft" icon="plus">加入资源夹</Btn>
-          <Btn kind="ghost" icon="paper">送去出卷子</Btn>
-        </div>
+      )}
+      {/* pages preview */}
+      <div style={{ flex: 1, overflowY: "auto", padding: "20px 24px", display: "flex", flexDirection: "column", gap: 16, alignItems: "center" }}>
+        {[0, 1].map((p) => (
+          <div key={p} style={{ width: "100%", maxWidth: 460, background: "#fff", borderRadius: 8, boxShadow: "0 6px 20px -12px rgba(0,0,0,.3)", border: "1px solid var(--line)", padding: "26px 28px", aspectRatio: "1 / 1.414" }}>
+            <div style={{ fontSize: 13, fontWeight: 800, color: "#1a1a1a", textAlign: "center", marginBottom: 4 }}>{r.title}</div>
+            <div style={{ fontSize: 10.5, color: "#888", textAlign: "center", marginBottom: 18 }}>学科网 · 精品资源 · 第 {p + 1} 页</div>
+            {[...Array(6)].map((_, k) => (
+              <div key={k} style={{ marginBottom: 14 }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: "#333", marginBottom: 6 }}>{p * 6 + k + 1}. 题目内容预览</div>
+                <div style={{ height: 7, background: "#eee", borderRadius: 3, marginBottom: 5, width: "92%" }} />
+                <div style={{ height: 7, background: "#eee", borderRadius: 3, width: `${60 + ((k * 13) % 35)}%` }} />
+              </div>
+            ))}
+          </div>
+        ))}
+      </div>
+      {/* footer */}
+      <div style={{ padding: 16, borderTop: "1px solid var(--line)", background: "var(--surface)", display: "flex", gap: 10, alignItems: "center" }}>
+        <Btn kind="primary" icon="download" onClick={onDownload}>下载原件</Btn>
+        <Btn kind="soft" icon="plus">加入资源夹</Btn>
+        <Btn kind="ghost" icon="paper">送去出卷子</Btn>
       </div>
     </div>
   );

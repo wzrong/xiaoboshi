@@ -59,7 +59,7 @@ function VideoCard({ v, onPlay, onDownload }) {
 }
 
 // ---- VIDEO PLAYER (modal) ----
-function VideoPlayer({ v, onClose, onDownload }) {
+function VideoPlayer({ v, onClose, onDownload, onAsk }) {
   const total = parseDur(v.duration);
   const [playing, setPlaying] = mS(true);
   const [cur, setCur] = mS(0);
@@ -74,15 +74,40 @@ function VideoPlayer({ v, onClose, onDownload }) {
     setCur(Math.round(((e.clientX - r.left) / r.width) * total));
   };
   const activeChapter = [...v.chapters].reverse().find((c) => parseDur(c.t) <= cur);
+  const asks = ["总结这个视频讲了什么", "适合课堂哪个环节用", "提取关键知识点", "找配套的练习"];
 
   return (
-    <div style={{ position: "fixed", inset: 0, zIndex: 50, display: "grid", placeItems: "center", padding: 24 }}>
-      <div onClick={onClose} style={{ position: "absolute", inset: 0, background: "rgba(15,12,8,.6)" }} />
-      <div className="intent-card" style={{ position: "relative", width: "min(940px, 95vw)", maxHeight: "92vh", background: "var(--surface)", borderRadius: 20, overflow: "hidden", display: "flex", flexDirection: "column", boxShadow: "0 40px 90px -40px rgba(0,0,0,.6)" }}>
-        <div style={{ display: "flex", minHeight: 0 }}>
+    <div className="drawer-pop" style={{ position: "absolute", inset: 0, zIndex: 25, background: "var(--surface)", display: "flex", flexDirection: "column" }}>
+      {/* header */}
+      <div style={{ padding: "12px 18px", borderBottom: "1px solid var(--line)", background: "var(--surface)", display: "flex", alignItems: "center", gap: 12, flexShrink: 0 }}>
+        <button onClick={onClose} title="返回结果" style={{ width: 34, height: 34, borderRadius: 9, border: "1px solid var(--line)", background: "var(--surface)", color: "var(--ink-2)", display: "grid", placeItems: "center", cursor: "pointer", flexShrink: 0 }}>
+          <Icon name="back" size={16} />
+        </button>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 14.5, fontWeight: 800, color: "var(--ink)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{v.title}</div>
+          <div style={{ fontSize: 11, color: "var(--ink-3)", marginTop: 2 }}>学科网 · 教学视频 · {v.duration} · {v.quality}</div>
+        </div>
+        <button onClick={onClose} style={{ width: 32, height: 32, borderRadius: 9, border: "1px solid var(--line)", background: "var(--surface)", color: "var(--ink-2)", display: "grid", placeItems: "center", cursor: "pointer", flexShrink: 0 }}>
+          <Icon name="close" size={16} sw={2.4} />
+        </button>
+      </div>
+      {/* keep-collaborating quick asks (chat stays usable on the left) */}
+      {onAsk && (
+        <div style={{ padding: "10px 18px", borderBottom: "1px solid var(--line)", background: "var(--brand-soft)", display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", flexShrink: 0 }}>
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 700, color: "var(--brand-deep)" }}>
+            <Icon name="spark" size={14} /> 边看边问小博士
+          </span>
+          <div style={{ display: "flex", gap: 7, flexWrap: "wrap" }}>
+            {asks.map((q, i) => (
+              <button key={i} onClick={() => onAsk(q, v)} style={{ padding: "5px 11px", borderRadius: 999, border: "1px solid var(--brand-soft-border)", background: "var(--surface)", color: "var(--brand-deep)", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "var(--font-zh)" }}>{q}</button>
+            ))}
+          </div>
+        </div>
+      )}
+      <div style={{ flex: 1, minHeight: 0, display: "flex" }}>
           {/* stage + controls */}
           <div style={{ flex: 1, minWidth: 0, background: "#0c0b0a", display: "flex", flexDirection: "column" }}>
-            <div style={{ position: "relative", aspectRatio: "16/9", background: "radial-gradient(circle at 50% 40%, #2a2722, #0c0b0a)", display: "grid", placeItems: "center" }}>
+            <div style={{ position: "relative", flex: 1, minHeight: 0, background: "radial-gradient(circle at 50% 40%, #2a2722, #0c0b0a)", display: "grid", placeItems: "center" }}>
               <div onClick={() => setPlaying((p) => !p)} style={{ width: 70, height: 70, borderRadius: "50%", background: "rgba(255,255,255,.16)", backdropFilter: "blur(4px)", display: "grid", placeItems: "center", cursor: "pointer", color: "#fff", border: "2px solid rgba(255,255,255,.5)" }}>
                 {playing ? (
                   <svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4" height="14" rx="1" /><rect x="14" y="5" width="4" height="14" rx="1" /></svg>
@@ -94,10 +119,10 @@ function VideoPlayer({ v, onClose, onDownload }) {
                 <span style={{ background: "var(--accent)", padding: "2px 8px", borderRadius: 5, fontWeight: 800, fontSize: 11 }}>{v.cat}</span>
                 {activeChapter ? activeChapter.name : "准备播放"}
               </div>
-              <div style={{ position: "absolute", bottom: 14, right: 16, color: "rgba(255,255,255,.5)", fontSize: 11, fontWeight: 700 }}>学科网 · 权威教学视频 · {v.quality}</div>
+              <div style={{ position: "absolute", bottom: 14, right: 16, color: "rgba(255,255,255,.5)", fontSize: 11, fontWeight: 700 }}>学科网 · 教学视频 · {v.quality}</div>
             </div>
             {/* control bar */}
-            <div style={{ padding: "12px 16px 16px" }}>
+            <div style={{ padding: "12px 16px 16px", flexShrink: 0 }}>
               <div onClick={seek} style={{ height: 6, background: "rgba(255,255,255,.18)", borderRadius: 4, cursor: "pointer", position: "relative" }}>
                 <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: `${pct}%`, background: "var(--brand)", borderRadius: 4 }} />
                 <div style={{ position: "absolute", left: `${pct}%`, top: "50%", transform: "translate(-50%,-50%)", width: 13, height: 13, borderRadius: "50%", background: "#fff", boxShadow: "0 1px 4px rgba(0,0,0,.4)" }} />
@@ -120,11 +145,8 @@ function VideoPlayer({ v, onClose, onDownload }) {
           </div>
           {/* chapters sidebar */}
           <div style={{ width: 268, flexShrink: 0, borderLeft: "1px solid var(--line)", display: "flex", flexDirection: "column", minHeight: 0 }}>
-            <div style={{ padding: "14px 16px", borderBottom: "1px solid var(--line)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <div style={{ padding: "14px 16px", borderBottom: "1px solid var(--line)" }}>
               <span style={{ fontSize: 14, fontWeight: 800, color: "var(--ink)" }}>视频章节</span>
-              <button onClick={onClose} style={{ width: 28, height: 28, borderRadius: 8, border: "1px solid var(--line)", background: "var(--surface)", color: "var(--ink-2)", display: "grid", placeItems: "center", cursor: "pointer" }}>
-                <Icon name="close" size={15} sw={2.4} />
-              </button>
             </div>
             <div style={{ flex: 1, overflowY: "auto", padding: 8 }}>
               {v.chapters.map((c, i) => {
@@ -141,7 +163,6 @@ function VideoPlayer({ v, onClose, onDownload }) {
               <Btn kind="primary" icon="download" onClick={onDownload} style={{ width: "100%" }}>下载视频</Btn>
             </div>
           </div>
-        </div>
       </div>
     </div>
   );
@@ -257,8 +278,16 @@ function AlbumPage({ a, onClose, onPreviewItem, onPlayItem, onDownload }) {
           {a.items.map((it, i) => {
             const isVideo = it.fmt === "MP4";
             const hue = TYPE_HUE[it.type] || 150;
+            const open = () => (isVideo ? onPlayItem(it) : onPreviewItem(it));
             return (
-              <div key={i} style={{ display: "flex", alignItems: "center", gap: 14, background: "var(--surface)", border: "1px solid var(--line)", borderRadius: 12, padding: "12px 14px" }}>
+              <div
+                key={i}
+                onClick={open}
+                className="res-card"
+                style={{ display: "flex", alignItems: "center", gap: 14, background: "var(--surface)", border: "1px solid var(--line)", borderRadius: 12, padding: "12px 14px", cursor: "pointer", transition: "box-shadow .2s, border-color .2s" }}
+                onMouseEnter={(e) => { e.currentTarget.style.boxShadow = "0 10px 24px -16px rgba(0,0,0,.28)"; e.currentTarget.style.borderColor = "var(--brand-soft-border)"; }}
+                onMouseLeave={(e) => { e.currentTarget.style.boxShadow = "none"; e.currentTarget.style.borderColor = "var(--line)"; }}
+              >
                 <ScenarioGlyph icon={isVideo ? "interactive" : it.type === "课件" ? "slides" : it.type === "教案" ? "lesson" : it.type === "试卷" ? "paper" : "search"} hue={hue} size={38} />
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 14, fontWeight: 700, color: "var(--ink)" }}>{it.title}</div>
@@ -270,17 +299,12 @@ function AlbumPage({ a, onClose, onPreviewItem, onPlayItem, onDownload }) {
                     {it.dur && <span>{it.dur}</span>}
                   </div>
                 </div>
-                {isVideo ? (
-                  <button onClick={() => onPlayItem(it)} style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "6px 12px", borderRadius: 9, border: "1px solid var(--line)", background: "var(--surface)", color: "var(--ink-2)", fontWeight: 700, fontSize: 12.5, cursor: "pointer", fontFamily: "var(--font-zh)" }}>
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z" /></svg> 播放
-                  </button>
-                ) : (
-                  <button onClick={() => onPreviewItem(it)} style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "6px 12px", borderRadius: 9, border: "1px solid var(--line)", background: "var(--surface)", color: "var(--ink-2)", fontWeight: 700, fontSize: 12.5, cursor: "pointer", fontFamily: "var(--font-zh)" }}>
-                    <Icon name="eye" size={14} /> 预览
-                  </button>
-                )}
-                <button onClick={() => onDownload(`已开始下载《${it.title}》`)} style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "6px 12px", borderRadius: 9, border: "none", background: "var(--brand-soft)", color: "var(--brand-deep)", fontWeight: 700, fontSize: 12.5, cursor: "pointer", fontFamily: "var(--font-zh)" }}>
-                  <Icon name="download" size={14} /> 下载
+                <button onClick={(e) => { e.stopPropagation(); open(); }} style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "6px 13px", borderRadius: 9, border: "1px solid var(--line)", background: "var(--surface)", color: "var(--ink-2)", fontWeight: 700, fontSize: 12.5, cursor: "pointer", fontFamily: "var(--font-zh)" }}>
+                  {isVideo ? (
+                    <React.Fragment><svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z" /></svg> 播放</React.Fragment>
+                  ) : (
+                    <React.Fragment><Icon name="eye" size={14} /> 查看</React.Fragment>
+                  )}
                 </button>
               </div>
             );

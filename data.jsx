@@ -5,8 +5,8 @@ const SCENARIOS = [
   {
     id: "find",
     name: "找资源",
-    tagline: "从权威库精准检索",
-    desc: "20 年三审三校精品资源，按学段·学科·版本智能匹配",
+    tagline: "从资源库精准检索",
+    desc: "基于学科网资源库，按学段·学科·版本智能匹配",
     icon: "search",
     hue: 150,
     sample: "人教版七年级上册《有理数》的随堂练习",
@@ -15,7 +15,7 @@ const SCENARIOS = [
     id: "paper",
     name: "出卷子",
     tagline: "组卷一键成型",
-    desc: "从权威题库智能组卷，难度梯度、知识点全覆盖",
+    desc: "基于学科网题库智能组卷，难度梯度、知识点全覆盖",
     icon: "paper",
     hue: 25,
     sample: "一份初二物理《光的折射》单元测试卷",
@@ -24,7 +24,7 @@ const SCENARIOS = [
     id: "courseware",
     name: "做课件",
     tagline: "PPT 与互动课件",
-    desc: "依据课标与权威教案生成课件，支持传统 PPT 与可交互的互动课件",
+    desc: "依据课标与学科网教案生成课件，支持传统 PPT 与可交互的互动课件",
     icon: "slides",
     hue: 255,
     sample: "《纪念白求恩》两课时的教学课件",
@@ -429,4 +429,43 @@ const USER_MEMORY = {
   ],
 };
 
-window.AIDATA = { SCENARIOS, GENERAL, RESOURCES, TEXTBOOK_TREE, TEXTBOOK_ANSWER, VIDEOS, ALBUMS, USER_MEMORY };
+// 跨教材对比 — same knowledge point across editions (问教材 multi-book compare)
+const TEXTBOOK_COMPARE = {
+  question: "「光合作用」这个知识点在哪些教材里出现过？各版本怎么讲的？",
+  topic: "光合作用",
+  summary:
+    "「光合作用」在初中与高中多版本教材中均有编排，但深度与侧重差异明显：初中重在现象与意义，高中深入到光反应 / 暗反应的物质与能量变化。共在 4 个版本中检索到对应章节。",
+  editions: [
+    {
+      edition: "人教版", stage: "高中", book: "生物 · 必修1", loc: "第5章 第4节 · P101–105", depth: "深入（机理）",
+      angle: "以「能量之源」为线索，系统讲解光反应与暗反应的场所、条件、物质与能量变化，含经典实验（恩格尔曼、鲁宾与卡门同位素标记）。",
+      quote: "光反应阶段必须有光才能进行……暗反应阶段有光、无光都能进行，CO₂ 被 C₅ 固定形成 C₃。",
+      tags: ["光反应/暗反应", "同位素标记实验", "ATP 与 [H]"],
+    },
+    {
+      edition: "统编版（北师大）", stage: "高中", book: "生物 · 必修1", loc: "第3章 第5节", depth: "深入（机理）",
+      angle: "先呈现探究历程（普利斯特利、英格豪斯实验），再归纳反应式，强调科学史与探究方法。",
+      quote: "绿色植物通过叶绿体，利用光能，把二氧化碳和水转化成储存着能量的有机物，并释放出氧气。",
+      tags: ["科学史导入", "探究方法", "反应式归纳"],
+    },
+    {
+      edition: "人教版", stage: "初中", book: "生物 · 七年级上册", loc: "第3单元 第4章 · P119", depth: "基础（现象与意义）",
+      angle: "从绿叶在光下制造有机物的实验切入，重点是光合作用的概念、原料产物与对生物圈的意义，不涉及光暗反应。",
+      quote: "光合作用是指绿色植物通过叶绿体，利用光能，制造有机物并释放氧气的过程。",
+      tags: ["淀粉检验实验", "原料与产物", "对生物圈的意义"],
+    },
+    {
+      edition: "苏教版", stage: "初中", book: "生物 · 七年级上册", loc: "第3章 第6节", depth: "基础（现象与意义）",
+      angle: "结合「绿色植物是有机物的生产者」展开，突出光合作用与呼吸作用的对比，贴近生活应用。",
+      quote: "光合作用制造的有机物，不仅满足了自身的需要，还为其他生物提供了食物和能量来源。",
+      tags: ["与呼吸作用对比", "生活应用", "有机物的生产"],
+    },
+  ],
+  diff: [
+    { aspect: "深度", junior: "现象、概念、意义", senior: "光反应 / 暗反应的物质与能量变化" },
+    { aspect: "实验", junior: "绿叶在光下制造淀粉（碘液检验）", senior: "同位素标记、叶绿体色素提取分离" },
+    { aspect: "落点", junior: "对生物圈 / 食物链的意义", senior: "反应机理与能量转化、ATP" },
+  ],
+};
+
+window.AIDATA = { SCENARIOS, GENERAL, RESOURCES, TEXTBOOK_TREE, TEXTBOOK_ANSWER, TEXTBOOK_COMPARE, VIDEOS, ALBUMS, USER_MEMORY };

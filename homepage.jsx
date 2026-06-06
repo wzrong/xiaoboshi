@@ -257,6 +257,26 @@ function LoginHook({ onLogin }) {
 function MemoryPanel({ onResume, onManageMemory, onOpenWorks }) {
   const M = window.AIDATA.USER_MEMORY;
   const S = window.AIDATA.SCENARIOS;
+  const [dismissed, setDismissed] = useState(() => localStorage.getItem("aida_mem_floor") === "0");
+  useEffect(() => { try { localStorage.setItem("aida_mem_floor", dismissed ? "0" : "1"); } catch (e) {} }, [dismissed]);
+
+  // collapsed → a slim, unobtrusive strip that explains where memory now lives
+  if (dismissed) {
+    return (
+      <div className="mem-card" style={{ marginTop: 22, maxWidth: 920, marginLeft: "auto", marginRight: "auto", display: "flex", alignItems: "center", gap: 11, padding: "11px 16px", borderRadius: 14, border: "1px dashed var(--line)", background: "var(--surface)", textAlign: "left" }}>
+        <span style={{ width: 26, height: 26, borderRadius: 8, background: "var(--brand-soft)", border: "1px solid var(--brand-soft-border)", display: "grid", placeItems: "center", color: "var(--brand-deep)", flexShrink: 0 }}>
+          <Icon name="spark" size={14} />
+        </span>
+        <div style={{ flex: 1, minWidth: 0, fontSize: 12.5, color: "var(--ink-3)", lineHeight: 1.5 }}>
+          记忆面板已收起 —— 小博士仍在为你记忆，随时可在左侧 <b style={{ color: "var(--ink-2)" }}>「我的记忆」</b> 查看。
+        </div>
+        <button onClick={() => setDismissed(false)} style={{ flexShrink: 0, display: "inline-flex", alignItems: "center", gap: 5, padding: "6px 11px", borderRadius: 9, border: "1px solid var(--line)", background: "var(--surface)", color: "var(--brand-deep)", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "var(--font-zh)" }}>
+          展开
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div
       className="mem-card"
@@ -290,6 +310,13 @@ function MemoryPanel({ onResume, onManageMemory, onOpenWorks }) {
           style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "6px 11px", borderRadius: 9, border: "1px solid var(--brand-soft-border)", background: "var(--surface)", color: "var(--brand-deep)", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "var(--font-zh)", flexShrink: 0 }}
         >
           <Icon name="filter" size={13} /> 管理记忆
+        </button>
+        <button
+          onClick={() => setDismissed(true)}
+          title="收起记忆面板"
+          style={{ width: 28, height: 28, borderRadius: 8, border: "1px solid var(--brand-soft-border)", background: "var(--surface)", color: "var(--ink-3)", display: "grid", placeItems: "center", cursor: "pointer", flexShrink: 0 }}
+        >
+          <Icon name="close" size={14} sw={2.4} />
         </button>
       </div>
       {/* body */}

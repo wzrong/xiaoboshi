@@ -101,7 +101,7 @@ function GenericWorkspace({ scenario, query, onHome, onSwitch, fromIntent, resum
   const { headerRecognizing, send } = useSmartSend({ scenarioId: scenario.id, onSwitch, setMessages, localSend: handleSend });
 
   return (
-    <WorkspaceShell scenario={scenario} onHome={onHome} headerRecognizing={headerRecognizing}>
+    <WorkspaceShell scenario={scenario} onHome={onHome} onSwitch={onSwitch} headerRecognizing={headerRecognizing}>
       <ChatPanel messages={messages} onSend={send} suggestions={sugs} />
       <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", background: "var(--canvas)" }}>
         <div style={{ padding: "13px 22px", borderBottom: "1px solid var(--line)", background: "var(--surface)", display: "flex", alignItems: "center", gap: 10 }}>

@@ -107,6 +107,17 @@ function Icon({ name, size = 24, sw = 1.8 }) {
         <path d="M4 6h16M7 12h10M10 18h4" />
       </g>
     ),
+    home: (
+      <g>
+        <path d="M4 11.5L12 4l8 7.5" />
+        <path d="M6 10v9.5h12V10" />
+      </g>
+    ),
+    chevron: (
+      <g>
+        <path d="M6 9l6 6 6-6" />
+      </g>
+    ),
     plus: (
       <g>
         <line x1="12" y1="5" x2="12" y2="19" />

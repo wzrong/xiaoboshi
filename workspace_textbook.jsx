@@ -11,7 +11,9 @@ const MIN_CENTER_W = 380;
 function TextbookWorkspace({ scenario, query, onHome, onSwitch, fromIntent, loggedIn }) {
   const TREE = window.AIDATA.TEXTBOOK_TREE;
   const A = window.AIDATA.TEXTBOOK_ANSWER;
+  const CMP = window.AIDATA.TEXTBOOK_COMPARE;
   const M = window.AIDATA.USER_MEMORY;
+  const isCompareQ = (q) => /哪些教材|哪些版本|各版本|各个版本|不同版本|不同教材|跨教材|对比.*教材|教材.*对比|几个版本|都出现|哪几本/.test(q || "");
   const startAnswered = !fromIntent && !!(query && /[?？]|区别|为什么|什么|怎么|原理|讲|解释/.test(query));
   const [activeCite, setActiveCite] = tS(null);
   const [answered, setAnswered] = tS(startAnswered);
@@ -82,30 +84,31 @@ function TextbookWorkspace({ scenario, query, onHome, onSwitch, fromIntent, logg
   }, [thread, thinking]);
 
   const ask = (q) => {
+    const compare = isCompareQ(q);
     setThread((t) => [...t, { role: "user", text: q }]);
     setThinking(true);
     setAnswered(false);
     setTimeout(() => {
       setThinking(false);
-      setThread((t) => [...t, { role: "ai", answer: true }]);
-      setAnswered(true);
-    }, 1400);
+      setThread((t) => [...t, compare ? { role: "ai", compare: true } : { role: "ai", answer: true }]);
+      setAnswered(compare ? "compare" : true);
+    }, compare ? 1600 : 1400);
   };
 
-  const sampleQs = ["光反应和暗反应有什么区别？", "为什么暗反应没有光也能进行？", "本节的重点概念有哪些？"];
+  const sampleQs = ["光反应和暗反应有什么区别？", "「光合作用」在哪些教材里出现过？", "本节的重点概念有哪些？"];
   const { headerRecognizing, send } = useSmartSend({ scenarioId: scenario.id, onSwitch, setMessages: setThread, localSend: ask });
 
   // ---- cold start: no textbook selected (logged out / no memory) → pick one first ----
   if (!book) {
     return (
-      <WorkspaceShell scenario={scenario} onHome={onHome} headerRecognizing={headerRecognizing}>
+      <WorkspaceShell scenario={scenario} onHome={onHome} onSwitch={onSwitch} headerRecognizing={headerRecognizing}>
         <TextbookPicker onOpen={openBook} demoBook={demoBook} />
       </WorkspaceShell>
     );
   }
 
   return (
-    <WorkspaceShell scenario={scenario} onHome={onHome} headerRecognizing={headerRecognizing}>
+    <WorkspaceShell scenario={scenario} onHome={onHome} onSwitch={onSwitch} headerRecognizing={headerRecognizing}>
       {/* left: textbook navigator (collapsible) */}
       {navOpen ? (
       <div style={{ width: 252, flexShrink: 0, background: "var(--surface)", borderRight: "1px solid var(--line)", display: "flex", flexDirection: "column", overflow: "hidden" }}>
@@ -179,6 +182,8 @@ function TextbookWorkspace({ scenario, query, onHome, onSwitch, fromIntent, logg
             {thread.map((m, i) =>
               m.answer ? (
                 <AnswerBlock key={i} A={A} activeCite={activeCite} setActiveCite={setActiveCite} />
+              ) : m.compare ? (
+                <CompareBlock key={i} CMP={CMP} activeCite={activeCite} setActiveCite={setActiveCite} onAsk={ask} />
               ) : (
                 <Bubble key={i} m={m} />
               )
@@ -227,7 +232,7 @@ function TextbookWorkspace({ scenario, query, onHome, onSwitch, fromIntent, logg
         <div style={{ padding: "14px 18px", borderBottom: "1px solid var(--line)", display: "flex", alignItems: "center", gap: 8 }}>
           <Icon name="shield" size={16} sw={2} />
           <span style={{ fontSize: 14, fontWeight: 800, color: "var(--ink)" }}>教材依据</span>
-          <span style={{ fontSize: 11, color: "var(--ink-3)", marginLeft: "auto" }}>{answered ? `${A.citations.length} 处引用` : "等待提问"}</span>
+          <span style={{ fontSize: 11, color: "var(--ink-3)", marginLeft: "auto" }}>{answered === "compare" ? `${CMP.editions.length} 个版本` : answered ? `${A.citations.length} 处引用` : "等待提问"}</span>
         </div>
         <div style={{ flex: 1, overflowY: "auto", padding: 16 }}>
           {!answered ? (
@@ -237,6 +242,34 @@ function TextbookWorkspace({ scenario, query, onHome, onSwitch, fromIntent, logg
               </div>
               <div style={{ fontSize: 13, lineHeight: 1.6 }}>
                 提问后，这里会显示答案<br />引用的<b style={{ color: "var(--ink-2)" }}>教材原文出处</b>
+              </div>
+            </div>
+          ) : answered === "compare" ? (
+            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+              {CMP.editions.map((e, i) => (
+                <div
+                  key={i}
+                  onMouseEnter={() => setActiveCite("e" + i)}
+                  onMouseLeave={() => setActiveCite(null)}
+                  className="cite-pop"
+                  style={{ animationDelay: `${i * 0.1}s`, border: activeCite === "e" + i ? "1px solid var(--brand)" : "1px solid var(--line)", background: activeCite === "e" + i ? "var(--brand-soft)" : "var(--surface-2)", borderRadius: 14, padding: 13, transition: "all .18s" }}
+                >
+                  <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 6 }}>
+                    <span style={{ width: 20, height: 20, borderRadius: 6, background: e.stage === "高中" ? "var(--brand)" : "oklch(0.55 0.13 175)", color: "#fff", fontSize: 10, fontWeight: 800, display: "grid", placeItems: "center" }}>{e.stage[0]}</span>
+                    <span style={{ fontSize: 12.5, fontWeight: 700, color: "var(--ink)" }}>{e.edition}</span>
+                    <span style={{ fontSize: 10.5, color: "var(--ink-3)", fontWeight: 600 }}>{e.book}</span>
+                  </div>
+                  <div style={{ fontSize: 11.5, color: "var(--brand-deep)", fontWeight: 700, marginBottom: 7 }}>{e.loc}</div>
+                  <div className="ph-stripe" style={{ borderRadius: 8, padding: "10px 12px", fontSize: 12, lineHeight: 1.7, color: "var(--ink-2)", borderLeft: "3px solid var(--brand)" }}>
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: 4, color: "var(--ink-3)", fontSize: 10.5, fontWeight: 700, marginBottom: 4 }}>
+                      <Icon name="quote" size={12} /> 教材原文
+                    </span>
+                    <div>{e.quote}</div>
+                  </div>
+                </div>
+              ))}
+              <div style={{ fontSize: 11.5, color: "var(--ink-3)", lineHeight: 1.6, padding: "4px 4px 0", textAlign: "center" }}>
+                各版本原文均来自学科网教材库 · 可点开对照
               </div>
             </div>
           ) : (
@@ -437,6 +470,83 @@ function TextbookPicker({ onOpen, demoBook }) {
             进入教材问答 <Icon name="arrow" size={16} />
           </button>
           {!ready && <div style={{ textAlign: "center", fontSize: 11, color: "var(--ink-3)", marginTop: 8 }}>选齐学段、学科、版本与册次后进入</div>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function CompareBlock({ CMP, activeCite, setActiveCite, onAsk }) {
+  const depthColor = (d) => (d.includes("深入") ? { c: "var(--brand-deep)", bg: "var(--brand-soft)", bd: "var(--brand-soft-border)" } : { c: "oklch(0.45 0.11 175)", bg: "oklch(0.95 0.04 175)", bd: "oklch(0.86 0.06 175)" });
+  return (
+    <div className="cite-pop" style={{ display: "flex", gap: 11 }}>
+      <BotAvatar size={28} />
+      <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 13 }}>
+        {/* summary */}
+        <div style={{ background: "var(--surface)", border: "1px solid var(--line)", borderRadius: "4px 14px 14px 14px", padding: "14px 16px" }}>
+          <div style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 11.5, fontWeight: 800, color: "var(--brand-deep)", background: "var(--brand-soft)", border: "1px solid var(--brand-soft-border)", padding: "3px 9px", borderRadius: 999, marginBottom: 10 }}>
+            <Icon name="layers" size={13} /> 跨教材对比 · {CMP.topic}
+          </div>
+          <p style={{ margin: 0, fontSize: 13.5, color: "var(--ink-2)", lineHeight: 1.75 }}>{CMP.summary}</p>
+        </div>
+
+        {/* edition cards */}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+          {CMP.editions.map((e, i) => {
+            const dc = depthColor(e.depth);
+            const on = activeCite === "e" + i;
+            return (
+              <div
+                key={i}
+                onMouseEnter={() => setActiveCite("e" + i)}
+                onMouseLeave={() => setActiveCite(null)}
+                style={{ background: "var(--surface)", border: on ? "1px solid var(--brand)" : "1px solid var(--line)", borderRadius: 14, padding: 14, transition: "border-color .18s, box-shadow .18s", boxShadow: on ? "0 10px 24px -16px rgba(0,0,0,.3)" : "none" }}
+              >
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 7 }}>
+                  <span style={{ width: 26, height: 26, borderRadius: 8, background: e.stage === "高中" ? "var(--brand-soft)" : "oklch(0.95 0.04 175)", color: e.stage === "高中" ? "var(--brand-deep)" : "oklch(0.45 0.11 175)", border: "1px solid " + (e.stage === "高中" ? "var(--brand-soft-border)" : "oklch(0.86 0.06 175)"), display: "grid", placeItems: "center", fontSize: 11, fontWeight: 800, flexShrink: 0 }}>{e.stage[0]}</span>
+                  <div style={{ minWidth: 0, flex: 1 }}>
+                    <div style={{ fontSize: 13.5, fontWeight: 800, color: "var(--ink)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{e.edition}</div>
+                    <div style={{ fontSize: 10.5, color: "var(--ink-3)", fontWeight: 600 }}>{e.stage} · {e.book}</div>
+                  </div>
+                </div>
+                <span style={{ display: "inline-block", fontSize: 10.5, fontWeight: 700, color: dc.c, background: dc.bg, border: `1px solid ${dc.bd}`, padding: "2px 8px", borderRadius: 999, marginBottom: 9 }}>{e.depth}</span>
+                <p style={{ margin: "0 0 9px", fontSize: 12, color: "var(--ink-2)", lineHeight: 1.65 }}>{e.angle}</p>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 5, marginBottom: 9 }}>
+                  {e.tags.map((t, k) => (
+                    <span key={k} style={{ fontSize: 10.5, fontWeight: 600, color: "var(--ink-3)", background: "var(--surface-2)", border: "1px solid var(--line)", padding: "2px 7px", borderRadius: 6 }}>{t}</span>
+                  ))}
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 11, color: "var(--brand-deep)", fontWeight: 700, paddingTop: 8, borderTop: "1px dashed var(--line)" }}>
+                  <Icon name="quote" size={12} /> {e.loc}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* junior vs senior diff table */}
+        <div style={{ background: "var(--surface)", border: "1px solid var(--line)", borderRadius: 14, overflow: "hidden" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "84px 1fr 1fr", background: "var(--surface-2)", borderBottom: "1px solid var(--line)" }}>
+            <div style={{ padding: "9px 12px", fontSize: 11.5, fontWeight: 700, color: "var(--ink-3)" }}>对比维度</div>
+            <div style={{ padding: "9px 12px", fontSize: 11.5, fontWeight: 800, color: "oklch(0.45 0.11 175)", borderLeft: "1px solid var(--line)" }}>初中教材</div>
+            <div style={{ padding: "9px 12px", fontSize: 11.5, fontWeight: 800, color: "var(--brand-deep)", borderLeft: "1px solid var(--line)" }}>高中教材</div>
+          </div>
+          {CMP.diff.map((d, i) => (
+            <div key={i} style={{ display: "grid", gridTemplateColumns: "84px 1fr 1fr", borderBottom: i < CMP.diff.length - 1 ? "1px solid var(--line)" : "none" }}>
+              <div style={{ padding: "10px 12px", fontSize: 12, fontWeight: 700, color: "var(--ink-2)" }}>{d.aspect}</div>
+              <div style={{ padding: "10px 12px", fontSize: 12, color: "var(--ink-2)", lineHeight: 1.55, borderLeft: "1px solid var(--line)" }}>{d.junior}</div>
+              <div style={{ padding: "10px 12px", fontSize: 12, color: "var(--ink-2)", lineHeight: 1.55, borderLeft: "1px solid var(--line)" }}>{d.senior}</div>
+            </div>
+          ))}
+        </div>
+
+        {/* follow-ups */}
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+          {["重点对比初中两个版本", "高中人教版怎么讲光反应？", "据此做一份跨学段衔接教案"].map((q, i) => (
+            <button key={i} onClick={() => onAsk(q)} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "7px 12px", borderRadius: 999, border: "1px dashed var(--brand-soft-border)", background: "var(--brand-soft)", color: "var(--brand-deep)", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "var(--font-zh)" }}>
+              <Icon name="chat" size={12} /> {q}
+            </button>
+          ))}
         </div>
       </div>
     </div>
