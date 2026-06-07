@@ -4,13 +4,18 @@ const { useState: useStateIF, useEffect: useEffectIF } = React;
 // crude keyword-based intent detection over the 7 scenarios
 function detectScenario(text) {
   const t = text || "";
+  // route teaching-consult / planning / data-analysis / translation to the
+  // general assistant FIRST — these shouldn't be pulled into a making-tool.
+  if (/(公开课|有什么建议|有何建议|教学建议|怎么(上|讲|教|引入)|如何(上|讲|教|提升|引入|设计)|教学计划|复习计划|备考方案|教学规划|教学反思|心得体会)/.test(t)) return "general";
+  if (/(平均分|及格率|优秀率|质量分析|成绩分析|学情分析)/.test(t) && /\d/.test(t)) return "general";
+  if (/(翻译|translate)/.test(t)) return "general";
   const rules = [
-    { id: "paper", kw: ["卷", "试卷", "组卷", "测试卷", "考试", "练习卷", "测验"] },
-    { id: "lesson", kw: ["教案", "教学设计", "详案", "学案设计"] },
-    { id: "courseware", kw: ["课件", "ppt", "幻灯", "演示", "互动", "游戏", "拖拽", "课堂活动", "抢答", "互动课件"] },
-    { id: "mindmap", kw: ["导图", "思维导图", "知识结构", "脑图", "梳理"] },
-    { id: "textbook", kw: ["为什么", "区别", "什么是", "怎么", "解释", "原理", "讲讲", "?", "？", "问"] },
-    { id: "find", kw: ["找", "资源", "练习", "学案", "微课", "素材", "下载", "题"] },
+    { id: "paper", kw: ["卷", "试卷", "组卷", "测试卷", "考试", "练习卷", "测验", "出题", "出一道", "出一套", "命题", "变式题", "每日一练"] },
+    { id: "lesson", kw: ["教案", "教学设计", "详案", "学案", "导学案", "学习任务单", "说课"] },
+    { id: "courseware", kw: ["课件", "ppt", "幻灯", "演示", "互动", "拖拽", "课堂活动", "抢答", "互动课件"] },
+    { id: "mindmap", kw: ["导图", "思维导图", "知识结构", "脑图"] },
+    { id: "textbook", kw: ["区别", "为什么", "什么是", "原理", "讲讲", "怎么理解", "有什么不同", "怎么证明", "是什么意思"] },
+    { id: "find", kw: ["找", "搜索", "查找", "资源", "练习", "微课", "素材", "下载", "真题", "课件", "讲义", "知识清单"] },
   ];
   for (const r of rules) {
     if (r.kw.some((k) => t.toLowerCase().includes(k.toLowerCase()))) return r.id;

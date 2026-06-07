@@ -15,7 +15,7 @@ function MenuRow({ icon, label, accent, onClick }) {
 }
 
 // The shared smart input box
-function SmartInput({ value, setValue, onSubmit, big, placeholder }) {
+function SmartInput({ value, setValue, onSubmit, big, placeholder, ghost }) {
   const ref = useRef(null);
   const [files, setFiles] = useState([]);
   const fs = big ? 17 : 15;
@@ -54,6 +54,10 @@ function SmartInput({ value, setValue, onSubmit, big, placeholder }) {
           if (e.key === "Enter" && !e.shiftKey) {
             e.preventDefault();
             onSubmit();
+          } else if (e.key === "Tab" && !e.shiftKey && ghost && !value.trim()) {
+            // accept the rotating example as input
+            e.preventDefault();
+            setValue(ghost);
           }
         }}
         placeholder={placeholder}
@@ -101,6 +105,11 @@ function SmartInput({ value, setValue, onSubmit, big, placeholder }) {
             <span style={{ display: "grid", placeItems: "center", width: 14, height: 14 }}><Icon name="spark" size={14} /></span>
             AI 自动识别场景
           </span>
+          {ghost && !value.trim() && (
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 11, color: "var(--ink-3)", fontWeight: 600, whiteSpace: "nowrap" }}>
+              <kbd style={{ fontFamily: "var(--font-zh)", fontSize: 10.5, fontWeight: 700, padding: "1px 6px", borderRadius: 5, border: "1px solid var(--line)", background: "var(--surface-2)", color: "var(--ink-2)" }}>Tab</kbd> 填入示例
+            </span>
+          )}
         </div>
         <button
           onClick={onSubmit}
@@ -133,7 +142,12 @@ function SmartInput({ value, setValue, onSubmit, big, placeholder }) {
 // ---------- Direction A: 对话优先 ----------
 function HomeConversation({ value, setValue, onSubmit, onPick, onResume, loggedIn, onLogin, onManageMemory, onOpenWorks }) {
   const S = window.AIDATA.SCENARIOS;
+  const EX = window.AIDATA.HOME_EXAMPLES || [];
   const mobile = useIsMobile();
+  // rotating ghost example drawn from real teacher prompts (Tab to fill)
+  const phs = ["人教版七年级上《有理数》同步练习，含解析", "按湖北中考结构出一份物理中考模拟卷", "外研版英语必修二 Unit3 早读课件，精美一些", "九年级 二次函数 思维导图", "光反应和暗反应有什么区别？"];
+  const [phi, setPhi] = useState(0);
+  useEffect(() => { const id = setInterval(() => setPhi((i) => (i + 1) % phs.length), 3400); return () => clearInterval(id); }, []);
   return (
     <div className="home-fade" style={{ padding: mobile ? "2vh 16px 36px" : "4vh 24px 40px", textAlign: "center" }}>
       <div style={{ maxWidth: 760, margin: "0 auto" }}>
@@ -143,15 +157,30 @@ function HomeConversation({ value, setValue, onSubmit, onPick, onResume, loggedI
         <h1 style={{ fontSize: mobile ? 25 : 34, fontWeight: 800, color: "var(--ink)", margin: "0 0 10px", letterSpacing: "-0.5px" }}>
           老师好，今天想准备点什么？
         </h1>
-        <p style={{ fontSize: mobile ? 14.5 : 16, color: "var(--ink-2)", margin: "0 0 28px", lineHeight: 1.6 }}>
+        <p style={{ fontSize: mobile ? 14.5 : 16, color: "var(--ink-2)", margin: 0, lineHeight: 1.6 }}>
           说出你的需求，我会从<b style={{ color: "var(--brand-deep)" }}>学科网资源库</b>出发，陪你一起完成。
         </p>
+        {/* real-world example prompts — vertically centered in the gap between the greeting and the input */}
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 7, justifyContent: "center", marginTop: mobile ? 40 : 100, marginBottom: mobile ? 40 : 100 }}>
+          <span style={{ fontSize: 12, color: "var(--ink-3)", fontWeight: 700, alignSelf: "center", display: "inline-flex", alignItems: "center", gap: 5 }}><Icon name="spark" size={13} /> 老师们在问</span>
+          {EX.slice(0, mobile ? 3 : 5).map((ex, i) => (
+            <button
+              key={i}
+              onClick={() => onSubmit(ex.t)}
+              className="chip-pop"
+              style={{ animationDelay: `${i * 0.04}s`, maxWidth: "100%", padding: "6px 12px", borderRadius: 999, border: "1px dashed var(--brand-soft-border)", background: "var(--brand-soft)", color: "var(--brand-deep)", fontSize: 12.5, fontWeight: 600, cursor: "pointer", fontFamily: "var(--font-zh)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}
+            >
+              {ex.t}
+            </button>
+          ))}
+        </div>
         <SmartInput
           value={value}
           setValue={setValue}
           onSubmit={onSubmit}
           big
-          placeholder="描述你的教学需求，AI 自动判断该进入哪个场景…"
+          ghost={phs[phi]}
+          placeholder={phs[phi]}
         />
       </div>
       <div style={{ display: "flex", flexWrap: "wrap", gap: 7, justifyContent: "center", marginTop: 22, maxWidth: "min(940px, 96vw)", marginLeft: "auto", marginRight: "auto" }}>
@@ -917,7 +946,7 @@ function LeftRail({ page, loggedIn, onNavigate, onNewChat, onResume, onLogout, o
             title="登录 / 注册"
             style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 7, padding: open ? "10px 14px" : "10px 0", borderRadius: 11, border: "1px solid var(--brand)", background: "var(--brand-soft)", color: "var(--brand-deep)", fontSize: 13.5, fontWeight: 700, cursor: "pointer", fontFamily: "var(--font-zh)", whiteSpace: "nowrap" }}
           >
-            <Icon name="arrow" size={16} /> {open && "登录 / 注册"}
+            <Icon name="login" size={17} /> {open && "登录 / 注册"}
           </button>
         )}
       </div>

@@ -102,7 +102,7 @@ function WorkspaceShell({ scenario, onHome, onSwitch, children, right, titleMeta
           background: "var(--surface)",
           borderBottom: "1px solid var(--line)",
           flexShrink: 0,
-          zIndex: 4,
+          zIndex: 30,
         }}
       >
         <button
@@ -516,7 +516,7 @@ function FindWorkspace({ scenario, query, onHome, onSwitch, fromIntent, resume, 
       if (sj || gr) setFilters((f) => ({ ...f, subject: sj || f.subject, grade: gr || f.grade }));
       if (k !== "all") setTab(k);
       setStarted(true);
-      aiReply(<span>收到！已从<b style={{ color: "var(--brand-deep)" }}>学科网资源库</b>为你检索「{text}」，结果在右侧，可按文档 / 视频 / 专辑切换。</span>, initSug[k] || initSug.all);
+      aiReply(<span>收到！已从<b style={{ color: "var(--brand-deep)" }}>学科网资源库</b>为你检索「{text}」，已整理好，可按文档 / 视频 / 专辑切换查看。</span>, initSug[k] || initSug.all);
       return;
     }
     if (files && files.length) {
@@ -548,7 +548,7 @@ function FindWorkspace({ scenario, query, onHome, onSwitch, fromIntent, resume, 
       setFilters((f) => ({ ...f, type: "单元测试", diff: null })); setTab("doc"); pulse();
       aiReply(<span>已筛选<b>单元测试卷</b>。需要的话我可以直接把它送进「出卷子」二次编辑。</span>, ["难度再高一点", "送去出卷子", "只要含答案的"]);
     } else if (text.includes("生成") || text.includes("不合适") || text.includes("找不到") || text.includes("没有")) {
-      aiReply(<span>没问题 —— 现成资源不完全合适时，我可以<b style={{ color: "var(--brand-deep)" }}>基于同一资源库直接为你生成</b>。看右侧底部，选一个方向即可。</span>, ["直接出卷子", "生成配套教案"]);
+      aiReply(<span>没问题 —— 现成资源不完全合适时，我可以<b style={{ color: "var(--brand-deep)" }}>基于同一资源库直接为你生成</b>。在结果面板底部，选一个方向即可。</span>, ["直接出卷子", "生成配套教案"]);
     } else if (text.includes("出卷")) {
       onSwitch && onSwitch("paper", query || "基于检索结果的练习");
     } else {
@@ -743,17 +743,17 @@ function FindColdStart({ onPick, loggedIn }) {
   const mobile = useIsMobile();
   // memory-driven personalization (logged-in teacher with a profile)
   const memExamples = [
-    { kind: "贴合你的班级", hue: 25, icon: "search", items: ["人教版七年级《有理数》随堂练习，中等偏上", "人教版七年级数学《整式的加减》易错题专项"] },
-    { kind: "你常找的视频", hue: 200, icon: "interactive", items: ["七年级数学《数轴》讲解视频", "初中数学 公开课 / 研修视频"] },
-    { kind: "成套备课专辑", hue: 255, icon: "layers", items: ["人教版七年级数学下册期末复习专辑", "初一数学一元一次方程一轮复习合集"] },
+    { kind: "贴合你的班级", hue: 25, icon: "search", items: ["人教版七年级上《有理数》同步练习，中等偏上", "七年级数学《整式的加减》易错题专项", "《一元一次方程》单元测试卷 含答案"] },
+    { kind: "你常找的视频", hue: 200, icon: "interactive", items: ["七年级数学《数轴》讲解视频", "有理数运算 微课 + 配套学案", "初中数学 公开课 / 研修视频"] },
+    { kind: "成套备课专辑", hue: 255, icon: "layers", items: ["人教版七年级数学下册 期末复习专辑", "初一数学一元一次方程 一轮复习合集", "七年级上册 计算专题 提分合集"] },
   ];
   const genExamples = [
-    { kind: "文档", hue: 150, icon: "search", items: ["人教版七年级《有理数》随堂练习", "九年级化学《溶液》单元测试卷，含答案"] },
-    { kind: "视频", hue: 200, icon: "interactive", items: ["凸透镜成像规律的实验视频", "氧气的实验室制取 实验视频"] },
-    { kind: "专辑", hue: 255, icon: "layers", items: ["六年级语文下册期末复习专辑", "高三数学函数与导数一轮复习合集"] },
+    { kind: "文档 · 教案/课件/卷子", hue: 150, icon: "search", items: ["北师大版八下 平行四边形的判定 教学设计", "鲁教版高中地理 热力环流 复习课件", "2025年云南昆明 中考化学试卷", "统编版《腊八粥》教材分析、学情分析"] },
+    { kind: "视频 · 实验/微课", hue: 200, icon: "interactive", items: ["凸透镜成像规律 实验视频", "氧气的实验室制取 实验视频", "新课标 大单元教学 研修视频"] },
+    { kind: "专辑 · 成套合集", hue: 255, icon: "layers", items: ["六年级语文下册 期末复习专辑", "高三数学 函数与导数 一轮复习合集", "中考物理 一轮复习 资源包"] },
   ];
   const memHot = ["有理数 易错题", "整式的加减 课件", "七年级数学 期中卷", "数轴 讲解视频", "一元一次方程 专辑"];
-  const genHot = ["有理数 随堂练习", "光合作用 课件", "中考物理压轴题", "古诗文默写专项", "新课标 大单元教学"];
+  const genHot = ["平行四边形的判定 教学设计", "热力环流 复习课件", "2025 昆明中考化学卷", "凸透镜成像 实验视频", "高中数学 函数与导数 真题", "初中化学 知识清单"];
 
   const examples = loggedIn ? memExamples : genExamples;
   const hot = loggedIn ? memHot : genHot;
@@ -868,17 +868,8 @@ function ResourceCard({ r, onPreview, onDownload }) {
   );
 }
 
-function canSendToPaper(r) {
-  if (!r) return false;
-  if (r.qcount > 0) return true;
-  const s = (r.type || "") + (r.title || "");
-  if (/课件|教案|课时|教学设计|说课|课堂实录/.test(r.type || "")) return false;
-  return /练习|测试|卷|题|真题|专项|习题|训练|检测/.test(s);
-}
-
 function PreviewDrawer({ r, onClose, onDownload, onAsk, onAddBasket }) {
   const asks = ["总结这份资料的内容", "这份适合我的班级吗", "提取讲解重点", "据此出一份同类卷子"];
-  const canPaper = canSendToPaper(r);
   return (
     <div className="drawer-pop" style={{ position: "absolute", inset: 0, zIndex: 25, background: "var(--canvas)", display: "flex", flexDirection: "column" }}>
       {/* header */}
@@ -924,11 +915,9 @@ function PreviewDrawer({ r, onClose, onDownload, onAsk, onAddBasket }) {
             </div>
           </div>
         )}
-        <div style={{ padding: 14, display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", rowGap: 10 }}>
-          <Btn kind="primary" icon="download" onClick={onDownload}>下载文档</Btn>
+        <div style={{ padding: 14, display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", rowGap: 10, justifyContent: "flex-end" }}>
           <Btn kind="soft" icon="basket" onClick={() => onAddBasket && onAddBasket(r)}>加入资源篮</Btn>
-          <div style={{ flex: 1, minWidth: 8 }} />
-          {canPaper && <Btn kind="ghost" icon="paper">送去出卷子</Btn>}
+          <Btn kind="primary" icon="download" onClick={onDownload}>下载文档</Btn>
         </div>
       </div>
     </div>

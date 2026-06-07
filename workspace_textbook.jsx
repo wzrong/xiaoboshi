@@ -27,7 +27,11 @@ function TextbookWorkspace({ scenario, query, onHome, onSwitch, fromIntent, logg
   const viaMemory = !query && !!memBook;
 
   // ---- layout: collapsible catalog + resizable citation pane ----
-  const [navOpen, setNavOpen] = tS(!mobile);
+  const [navOpen, setNavOpen] = tS(false); // catalog drawer (left overlay)
+  const [switcherOpen, setSwitcherOpen] = tS(false); // 切换教材 drawer (right overlay)
+  const [pdfCite, setPdfCite] = tS(null); // citation whose 教材原文 PDF page is open
+  const isSingle = !!(book && !book.free && !book.multi);
+  const bookLabel = !book ? "" : book.free ? "不限教材" : book.multi ? `${book.list.length} 本教材` : `${book.edition} ${book.subject} · ${book.name}`;
   const [citeOpen, setCiteOpen] = tS(false);
   const [citeW, setCiteW] = tS(() => { const s = parseInt(localStorage.getItem("aida_cite_w") || "", 10); return Number.isFinite(s) && s >= MIN_CITE_W ? s : 332; });
   const [citeDragging, setCiteDragging] = tS(false);
@@ -52,8 +56,12 @@ function TextbookWorkspace({ scenario, query, onHome, onSwitch, fromIntent, logg
   const greetFor = (bk, kind) => ({
     role: "ai",
     node:
-      kind === "memory" ? (
-        <div>欢迎回来！已按你常看的 <b style={{ color: "var(--brand-deep)" }}>{bk.edition} {bk.subject} · {bk.name}</b> 打开{bk.section ? <span>（上次看到 <b>{bk.section}</b>）</span> : null}。问我本教材的任何问题，回答都会<b style={{ color: "var(--auth-ink)" }}>逐条标注原文出处</b>。也可在左上角<b>切换教材</b>。</div>
+      bk && bk.free ? (
+        <div>好的，<b style={{ color: "var(--brand-deep)" }}>不限定教材</b>，你可以直接问任何学科问题。我会优先依据教材作答并<b style={{ color: "var(--auth-ink)" }}>标注原文出处</b>；想锁定某一本教材，点右上角<b>选择教材</b>即可。</div>
+      ) : bk && bk.multi ? (
+        <div>已选好 <b style={{ color: "var(--brand-deep)" }}>{bk.list.length} 本教材</b>（{bk.list.map((b) => b.subject + b.name).join("、")}），适合<b>跨年级综合复习</b>。我会在多本教材之间对照作答，并<b style={{ color: "var(--auth-ink)" }}>分别标注各自出处</b>。</div>
+      ) : kind === "memory" ? (
+        <div>欢迎回来！已按你常看的 <b style={{ color: "var(--brand-deep)" }}>{bk.edition} {bk.subject} · {bk.name}</b> 打开{bk.section ? <span>（上次看到 <b>{bk.section}</b>）</span> : null}。问我本教材的任何问题，回答都会<b style={{ color: "var(--auth-ink)" }}>逐条标注原文出处</b>。也可在右上角<b>切换教材</b>。</div>
       ) : kind === "picked" ? (
         <div>已为你打开 <b style={{ color: "var(--brand-deep)" }}>{bk.edition} {bk.subject} · {bk.name}</b>。问我本教材的任何问题，我的回答会<b style={{ color: "var(--auth-ink)" }}>逐条标注教材原文出处</b>，绝不凭空作答。</div>
       ) : (
@@ -78,7 +86,13 @@ function TextbookWorkspace({ scenario, query, onHome, onSwitch, fromIntent, logg
 
   // open a textbook chosen from the picker
   const openBook = (bk) => { setBook(bk); setThread([greetFor(bk, "picked")]); setAnswered(false); };
-  const switchBook = () => { setBook(null); setThread([]); setAnswered(false); };
+  const openFree = () => { const bk = { free: true }; setBook(bk); setThread([greetFor(bk, "free")]); setAnswered(false); };
+  const openMulti = (list) => { const bk = { multi: true, list }; setBook(bk); setThread([greetFor(bk, "multi")]); setAnswered(false); };
+  // switching an already-open book slides the picker in from the right (smoother than swapping the page)
+  const switchBook = () => setSwitcherOpen(true);
+  const pickFromDrawer = (bk) => { openBook(bk); setSwitcherOpen(false); };
+  const freeFromDrawer = () => { openFree(); setSwitcherOpen(false); };
+  const multiFromDrawer = (list) => { openMulti(list); setSwitcherOpen(false); };
 
   const scrollRef = tR(null);
   tE(() => {
@@ -86,7 +100,7 @@ function TextbookWorkspace({ scenario, query, onHome, onSwitch, fromIntent, logg
   }, [thread, thinking]);
 
   const ask = (q) => {
-    const compare = isCompareQ(q);
+    const compare = (book && book.multi) || isCompareQ(q);
     setThread((t) => [...t, { role: "user", text: q }]);
     setThinking(true);
     setAnswered(false);
@@ -97,90 +111,55 @@ function TextbookWorkspace({ scenario, query, onHome, onSwitch, fromIntent, logg
     }, compare ? 1600 : 1400);
   };
 
-  const sampleQs = ["光反应和暗反应有什么区别？", "「光合作用」在哪些教材里出现过？", "本节的重点概念有哪些？"];
+  const sampleQs = ["光反应和暗反应有什么区别？", "「光合作用」在哪些教材里出现过？", "本节的重点概念有哪些？", "这部分知识中考/高考怎么考？"];
   const { headerRecognizing, send } = useSmartSend({ scenarioId: scenario.id, onSwitch, setMessages: setThread, localSend: ask });
 
   // ---- cold start: no textbook selected (logged out / no memory) → pick one first ----
   if (!book) {
     return (
       <WorkspaceShell scenario={scenario} onHome={onHome} onSwitch={onSwitch} headerRecognizing={headerRecognizing}>
-        <TextbookPicker onOpen={openBook} demoBook={demoBook} />
+        <TextbookPicker onOpen={openBook} onFree={openFree} onMulti={openMulti} demoBook={demoBook} />
       </WorkspaceShell>
     );
   }
 
-  return (
-    <WorkspaceShell scenario={scenario} onHome={onHome} onSwitch={onSwitch} headerRecognizing={headerRecognizing}>
-      {/* left: textbook navigator (collapsible / drawer on mobile) */}
-      {(navOpen || mobile) ? (
-      <React.Fragment>
-      {mobile && <div onClick={() => setNavOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 80, background: "rgba(20,16,10,.42)", backdropFilter: "blur(2px)", opacity: navOpen ? 1 : 0, pointerEvents: navOpen ? "auto" : "none", transition: "opacity .26s" }} />}
-      <div style={mobile ? { position: "fixed", top: 0, left: 0, bottom: 0, width: "min(300px,84vw)", zIndex: 81, background: "var(--surface)", borderRight: "1px solid var(--line)", display: "flex", flexDirection: "column", overflow: "hidden", transform: navOpen ? "translateX(0)" : "translateX(-102%)", transition: "transform .3s cubic-bezier(.32,.72,0,1)", boxShadow: navOpen ? "0 20px 60px -20px rgba(0,0,0,.5)" : "none" } : { width: 252, flexShrink: 0, background: "var(--surface)", borderRight: "1px solid var(--line)", display: "flex", flexDirection: "column", overflow: "hidden" }}>
-        <div style={{ padding: 16, borderBottom: "1px solid var(--line)" }}>
-          <div style={{ display: "flex", gap: 11 }}>
-            <div className="ph-stripe" style={{ width: 46, height: 62, borderRadius: 6, flexShrink: 0, display: "grid", placeItems: "center", color: "var(--ink-3)", fontSize: 9, fontWeight: 700, textAlign: "center" }}>
-              教材<br />封面
-            </div>
-            <div style={{ minWidth: 0, flex: 1 }}>
-              <div style={{ fontSize: 14, fontWeight: 800, color: "var(--ink)", lineHeight: 1.4 }}>{book.subject} {book.name}</div>
-              <div style={{ fontSize: 11.5, color: "var(--ink-3)", marginTop: 3 }}>{book.edition}</div>
-              <div style={{ marginTop: 7, display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-                <span style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "2px 7px", borderRadius: 6, background: "var(--auth-bg)", border: "1px solid var(--auth-border)", fontSize: 10.5, fontWeight: 700, color: "var(--auth-ink)" }}>
-                  <Icon name="check" size={11} sw={2.6} /> 官方教材
-                </span>
-                <button onClick={switchBook} style={{ display: "inline-flex", alignItems: "center", gap: 3, padding: "2px 7px", borderRadius: 6, border: "1px solid var(--line)", background: "var(--surface)", color: "var(--ink-3)", fontSize: 10.5, fontWeight: 700, cursor: "pointer", fontFamily: "var(--font-zh)" }}>
-                  <Icon name="refresh" size={10} /> 切换
-                </button>
-              </div>
-            </div>
-            <button onClick={() => setNavOpen(false)} title="收起教材目录" style={{ width: 26, height: 26, flexShrink: 0, borderRadius: 8, border: "1px solid var(--line)", background: "var(--surface)", color: "var(--ink-3)", display: "grid", placeItems: "center", cursor: "pointer" }}>
-              <Icon name="back" size={14} />
-            </button>
-          </div>
-        </div>
-        <div style={{ flex: 1, overflowY: "auto", padding: "10px 8px" }}>
-          {TREE.chapters.map((ch, ci) => (
-            <div key={ci} style={{ marginBottom: 6 }}>
-              <div style={{ fontSize: 12.5, fontWeight: 700, color: "var(--ink-2)", padding: "8px 10px" }}>{ch.name}</div>
-              {ch.sections.map((sec, si) => (
-                <div
-                  key={si}
-                  style={{
-                    fontSize: 12.5,
-                    padding: "8px 10px 8px 18px",
-                    borderRadius: 9,
-                    marginBottom: 2,
-                    cursor: "pointer",
-                    fontWeight: sec.active ? 700 : 500,
-                    color: sec.active ? "var(--brand-deep)" : "var(--ink-3)",
-                    background: sec.active ? "var(--brand-soft)" : "transparent",
-                    borderLeft: sec.active ? "2px solid var(--brand)" : "2px solid transparent",
-                  }}
-                >
-                  {sec.name}
-                </div>
-              ))}
-            </div>
-          ))}
-        </div>
-      </div>
-      </React.Fragment>
-      ) : (
-        <div style={{ width: 50, flexShrink: 0, background: "var(--surface)", borderRight: "1px solid var(--line)", display: "flex", flexDirection: "column", alignItems: "center", paddingTop: 14, gap: 12 }}>
-          <button onClick={() => setNavOpen(true)} title="展开教材目录" style={{ width: 32, height: 32, borderRadius: 9, border: "1px solid var(--line)", background: "var(--surface)", color: "var(--ink-2)", display: "grid", placeItems: "center", cursor: "pointer" }}>
-            <Icon name="book" size={16} />
-          </button>
-          <div style={{ writingMode: "vertical-rl", fontSize: 11.5, fontWeight: 700, color: "var(--ink-3)", letterSpacing: 1 }}>教材目录</div>
-        </div>
+  // header-right: 教材目录 (single book) + current textbook / switch — fills the top-right
+  const headerRight = (
+    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+      {isSingle && (
+        <button onClick={() => setNavOpen(true)} title="教材目录" style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "7px 11px", borderRadius: 11, border: "1px solid var(--line)", background: "var(--surface)", color: "var(--ink-2)", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "var(--font-zh)", flexShrink: 0 }}
+          onMouseEnter={(e) => { e.currentTarget.style.borderColor = "var(--brand-soft-border)"; e.currentTarget.style.background = "var(--brand-soft)"; }}
+          onMouseLeave={(e) => { e.currentTarget.style.borderColor = "var(--line)"; e.currentTarget.style.background = "var(--surface)"; }}>
+          <Icon name="book" size={15} /> 目录
+        </button>
       )}
+      <button onClick={switchBook} title="切换 / 选择教材" style={{ display: "inline-flex", alignItems: "center", gap: 7, maxWidth: 260, padding: "7px 12px", borderRadius: 11, border: "1px solid var(--line)", background: "var(--surface)", color: "var(--ink-2)", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "var(--font-zh)", flexShrink: 0 }}
+        onMouseEnter={(e) => { e.currentTarget.style.borderColor = "var(--brand-soft-border)"; e.currentTarget.style.background = "var(--brand-soft)"; }}
+        onMouseLeave={(e) => { e.currentTarget.style.borderColor = "var(--line)"; e.currentTarget.style.background = "var(--surface)"; }}>
+        <Icon name={book.multi ? "layers" : book.free ? "spark" : "book"} size={15} />
+        <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{bookLabel}</span>
+        <span style={{ color: "var(--ink-3)", fontWeight: 700, flexShrink: 0 }}>切换</span>
+        <Icon name="chevron" size={14} />
+      </button>
+    </div>
+  );
 
+  return (
+    <WorkspaceShell scenario={scenario} onHome={onHome} onSwitch={onSwitch} headerRecognizing={headerRecognizing} subtitleOverride={bookLabel} right={!mobile ? headerRight : null}>
+      {/* catalog & switcher are overlay drawers (rendered after the panes) — no persistent left bar, so the base layout matches other scenarios */}
       {/* center: Q&A */}
       <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", background: "var(--canvas)" }}>
         {mobile && (
           <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", borderBottom: "1px solid var(--line)", background: "var(--surface)", flexShrink: 0 }}>
-            <button onClick={() => setNavOpen(true)} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "7px 12px", borderRadius: 10, border: "1px solid var(--line)", background: "var(--surface)", color: "var(--ink-2)", fontSize: 12.5, fontWeight: 700, cursor: "pointer", fontFamily: "var(--font-zh)" }}>
-              <Icon name="book" size={15} /> 教材目录
-            </button>
+            {isSingle ? (
+              <button onClick={() => setNavOpen(true)} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "7px 12px", borderRadius: 10, border: "1px solid var(--line)", background: "var(--surface)", color: "var(--ink-2)", fontSize: 12.5, fontWeight: 700, cursor: "pointer", fontFamily: "var(--font-zh)", minWidth: 0 }}>
+                <Icon name="book" size={15} /> <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{book.subject}{book.name}</span>
+              </button>
+            ) : (
+              <button onClick={switchBook} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "7px 12px", borderRadius: 10, border: "1px solid var(--line)", background: "var(--surface)", color: "var(--ink-2)", fontSize: 12.5, fontWeight: 700, cursor: "pointer", fontFamily: "var(--font-zh)", minWidth: 0 }}>
+                <Icon name={book.multi ? "layers" : "spark"} size={15} /> <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{bookLabel} · 切换</span>
+              </button>
+            )}
             <div style={{ flex: 1 }} />
             <button onClick={() => setCiteOpen(true)} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "7px 12px", borderRadius: 10, border: "1px solid var(--brand-soft-border)", background: "var(--brand-soft)", color: "var(--brand-deep)", fontSize: 12.5, fontWeight: 700, cursor: "pointer", fontFamily: "var(--font-zh)" }}>
               <Icon name="shield" size={15} /> 教材依据{answered === "compare" ? ` · ${CMP.editions.length}` : answered ? ` · ${A.citations.length}` : ""}
@@ -192,7 +171,7 @@ function TextbookWorkspace({ scenario, query, onHome, onSwitch, fromIntent, logg
             {viaMemory && answered === false && thread.length <= 1 && (
               <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "11px 14px", borderRadius: 12, background: "var(--brand-soft)", border: "1px solid var(--brand-soft-border)" }}>
                 <Icon name="spark" size={15} />
-                <span style={{ fontSize: 12.5, color: "var(--brand-deep)", fontWeight: 600, lineHeight: 1.5 }}>已根据「记忆」自动打开你常看的教材——若要换一本，点左上角「切换」即可。</span>
+                <span style={{ fontSize: 12.5, color: "var(--brand-deep)", fontWeight: 600, lineHeight: 1.5 }}>已根据「记忆」自动打开你常看的教材——若要换一本，点右上角「切换」即可。</span>
               </div>
             )}
             {thread.map((m, i) =>
@@ -304,6 +283,7 @@ function TextbookWorkspace({ scenario, query, onHome, onSwitch, fromIntent, logg
                   key={c.id}
                   onMouseEnter={() => setActiveCite(c.id)}
                   onMouseLeave={() => setActiveCite(null)}
+                  onClick={() => setPdfCite(c)}
                   className="cite-pop"
                   style={{
                     animationDelay: `${i * 0.1}s`,
@@ -311,6 +291,7 @@ function TextbookWorkspace({ scenario, query, onHome, onSwitch, fromIntent, logg
                     background: activeCite === c.id ? "var(--brand-soft)" : "var(--surface-2)",
                     borderRadius: 14,
                     padding: 13,
+                    cursor: "pointer",
                     transition: "all .18s",
                   }}
                 >
@@ -326,6 +307,9 @@ function TextbookWorkspace({ scenario, query, onHome, onSwitch, fromIntent, logg
                     </span>
                     <div>{c.quote}</div>
                   </div>
+                  <div style={{ display: "inline-flex", alignItems: "center", gap: 4, marginTop: 9, fontSize: 11.5, fontWeight: 700, color: "var(--brand-deep)" }}>
+                    <Icon name="book" size={13} /> 查看教材原文（扫描页） <Icon name="arrow" size={13} />
+                  </div>
                 </div>
               ))}
               <div style={{ fontSize: 11.5, color: "var(--ink-3)", lineHeight: 1.6, padding: "4px 4px 0", textAlign: "center" }}>
@@ -335,6 +319,61 @@ function TextbookWorkspace({ scenario, query, onHome, onSwitch, fromIntent, logg
           )}
         </div>
       </div>
+
+      {/* ===== catalog drawer (left overlay) — replaces the persistent left bar ===== */}
+      {isSingle && (
+        <React.Fragment>
+          <div onClick={() => setNavOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 80, background: "rgba(20,16,10,.42)", backdropFilter: "blur(2px)", opacity: navOpen ? 1 : 0, pointerEvents: navOpen ? "auto" : "none", transition: "opacity .26s" }} />
+          <div style={{ position: "fixed", top: 0, left: 0, bottom: 0, width: mobile ? "min(300px,84vw)" : 320, zIndex: 81, background: "var(--surface)", borderRight: "1px solid var(--line)", display: "flex", flexDirection: "column", overflow: "hidden", transform: navOpen ? "translateX(0)" : "translateX(-102%)", transition: "transform .3s cubic-bezier(.32,.72,0,1)", boxShadow: navOpen ? "0 20px 60px -20px rgba(0,0,0,.5)" : "none" }}>
+            <div style={{ padding: 16, borderBottom: "1px solid var(--line)" }}>
+              <div style={{ display: "flex", gap: 11 }}>
+                <div className="ph-stripe" style={{ width: 46, height: 62, borderRadius: 6, flexShrink: 0, display: "grid", placeItems: "center", color: "var(--ink-3)", fontSize: 9, fontWeight: 700, textAlign: "center" }}>教材<br />封面</div>
+                <div style={{ minWidth: 0, flex: 1 }}>
+                  <div style={{ fontSize: 14, fontWeight: 800, color: "var(--ink)", lineHeight: 1.4 }}>{book.subject} {book.name}</div>
+                  <div style={{ fontSize: 11.5, color: "var(--ink-3)", marginTop: 3 }}>{book.edition}</div>
+                  <div style={{ marginTop: 7, display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "2px 7px", borderRadius: 6, background: "var(--auth-bg)", border: "1px solid var(--auth-border)", fontSize: 10.5, fontWeight: 700, color: "var(--auth-ink)" }}><Icon name="check" size={11} sw={2.6} /> 官方教材</span>
+                    <button onClick={() => { setNavOpen(false); switchBook(); }} style={{ display: "inline-flex", alignItems: "center", gap: 3, padding: "2px 7px", borderRadius: 6, border: "1px solid var(--line)", background: "var(--surface)", color: "var(--ink-3)", fontSize: 10.5, fontWeight: 700, cursor: "pointer", fontFamily: "var(--font-zh)" }}><Icon name="refresh" size={10} /> 切换</button>
+                  </div>
+                </div>
+                <button onClick={() => setNavOpen(false)} title="收起教材目录" style={{ width: 26, height: 26, flexShrink: 0, borderRadius: 8, border: "1px solid var(--line)", background: "var(--surface)", color: "var(--ink-3)", display: "grid", placeItems: "center", cursor: "pointer" }}><Icon name="close" size={14} sw={2.2} /></button>
+              </div>
+            </div>
+            <div style={{ flex: 1, overflowY: "auto", padding: "10px 8px" }}>
+              {TREE.chapters.map((ch, ci) => (
+                <div key={ci} style={{ marginBottom: 6 }}>
+                  <div style={{ fontSize: 12.5, fontWeight: 700, color: "var(--ink-2)", padding: "8px 10px" }}>{ch.name}</div>
+                  {ch.sections.map((sec, si) => (
+                    <div key={si} style={{ fontSize: 12.5, padding: "8px 10px 8px 18px", borderRadius: 9, marginBottom: 2, cursor: "pointer", fontWeight: sec.active ? 700 : 500, color: sec.active ? "var(--brand-deep)" : "var(--ink-3)", background: sec.active ? "var(--brand-soft)" : "transparent", borderLeft: sec.active ? "2px solid var(--brand)" : "2px solid transparent" }}>{sec.name}</div>
+                  ))}
+                </div>
+              ))}
+            </div>
+          </div>
+        </React.Fragment>
+      )}
+
+      {/* ===== switch-textbook drawer (right overlay) — smoother than swapping the whole page ===== */}
+      <div onClick={() => setSwitcherOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 84, background: "rgba(20,16,10,.42)", backdropFilter: "blur(2px)", opacity: switcherOpen ? 1 : 0, pointerEvents: switcherOpen ? "auto" : "none", transition: "opacity .26s" }} />
+      <div style={mobile
+        ? { position: "fixed", left: 0, right: 0, bottom: 0, height: "88dvh", zIndex: 85, background: "var(--canvas)", borderRadius: "18px 18px 0 0", display: "flex", flexDirection: "column", overflow: "hidden", transform: switcherOpen ? "translateY(0)" : "translateY(101%)", transition: "transform .3s cubic-bezier(.32,.72,0,1)", boxShadow: "0 -18px 50px -24px rgba(0,0,0,.5)" }
+        : { position: "fixed", top: 0, right: 0, bottom: 0, width: "min(560px, 96vw)", zIndex: 85, background: "var(--canvas)", display: "flex", flexDirection: "column", overflow: "hidden", transform: switcherOpen ? "translateX(0)" : "translateX(102%)", transition: "transform .3s cubic-bezier(.32,.72,0,1)", boxShadow: "0 -18px 60px -24px rgba(0,0,0,.5)" }}>
+        {mobile && <div style={{ width: 40, height: 4, borderRadius: 999, background: "var(--line)", margin: "8px auto 0", flexShrink: 0 }} />}
+        <div style={{ flexShrink: 0, display: "flex", alignItems: "center", gap: 10, padding: "13px 18px", borderBottom: "1px solid var(--line)", background: "var(--surface)" }}>
+          <span style={{ width: 34, height: 34, borderRadius: 10, background: "var(--brand-soft)", border: "1px solid var(--brand-soft-border)", display: "grid", placeItems: "center", color: "var(--brand-deep)", flexShrink: 0 }}><Icon name="book" size={17} /></span>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 15, fontWeight: 800, color: "var(--ink)" }}>切换 / 选择教材</div>
+            <div style={{ fontSize: 11.5, color: "var(--ink-3)", fontWeight: 600 }}>当前：{bookLabel}</div>
+          </div>
+          <button onClick={() => setSwitcherOpen(false)} aria-label="关闭" style={{ width: 32, height: 32, borderRadius: 9, border: "1px solid var(--line)", background: "var(--surface)", color: "var(--ink-2)", display: "grid", placeItems: "center", cursor: "pointer", flexShrink: 0 }}><Icon name="close" size={16} sw={2.4} /></button>
+        </div>
+        <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", position: "relative" }}>
+          {switcherOpen && <TextbookPicker onOpen={pickFromDrawer} onFree={freeFromDrawer} onMulti={multiFromDrawer} demoBook={demoBook} compact />}
+        </div>
+      </div>
+
+      {/* ===== 教材原文 PDF page viewer ===== */}
+      {pdfCite && <PdfPagePreview cite={pdfCite} onClose={() => setPdfCite(null)} mobile={mobile} />}
     </WorkspaceShell>
   );
 }
@@ -422,7 +461,7 @@ function AnswerBlock({ A, activeCite, setActiveCite }) {
         </div>
         <div style={{ marginTop: 14, display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
           <span style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 12, color: "var(--auth-ink)", fontWeight: 700 }}>
-            <Icon name="shield" size={14} /> 本回答依据教材原文 {A.citations.length} 处，右侧可查
+            <Icon name="shield" size={14} /> 本回答依据教材原文 {A.citations.length} 处，可查看出处
           </span>
           <div style={{ flex: 1 }} />
           <Btn size="sm" kind="soft" icon="mindmap">生成知识导图</Btn>
@@ -434,18 +473,28 @@ function AnswerBlock({ A, activeCite, setActiveCite }) {
 }
 
 // ---- cold-start textbook picker (shown when no memory / not logged in) ----
-function TextbookPicker({ onOpen, demoBook }) {
+function TextbookPicker({ onOpen, onFree, onMulti, demoBook, compact }) {
   const mobile = useIsMobile();
   const [stage, setStage] = tS("");
   const [subject, setSubject] = tS("");
   const [edition, setEdition] = tS("");
   const [name, setName] = tS("");
+  const [sel, setSel] = tS([]); // multi-select for 综合复习
   const ready = stage && subject && edition && name;
+  const keyOf = (b) => `${b.edition}/${b.subject}/${b.name}`;
+  const inSel = (b) => sel.some((x) => keyOf(x) === keyOf(b));
+  const toggle = (b) => setSel((s) => (s.some((x) => keyOf(x) === keyOf(b)) ? s.filter((x) => keyOf(x) !== keyOf(b)) : [...s, b]));
+  const addManual = () => { if (!ready) return; const b = { stage, subject, edition, name }; if (!inSel(b)) setSel((s) => [...s, b]); };
+  const enter = () => { if (sel.length === 0) return; if (sel.length === 1) onOpen(sel[0]); else onMulti(sel); };
 
+  // a grade-spanning list so 综合复习 across 七→九 is demonstrable
   const HOT = [
     { ...demoBook, label: "上次大家都在查", recommend: true },
     { edition: "人教版", subject: "数学", name: "七年级上册", stage: "初中" },
+    { edition: "人教版", subject: "数学", name: "八年级上册", stage: "初中" },
+    { edition: "人教版", subject: "数学", name: "九年级上册", stage: "初中" },
     { edition: "统编版", subject: "语文", name: "七年级上册", stage: "初中" },
+    { edition: "统编版", subject: "历史", name: "八年级下册", stage: "初中" },
   ];
 
   const ChipRow = ({ label, opts, value, set }) => (
@@ -461,43 +510,76 @@ function TextbookPicker({ onOpen, demoBook }) {
 
   return (
     <div style={{ flex: 1, overflowY: "auto", display: "grid", placeItems: "center", padding: "32px 24px", background: "var(--canvas)" }}>
-      <div className="home-fade" style={{ width: "min(660px, 100%)" }}>
-        <div style={{ textAlign: "center", marginBottom: 24 }}>
+      <div className="home-fade" style={{ width: "min(680px, 100%)", paddingBottom: sel.length ? 80 : 0 }}>
+        <div style={{ textAlign: "center", marginBottom: 22, display: compact ? "none" : "block" }}>
           <div style={{ display: "inline-flex", marginBottom: 12 }}><ScenarioGlyph icon="book" hue={210} size={52} active /></div>
-          <h2 style={{ fontSize: 21, fontWeight: 800, color: "var(--ink)", margin: "0 0 7px" }}>先选择要查阅的教材</h2>
-          <p style={{ fontSize: 13.5, color: "var(--ink-2)", margin: 0, lineHeight: 1.6 }}>问教材的每条回答都会<b style={{ color: "var(--brand-deep)" }}>标注教材原文出处</b>，先告诉我你要问哪一本。</p>
+          <h2 style={{ fontSize: 21, fontWeight: 800, color: "var(--ink)", margin: "0 0 7px" }}>问教材，答案有据可依</h2>
+          <p style={{ fontSize: 13.5, color: "var(--ink-2)", margin: 0, lineHeight: 1.6 }}>每条回答都会<b style={{ color: "var(--brand-deep)" }}>标注教材原文出处</b>。可指定一本、勾选多本做<b>综合复习</b>，也可以不限教材直接问。</p>
         </div>
 
-        {/* hot / recommended */}
+        {/* free ask — no textbook needed */}
+        <button onClick={onFree} style={{ width: "100%", display: "flex", alignItems: "center", gap: 12, padding: "13px 16px", borderRadius: 14, border: "1px dashed var(--brand-soft-border)", background: "var(--brand-soft)", cursor: "pointer", fontFamily: "var(--font-zh)", marginBottom: 20, textAlign: "left" }}
+          onMouseEnter={(e) => (e.currentTarget.style.borderColor = "var(--brand)")}
+          onMouseLeave={(e) => (e.currentTarget.style.borderColor = "var(--brand-soft-border)")}>
+          <span style={{ width: 38, height: 38, borderRadius: 11, background: "var(--surface)", border: "1px solid var(--brand-soft-border)", display: "grid", placeItems: "center", color: "var(--brand-deep)", flexShrink: 0 }}><Icon name="spark" size={19} /></span>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 14, fontWeight: 800, color: "var(--brand-deep)" }}>不限教材，直接提问</div>
+            <div style={{ fontSize: 11.5, color: "var(--ink-3)", fontWeight: 600, marginTop: 1 }}>先问起来，需要时再锁定具体教材</div>
+          </div>
+          <Icon name="arrow" size={18} />
+        </button>
+
+        {/* hot / recommended — multi-selectable */}
         <div style={{ fontSize: 12.5, fontWeight: 700, color: "var(--ink-3)", marginBottom: 10, display: "flex", alignItems: "center", gap: 6 }}>
-          <Icon name="spark" size={14} /> 热门教材
+          <Icon name="book" size={14} /> 选择教材 <span style={{ fontWeight: 600, color: "var(--ink-3)" }}>· 可勾选多本做综合复习</span>
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: mobile ? "1fr" : "repeat(3, 1fr)", gap: 10, marginBottom: 22 }}>
-          {HOT.map((b, i) => (
-            <button key={i} onClick={() => onOpen(b)} style={{ textAlign: "left", padding: 14, borderRadius: 14, border: b.recommend ? "1px solid var(--brand-soft-border)" : "1px solid var(--line)", background: b.recommend ? "var(--brand-soft)" : "var(--surface)", cursor: "pointer", fontFamily: "var(--font-zh)", transition: "all .15s", position: "relative" }} onMouseEnter={(e) => { e.currentTarget.style.transform = "translateY(-2px)"; e.currentTarget.style.borderColor = "var(--brand)"; }} onMouseLeave={(e) => { e.currentTarget.style.transform = "none"; e.currentTarget.style.borderColor = b.recommend ? "var(--brand-soft-border)" : "var(--line)"; }}>
-              {b.recommend && <span style={{ position: "absolute", top: 10, right: 10, fontSize: 9.5, fontWeight: 700, color: "#fff", background: "var(--brand)", padding: "2px 6px", borderRadius: 999 }}>推荐</span>}
-              <div className="ph-stripe" style={{ width: 38, height: 50, borderRadius: 5, marginBottom: 10, display: "grid", placeItems: "center", color: "var(--ink-3)", fontSize: 8, fontWeight: 700 }}>封面</div>
-              <div style={{ fontSize: 13.5, fontWeight: 800, color: "var(--ink)", lineHeight: 1.35 }}>{b.subject} · {b.name}</div>
-              <div style={{ fontSize: 11.5, color: "var(--ink-3)", marginTop: 3 }}>{b.edition} · {b.stage}</div>
-            </button>
-          ))}
+        <div style={{ display: "grid", gridTemplateColumns: mobile ? "1fr 1fr" : "repeat(3, 1fr)", gap: 10, marginBottom: 18 }}>
+          {HOT.map((b, i) => {
+            const on = inSel(b);
+            return (
+              <button key={i} onClick={() => toggle(b)} style={{ textAlign: "left", padding: 13, borderRadius: 14, border: on ? "1px solid var(--brand)" : (b.recommend ? "1px solid var(--brand-soft-border)" : "1px solid var(--line)"), background: on ? "var(--brand-soft)" : (b.recommend ? "var(--brand-soft)" : "var(--surface)"), cursor: "pointer", fontFamily: "var(--font-zh)", transition: "all .15s", position: "relative" }} onMouseEnter={(e) => { if (!on) e.currentTarget.style.borderColor = "var(--brand)"; }} onMouseLeave={(e) => { if (!on) e.currentTarget.style.borderColor = b.recommend ? "var(--brand-soft-border)" : "var(--line)"; }}>
+                <span style={{ position: "absolute", top: 10, right: 10, width: 18, height: 18, borderRadius: 6, border: on ? "none" : "1.5px solid var(--line)", background: on ? "var(--brand)" : "transparent", color: "#fff", display: "grid", placeItems: "center" }}>{on && <Icon name="check" size={12} sw={3} />}</span>
+                <div className="ph-stripe" style={{ width: 34, height: 44, borderRadius: 5, marginBottom: 9, display: "grid", placeItems: "center", color: "var(--ink-3)", fontSize: 8, fontWeight: 700 }}>封面</div>
+                <div style={{ fontSize: 13, fontWeight: 800, color: "var(--ink)", lineHeight: 1.35, paddingRight: 18 }}>{b.subject} · {b.name}</div>
+                <div style={{ fontSize: 11, color: "var(--ink-3)", marginTop: 3 }}>{b.edition} · {b.stage}</div>
+              </button>
+            );
+          })}
         </div>
 
-        {/* manual select */}
+        {/* manual select → add to selection */}
         <div style={{ fontSize: 12.5, fontWeight: 700, color: "var(--ink-3)", marginBottom: 12, display: "flex", alignItems: "center", gap: 8 }}>
-          <span style={{ flex: 1, height: 1, background: "var(--line)" }} /> 或手动选择 <span style={{ flex: 1, height: 1, background: "var(--line)" }} />
+          <span style={{ flex: 1, height: 1, background: "var(--line)" }} /> 或手动指定 <span style={{ flex: 1, height: 1, background: "var(--line)" }} />
         </div>
         <div style={{ background: "var(--surface)", border: "1px solid var(--line)", borderRadius: 16, padding: "16px 18px" }}>
           <ChipRow label="学段" opts={TB_STAGES} value={stage} set={setStage} />
           <ChipRow label="学科" opts={TB_SUBJECTS} value={subject} set={setSubject} />
           <ChipRow label="版本" opts={TB_EDITIONS} value={edition} set={setEdition} />
           <ChipRow label="册次" opts={TB_BOOKS} value={name} set={setName} />
-          <button onClick={() => ready && onOpen({ stage, subject, edition, name })} disabled={!ready} style={{ width: "100%", marginTop: 6, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 7, padding: "12px", borderRadius: 12, border: "none", background: ready ? "var(--brand)" : "var(--line)", color: ready ? "#fff" : "var(--ink-3)", fontSize: 14, fontWeight: 800, cursor: ready ? "pointer" : "default", fontFamily: "var(--font-zh)", transition: "all .2s" }}>
-            进入教材问答 <Icon name="arrow" size={16} />
+          <button onClick={addManual} disabled={!ready} style={{ width: "100%", marginTop: 6, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 7, padding: "11px", borderRadius: 12, border: "1px solid " + (ready ? "var(--brand)" : "var(--line)"), background: ready ? "var(--brand-soft)" : "var(--surface)", color: ready ? "var(--brand-deep)" : "var(--ink-3)", fontSize: 13.5, fontWeight: 800, cursor: ready ? "pointer" : "default", fontFamily: "var(--font-zh)", transition: "all .2s" }}>
+            <Icon name="plus" size={15} sw={2.4} /> 加入已选
           </button>
-          {!ready && <div style={{ textAlign: "center", fontSize: 11, color: "var(--ink-3)", marginTop: 8 }}>选齐学段、学科、版本与册次后进入</div>}
+          {!ready && <div style={{ textAlign: "center", fontSize: 11, color: "var(--ink-3)", marginTop: 8 }}>选齐学段、学科、版本与册次后可加入</div>}
         </div>
       </div>
+
+      {/* sticky footer: selected books + enter */}
+      {sel.length > 0 && (
+        <div className="enter-pop" style={{ position: "absolute", left: 0, right: 0, bottom: 0, background: "var(--surface)", borderTop: "1px solid var(--line)", boxShadow: "0 -12px 30px -18px rgba(0,0,0,.3)", padding: mobile ? "10px 14px" : "12px 22px", display: "flex", alignItems: "center", gap: 12 }}>
+          <div style={{ flex: 1, minWidth: 0, display: "flex", alignItems: "center", gap: 7, overflowX: "auto", scrollbarWidth: "none" }}>
+            <span style={{ fontSize: 12, fontWeight: 700, color: "var(--ink-3)", flexShrink: 0 }}>已选 {sel.length} 本</span>
+            {sel.map((b, i) => (
+              <span key={i} style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "4px 6px 4px 10px", borderRadius: 999, background: "var(--brand-soft)", border: "1px solid var(--brand-soft-border)", fontSize: 11.5, fontWeight: 700, color: "var(--brand-deep)", whiteSpace: "nowrap", flexShrink: 0 }}>
+                {b.subject}{b.name}
+                <span onClick={() => toggle(b)} style={{ display: "inline-flex", cursor: "pointer", opacity: 0.6 }}><Icon name="close" size={12} sw={2.6} /></span>
+              </span>
+            ))}
+          </div>
+          <button onClick={enter} style={{ flexShrink: 0, display: "inline-flex", alignItems: "center", gap: 7, padding: "11px 20px", borderRadius: 12, border: "none", background: "var(--brand)", color: "#fff", fontSize: 14, fontWeight: 800, cursor: "pointer", fontFamily: "var(--font-zh)", boxShadow: "0 6px 18px -8px var(--brand-glow)" }}>
+            {sel.length === 1 ? "进入问答" : `综合问答（${sel.length} 本）`} <Icon name="arrow" size={16} />
+          </button>
+        </div>
+      )}
     </div>
   );
 }
@@ -581,3 +663,86 @@ function CompareBlock({ CMP, activeCite, setActiveCite, onAsk }) {
 }
 
 Object.assign(window, { TextbookWorkspace });
+
+// ---- 教材原文 PDF page viewer (scanned-page lightbox) ----
+function PdfPagePreview({ cite, onClose, mobile }) {
+  const [zoom, setZoom] = tS(1);
+  // pull page number out of the loc string (e.g. "第5章 第4节 · P103")
+  const pageNo = (cite.loc.match(/P\s*(\d+)/i) || [])[1] || "—";
+  const chapter = (cite.loc.split("·")[0] || "").trim();
+  // simulated body paragraphs around the highlighted passage so it reads like a real scanned page
+  const before = [
+    "光合作用是绿色植物通过叶绿体，利用光能，把二氧化碳和水转化成储存着能量的有机物，并且释放出氧气的过程。根据是否需要光，可以把光合作用分为光反应和暗反应两个阶段。",
+    "科学家通过一系列实验，逐步揭示了光反应与暗反应之间的物质联系和能量联系。下面我们分别讨论这两个阶段各自的场所、条件以及发生的物质与能量变化。",
+  ];
+  const after = [
+    "由此可见，光反应为暗反应提供了 [H] 和 ATP，暗反应则为光反应再生出 NADP⁺、ADP 和 Pi。两个阶段紧密联系，构成一个完整的光合作用过程。",
+    "想一想：如果突然停止光照，短时间内 C₃ 和 C₅ 的含量会发生怎样的变化？请结合上述过程加以分析。",
+  ];
+  const Line = ({ w }) => <div style={{ height: 9, borderRadius: 3, background: "oklch(0.9 0.006 90)", width: w }} />;
+  const Para = ({ text }) => (
+    <p style={{ margin: "0 0 14px", fontSize: 13.5, lineHeight: 2, color: "oklch(0.32 0.01 80)", textIndent: "2em", fontFamily: "var(--font-zh)" }}>{text}</p>
+  );
+
+  return (
+    <React.Fragment>
+      <div onClick={onClose} style={{ position: "fixed", inset: 0, zIndex: 90, background: "rgba(20,16,10,.6)", backdropFilter: "blur(3px)", animation: "fadeIn .2s ease" }} />
+      <div style={{ position: "fixed", zIndex: 91, inset: mobile ? "0" : "50% auto auto 50%", transform: mobile ? "none" : "translate(-50%, -50%)", width: mobile ? "100%" : "min(720px, 94vw)", height: mobile ? "100%" : "min(88vh, 940px)", display: "flex", flexDirection: "column", background: "var(--surface)", borderRadius: mobile ? 0 : 18, overflow: "hidden", boxShadow: "0 40px 100px -30px rgba(0,0,0,.6)" }}>
+        {/* header */}
+        <div style={{ flexShrink: 0, display: "flex", alignItems: "center", gap: 10, padding: "12px 16px", borderBottom: "1px solid var(--line)", background: "var(--surface)" }}>
+          <span style={{ width: 34, height: 34, borderRadius: 10, background: "var(--brand-soft)", border: "1px solid var(--brand-soft-border)", display: "grid", placeItems: "center", color: "var(--brand-deep)", flexShrink: 0 }}><Icon name="book" size={17} /></span>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 14.5, fontWeight: 800, color: "var(--ink)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{cite.source} · 教材原文</div>
+            <div style={{ fontSize: 11.5, color: "var(--ink-3)", fontWeight: 600 }}>{cite.loc} · 扫描原件</div>
+          </div>
+          {!mobile && (
+            <div style={{ display: "flex", alignItems: "center", gap: 4, marginRight: 4 }}>
+              <button onClick={() => setZoom((z) => Math.max(0.8, +(z - 0.15).toFixed(2)))} title="缩小" style={{ width: 30, height: 30, borderRadius: 8, border: "1px solid var(--line)", background: "var(--surface)", color: "var(--ink-2)", display: "grid", placeItems: "center", cursor: "pointer" }}><Icon name="minus" size={15} /></button>
+              <span style={{ fontSize: 12, fontWeight: 700, color: "var(--ink-3)", width: 44, textAlign: "center", fontFamily: "var(--font-num)" }}>{Math.round(zoom * 100)}%</span>
+              <button onClick={() => setZoom((z) => Math.min(1.6, +(z + 0.15).toFixed(2)))} title="放大" style={{ width: 30, height: 30, borderRadius: 8, border: "1px solid var(--line)", background: "var(--surface)", color: "var(--ink-2)", display: "grid", placeItems: "center", cursor: "pointer" }}><Icon name="plus" size={15} /></button>
+            </div>
+          )}
+          <button onClick={onClose} aria-label="关闭" style={{ width: 32, height: 32, borderRadius: 9, border: "1px solid var(--line)", background: "var(--surface)", color: "var(--ink-2)", display: "grid", placeItems: "center", cursor: "pointer", flexShrink: 0 }}><Icon name="close" size={16} sw={2.4} /></button>
+        </div>
+
+        {/* scanned page surface */}
+        <div style={{ flex: 1, minHeight: 0, overflowY: "auto", background: "oklch(0.36 0.01 80)", padding: mobile ? "16px 12px" : "26px" }}>
+          <div style={{ width: 560 * zoom, maxWidth: "100%", margin: "0 auto", transformOrigin: "top center" }}>
+            <div style={{ background: "oklch(0.975 0.008 85)", borderRadius: 3, boxShadow: "0 18px 50px -16px rgba(0,0,0,.5)", padding: mobile ? "30px 22px 40px" : "46px 48px 56px", position: "relative", fontFamily: "var(--font-zh)" }}>
+              {/* faint scan texture */}
+              <div style={{ position: "absolute", inset: 0, borderRadius: 3, pointerEvents: "none", background: "repeating-linear-gradient(0deg, transparent, transparent 26px, oklch(0.5 0.02 80 / .025) 27px)", mixBlendMode: "multiply" }} />
+              {/* running head */}
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", borderBottom: "1px solid oklch(0.85 0.01 80)", paddingBottom: 8, marginBottom: 22 }}>
+                <span style={{ fontSize: 11.5, color: "oklch(0.5 0.02 80)", fontWeight: 600 }}>{chapter || "第5章 能量供应和利用"}</span>
+                <span style={{ fontSize: 11.5, color: "oklch(0.5 0.02 80)", fontWeight: 600 }}>{cite.source}</span>
+              </div>
+              {/* section title */}
+              <h3 style={{ fontSize: mobile ? 18 : 21, fontWeight: 800, color: "oklch(0.25 0.01 80)", margin: "0 0 18px", textAlign: "center", letterSpacing: "1px" }}>第4节　能量之源——光与光合作用</h3>
+
+              {before.map((t, i) => <Para key={i} text={t} />)}
+
+              {/* the cited passage — highlighted like a marker pen, with a margin tab */}
+              <div style={{ position: "relative", margin: "0 -8px 16px", padding: "12px 14px 12px", borderRadius: 6, background: "oklch(0.93 0.13 95 / .55)", boxShadow: "inset 0 0 0 1px oklch(0.8 0.12 95 / .6)" }}>
+                <span style={{ position: "absolute", top: -1, left: -1, display: "inline-flex", alignItems: "center", gap: 4, fontSize: 10, fontWeight: 800, color: "#fff", background: "var(--brand)", padding: "3px 8px", borderRadius: "6px 0 8px 0", fontFamily: "var(--font-zh)" }}><Icon name="quote" size={11} /> 本回答引用</span>
+                <p style={{ margin: "14px 0 0", fontSize: 13.5, lineHeight: 2, color: "oklch(0.28 0.02 70)", textIndent: "2em", fontWeight: 600 }}>{cite.quote}</p>
+              </div>
+
+              {after.map((t, i) => <Para key={i} text={t} />)}
+
+              {/* page footer */}
+              <div style={{ display: "flex", justifyContent: "center", marginTop: 26, paddingTop: 10, borderTop: "1px solid oklch(0.85 0.01 80)" }}>
+                <span style={{ fontSize: 12, color: "oklch(0.5 0.02 80)", fontWeight: 700, fontFamily: "var(--font-num)" }}>— {pageNo} —</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* copyright / provenance footer */}
+        <div style={{ flexShrink: 0, display: "flex", alignItems: "center", gap: 8, padding: "9px 16px", borderTop: "1px solid var(--line)", background: "var(--surface-2)" }}>
+          <Icon name="shield" size={14} sw={2} />
+          <span style={{ fontSize: 11.5, color: "var(--ink-3)", lineHeight: 1.5 }}>教材原件由学科网授权扫描收录，仅供教师备课参考，请勿外传或商用。</span>
+        </div>
+      </div>
+    </React.Fragment>
+  );
+}

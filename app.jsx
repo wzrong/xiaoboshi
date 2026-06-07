@@ -46,10 +46,11 @@ function App() {
 
   // submit free text from home → enter the 通用助手, which runs intent
   // recognition inline and either hands off to a specific tool or answers.
-  const goIntent = () => {
-    if (!draft.trim()) return;
-    const q = draft.trim();
+  const goIntent = (txt) => {
+    const q = (typeof txt === "string" ? txt : draft).trim();
+    if (!q) return;
     setQuery(q);
+    setDraft(q);
     setScenarioId("general");
     setFromIntent(true);
     setResume(null);

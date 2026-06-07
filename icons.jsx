@@ -124,6 +124,11 @@ function Icon({ name, size = 24, sw = 1.8 }) {
         <line x1="5" y1="12" x2="19" y2="12" />
       </g>
     ),
+    minus: (
+      <g>
+        <line x1="5" y1="12" x2="19" y2="12" />
+      </g>
+    ),
     quote: (
       <g>
         <path d="M7 7h4v4c0 2-1.5 3.5-3.5 4M14 7h4v4c0 2-1.5 3.5-3.5 4" />
@@ -214,6 +219,12 @@ function Icon({ name, size = 24, sw = 1.8 }) {
     trash: (
       <g>
         <path d="M5 7h14M10 7V5h4v2M6 7l1 13h10l1-13" />
+      </g>
+    ),
+    login: (
+      <g>
+        <path d="M14 3h4a1 1 0 0 1 1 1v16a1 1 0 0 1-1 1h-4" />
+        <path d="M4 12h11M11 8l4 4-4 4" />
       </g>
     ),
   };

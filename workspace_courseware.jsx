@@ -75,7 +75,7 @@ function CwSetupCard({ initForm, initTopic, initSubject, initGrade, onStart }) {
   if (done) {
     return (
       <div style={{ fontSize: 13.5, color: "var(--ink-2)" }}>
-        好的，已确认：<b style={{ color: "var(--brand-deep)" }}>{form === "ppt" ? "传统 PPT 课件" : "互动课件"}</b> · {grade}{subject} · 《{topic}》。正在右侧为你生成…
+        好的，已确认：<b style={{ color: "var(--brand-deep)" }}>{form === "ppt" ? "传统 PPT 课件" : "互动课件"}</b> · {grade}{subject} · 《{topic}》。正在为你生成…
       </div>
     );
   }
@@ -113,7 +113,7 @@ function CwSetupCard({ initForm, initTopic, initSubject, initGrade, onStart }) {
         <CwSelect value={subject} options={CW_SUBJECTS} onChange={setSubject} placeholder="学科" width={92} />
         <CwSelect value={edition} options={CW_EDITIONS} onChange={setEdition} placeholder="教材版本" width={108} />
       </div>
-      <input value={topic} onChange={(e) => setTopic(e.target.value)} placeholder="课题，例如：纪念白求恩 / 函数的单调性" style={{ width: "100%", padding: "10px 12px", borderRadius: 10, border: "1px solid var(--line)", background: "var(--surface)", fontSize: 13, fontFamily: "var(--font-zh)", color: "var(--ink)", outline: "none", marginBottom: 12 }} onFocus={(e) => e.target.style.borderColor = "var(--brand)"} onBlur={(e) => e.target.style.borderColor = "var(--line)"} />
+      <input value={topic} onChange={(e) => setTopic(e.target.value)} placeholder="课题，例如：二次根式的概念 / 平行四边形的判定 / 热力环流" style={{ width: "100%", padding: "10px 12px", borderRadius: 10, border: "1px solid var(--line)", background: "var(--surface)", fontSize: 13, fontFamily: "var(--font-zh)", color: "var(--ink)", outline: "none", marginBottom: 12 }} onFocus={(e) => e.target.style.borderColor = "var(--brand)"} onBlur={(e) => e.target.style.borderColor = "var(--line)"} />
 
       {/* standard note */}
       <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "9px 11px", borderRadius: 10, background: "var(--auth-bg)", border: "1px solid var(--auth-border)", marginBottom: 14 }}>
@@ -159,7 +159,7 @@ function CoursewareWorkspace({ scenario, query, onHome, onSwitch, fromIntent, re
     if (isResume) {
       const fn = resumeCfg.form === "ppt" ? "传统 PPT 课件" : "互动课件";
       return [
-        { role: "ai", node: <span>已为你恢复 <b>{resume.when}</b> 制作的《{resumeCfg.topic}》{fn}，左侧大纲与右侧内容都是上次的进度，接着改就行。</span> },
+        { role: "ai", node: <span>已为你恢复 <b>{resume.when}</b> 制作的《{resumeCfg.topic}》{fn}，大纲与内容都是上次的进度，接着改就行。</span> },
       ];
     }
     if (fromIntent && query) {

@@ -9,7 +9,8 @@ const SCENARIOS = [
     desc: "基于学科网资源库，按学段·学科·版本智能匹配",
     icon: "search",
     hue: 150,
-    sample: "人教版七年级上册《有理数》的随堂练习",
+    sample: "人教版七年级上册《有理数》同步练习（含解析）",
+    samples: ["人教版七年级上册《有理数》同步练习（含解析）", "鲁教版高中地理 热力环流 复习课件", "2025年云南昆明中考化学试卷", "凸透镜成像规律 实验视频"],
   },
   {
     id: "paper",
@@ -18,7 +19,8 @@ const SCENARIOS = [
     desc: "基于学科网题库智能组卷，难度梯度、知识点全覆盖",
     icon: "paper",
     hue: 25,
-    sample: "一份初二物理《光的折射》单元测试卷",
+    sample: "按湖北物理中考结构，出一份物理中考模拟卷",
+    samples: ["按湖北物理中考结构，出一份物理中考模拟卷", "八上生物这节课 选择题30道，答案放最后", "平面向量 概念与模长 出10道题", "正余弦定理 易错题专项，含解析"],
   },
   {
     id: "courseware",
@@ -27,7 +29,8 @@ const SCENARIOS = [
     desc: "依据课标与学科网教案生成课件，支持传统 PPT 与可交互的互动课件",
     icon: "slides",
     hue: 255,
-    sample: "《纪念白求恩》两课时的教学课件",
+    sample: "人教版小学数学三下 第一单元 课件",
+    samples: ["人教版小学数学三下 第一单元 课件", "七年级开学班会课件：收心、纪律、学习计划、卫生", "外研版英语必修二 第三单元 早读课件，精美一些", "中考作文赏析与方法总结 PPT，背景浅蓝"],
     forms: ["传统 PPT 课件", "互动课件 · HTML"],
     badge: "含互动课件",
   },
@@ -38,7 +41,8 @@ const SCENARIOS = [
     desc: "对齐课程标准，三维目标、重难点一应俱全",
     icon: "lesson",
     hue: 320,
-    sample: "高一数学《函数的单调性》详案",
+    sample: "北师大版八下 6.2 平行四边形的判定 教学设计",
+    samples: ["北师大版八下 6.2 平行四边形的判定 教学设计", "部编版历史八下 第18课 教学设计", "高一英语外研社必修2 Unit6 教材分析+学情分析+教学方案", "苏教版六下数学《正比例的意义》学习任务单"],
   },
   {
     id: "textbook",
@@ -47,7 +51,8 @@ const SCENARIOS = [
     desc: "答案逐条引用教材原文，章节页码可溯源",
     icon: "book",
     hue: 200,
-    sample: "光合作用的两个阶段有什么区别？",
+    sample: "光反应和暗反应有什么区别？",
+    samples: ["光反应和暗反应有什么区别？", "「光合作用」在哪些教材里出现过？", "悬浊液和乳浊液的区别", "椭圆的极点与极线 怎么证明？"],
   },
   {
     id: "mindmap",
@@ -56,7 +61,8 @@ const SCENARIOS = [
     desc: "把章节知识点梳理成清晰的思维导图",
     icon: "mindmap",
     hue: 95,
-    sample: "《细胞的结构》知识点思维导图",
+    sample: "七下数学 第七章 相交线 思维导图",
+    samples: ["七下数学 第七章 相交线 思维导图", "九年级 二次函数 思维导图", "高中政治部编版 选必二 第一课 思维导图", "中考一轮复习 分式 考点思维导图"],
   },
 ];
 
@@ -69,8 +75,20 @@ const GENERAL = {
   desc: "教学问题随便问，识别到具体需求会带你进入对应工作台",
   icon: "spark",
   hue: 230,
-  sample: "帮我想几个《有理数》的课堂导入点子",
+  sample: "我要上一节地理公开课，有什么学生活动或 AI 应用的建议？",
+  samples: ["我要上一节地理公开课，有什么学生活动或 AI 应用的建议？", "制定北师大八下数学 从第四单元到期末的十周教学计划", "近三年化学高考 实验安全 的考查规律，三句话总结", "这次期末平均 72、及格率 85%、优秀率 23%，帮我分析问题"],
 };
+
+// 真实风格的首页快捷示例（取自真实教师提问，覆盖多学科、查找与生成两类意图）
+const HOME_EXAMPLES = [
+  { t: "人教版七年级上《有理数》同步练习，含解析", to: "find" },
+  { t: "按湖北中考结构出一份物理中考模拟卷", to: "paper" },
+  { t: "外研版英语必修二 Unit3 早读课件，精美一些", to: "courseware" },
+  { t: "北师大版八下 平行四边形的判定 教学设计", to: "lesson" },
+  { t: "九年级 二次函数 思维导图", to: "mindmap" },
+  { t: "光反应和暗反应有什么区别？", to: "textbook" },
+];
+
 
 // Mock resource results for 找资源
 const RESOURCES = [
@@ -468,4 +486,4 @@ const TEXTBOOK_COMPARE = {
   ],
 };
 
-window.AIDATA = { SCENARIOS, GENERAL, RESOURCES, TEXTBOOK_TREE, TEXTBOOK_ANSWER, TEXTBOOK_COMPARE, VIDEOS, ALBUMS, USER_MEMORY };
+window.AIDATA = { SCENARIOS, GENERAL, HOME_EXAMPLES, RESOURCES, TEXTBOOK_TREE, TEXTBOOK_ANSWER, TEXTBOOK_COMPARE, VIDEOS, ALBUMS, USER_MEMORY };

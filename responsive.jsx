@@ -119,29 +119,33 @@ function SheetPill({ label, icon = "layers", onClick, dot }) {
 }
 
 // An in-chat card that reveals the content sheet — a softer, contextual
-// alternative to the header pill. Renders only on mobile (chat-led layouts);
-// returns null on desktop so the conversation is unchanged.
+// alternative to the header pill. Reads as a continuation of 小博士's previous
+// reply (no separate avatar; indented to align under that bubble). Mobile
+// chat-led layouts only; returns null on desktop so the conversation is unchanged.
 function ChatSheetCard({ label, count, icon = "layers", hint }) {
   const ctx = React.useContext(WSMobileContext);
   if (!ctx || !ctx.mobile || !ctx.isChatLed || ctx.sheetOpen) return null;
   return (
-    <button
-      onClick={() => ctx.setSheetOpen(true)}
-      style={{ display: "flex", alignItems: "center", gap: 11, width: "100%", textAlign: "left", padding: "12px 13px", borderRadius: 14, border: "1px solid var(--brand-soft-border)", background: "var(--brand-soft)", cursor: "pointer", fontFamily: "var(--font-zh)", boxShadow: "0 6px 18px -12px var(--brand-glow)" }}
-    >
-      <span style={{ width: 38, height: 38, borderRadius: 11, background: "var(--surface)", border: "1px solid var(--brand-soft-border)", display: "grid", placeItems: "center", color: "var(--brand-deep)", flexShrink: 0 }}>
-        <Icon name={icon} size={19} />
-      </span>
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 13.5, fontWeight: 800, color: "var(--brand-deep)", display: "flex", alignItems: "center", gap: 7 }}>
-          {typeof count === "number" ? `已为你整理 ${count} 个${label}` : `查看${label}`}
+    <div style={{ display: "flex", maxWidth: "92%", marginTop: -6 }}>
+      {/* spacer matching the avatar column above, so the card lines up under the reply bubble */}
+      <div style={{ width: 28, flexShrink: 0, marginRight: 9 }} />
+      <button
+        onClick={() => ctx.setSheetOpen(true)}
+        style={{ flex: 1, minWidth: 0, display: "flex", alignItems: "center", gap: 10, textAlign: "left", padding: "11px 12px", borderRadius: "4px 14px 14px 14px", border: "1px solid var(--brand-soft-border)", background: "var(--brand-soft)", cursor: "pointer", fontFamily: "var(--font-zh)" }}
+      >
+        <span style={{ width: 34, height: 34, borderRadius: 10, background: "var(--surface)", border: "1px solid var(--brand-soft-border)", display: "grid", placeItems: "center", color: "var(--brand-deep)", flexShrink: 0 }}>
+          <Icon name={icon} size={17} />
+        </span>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 13, fontWeight: 800, color: "var(--brand-deep)", lineHeight: 1.35 }}>
+            {typeof count === "number" ? `已为你整理 ${count} 个${label}` : `查看${label}`}
+          </div>
+          <div style={{ fontSize: 11, color: "var(--ink-3)", fontWeight: 600, marginTop: 2, display: "inline-flex", alignItems: "center", gap: 4 }}>
+            {hint || "点此展开查看"} <Icon name="chevron" size={12} sw={2.4} />
+          </div>
         </div>
-        <div style={{ fontSize: 11.5, color: "var(--ink-3)", fontWeight: 600, marginTop: 1 }}>{hint || "点此展开查看"}</div>
-      </div>
-      <span style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "7px 12px", borderRadius: 999, background: "var(--brand)", color: "#fff", fontSize: 12.5, fontWeight: 700, flexShrink: 0 }}>
-        展开 <Icon name="chevron" size={14} sw={2.4} />
-      </span>
-    </button>
+      </button>
+    </div>
   );
 }
 

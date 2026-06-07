@@ -152,9 +152,9 @@ function VideoPlayer({ v, onClose, onDownload, onAsk, onAddBasket }) {
             </div>
           </div>
         )}
-        <div style={{ padding: 14, display: "flex", gap: 10, alignItems: "center" }}>
-          <Btn kind="primary" icon="download" onClick={onDownload}>下载视频</Btn>
+        <div style={{ padding: 14, display: "flex", gap: 10, alignItems: "center", justifyContent: "flex-end", flexWrap: "wrap", rowGap: 10 }}>
           <Btn kind="soft" icon="basket" onClick={() => onAddBasket && onAddBasket({ id: v.id, title: v.title, type: v.cat || "教学视频", meta: [v.grade, v.subject, v.duration].filter(Boolean).join(" · ") })}>加入资源篮</Btn>
+          <Btn kind="primary" icon="download" onClick={onDownload}>下载视频</Btn>
         </div>
       </div>
     </div>

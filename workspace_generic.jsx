@@ -40,10 +40,10 @@ const GENERIC_CONFIG = {
 };
 
 const GENERIC_COLD = {
-  paper: ["一份初二物理《光的折射》单元测试卷", "20 道有理数计算题，含答案解析", "高三数学函数专题滚动练习卷"],
-  lesson: ["《纪念白求恩》第一课时教学设计", "高一数学《函数的单调性》详案", "初中生物《细胞的结构》教案"],
-  mindmap: ["《细胞的结构》知识点思维导图", "初中物理力学知识结构图", "高中历史近代史时间脉络图"],
-  interactive: ["《分数的初步认识》的互动游戏", "光合作用过程拖拽分类活动", "古诗文名句连线抢答"],
+  paper: ["按湖北中考结构 出一份物理中考模拟卷", "八上生物这节课 选择题30道，答案放最后", "平面向量 概念与模 出10道题，含解析", "苏教版六下数学 扇形统计图 常考易错题", "正余弦定理 易错题专项"],
+  lesson: ["北师大版八下 平行四边形的判定 教学设计", "部编版历史八下 第18课 教学设计", "高一英语外研社必修2 Unit6 教材+学情分析", "苏教版六下数学《正比例的意义》学习任务单", "强军战歌 教学设计（音乐）"],
+  mindmap: ["七下数学 第七章 相交线 思维导图", "九年级 二次函数 思维导图", "高中政治部编版 选必二第一课 思维导图", "中考一轮复习 分式 考点思维导图", "三年级下册《荷花》思维导图"],
+  interactive: ["勾股定理 互动探究动画（HTML）", "光合作用过程 拖拽分类活动", "单词消消乐 七下英语预习用", "平行四边形动态演示 固定一边和对角线", "古诗文名句 连线抢答"],
 };
 
 function GenericWorkspace({ scenario, query, onHome, onSwitch, fromIntent, resume }) {
@@ -90,7 +90,7 @@ function GenericWorkspace({ scenario, query, onHome, onSwitch, fromIntent, resum
     if (!started) { setStarted(true); setSugs(cfg.sugs); }
     setTimeout(() => {
       const note = !wasStarted
-        ? <span>好的，正在为你生成「{text}」，内容以学科网<b style={{ color: "var(--auth-ink)" }}>权威资源</b>为底座，右侧可见框架。</span>
+        ? <span>好的，正在为你生成「{text}」，内容以学科网<b style={{ color: "var(--auth-ink)" }}>权威资源</b>为底座，稍后即可见到框架。</span>
         : files && files.length
         ? <span>已结合你上传的材料更新。所有内容以学科网<b style={{ color: "var(--auth-ink)" }}>三审三校</b>权威资源为底座。</span>
         : <span>已根据「{text}」更新。所有内容均以学科网<b style={{ color: "var(--auth-ink)" }}>三审三校</b>权威资源为底座。</span>;
