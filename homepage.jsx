@@ -679,7 +679,7 @@ function AuthorityStrip() {
   );
 }
 
-function Homepage({ page, layout, value, setValue, onSubmit, onPick, onResume, loggedIn, onLogin, onLogout, onNavigate, onNewChat, onRequireLogin }) {
+function Homepage({ page, layout, value, setValue, onSubmit, onPick, onResume, loggedIn, onLogin, onLogout, onNavigate, onNewChat, onRequireLogin, onOpenBasket, basketCount }) {
   const Comp =
     layout === "场景宫格" ? HomeGrid : layout === "助手人格" ? HomePersona : HomeConversation;
   const mobile = useIsMobile();
@@ -708,6 +708,8 @@ function Homepage({ page, layout, value, setValue, onSubmit, onPick, onResume, l
         mobile={mobile}
         mobileOpen={navOpen}
         onCloseMobile={closeNav}
+        onOpenBasket={() => { onOpenBasket && onOpenBasket(); closeNav(); }}
+        basketCount={basketCount}
       />
       <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
         {mobile && (
@@ -748,7 +750,7 @@ function Homepage({ page, layout, value, setValue, onSubmit, onPick, onResume, l
 }
 
 // ---------- Left navigation rail (always visible) ----------
-function LeftRail({ page, loggedIn, onNavigate, onNewChat, onResume, onLogout, onRequireLogin, mobile, mobileOpen, onCloseMobile }) {
+function LeftRail({ page, loggedIn, onNavigate, onNewChat, onResume, onLogout, onRequireLogin, mobile, mobileOpen, onCloseMobile, onOpenBasket, basketCount = 0 }) {
   const M = window.AIDATA.USER_MEMORY;
   const [openState, setOpen] = useState(() => localStorage.getItem("aida_rail_open") !== "0");
   const open = mobile ? true : openState; // on mobile the drawer always shows full content
@@ -823,6 +825,7 @@ function LeftRail({ page, loggedIn, onNavigate, onNewChat, onResume, onLogout, o
       <div style={{ padding: open ? "8px 12px" : "8px 12px", display: "flex", flexDirection: "column", gap: 3 }}>
         <NavItem icon="spark" label="我的记忆" accent active={page === "memory"} onClick={() => go("memory")} />
         <NavItem icon="grid" label="我的内容" active={page === "works"} onClick={() => go("works")} />
+        <NavItem icon="basket" label={basketCount > 0 ? `资源篮 · ${basketCount}` : "资源篮"} onClick={() => (loggedIn ? onOpenBasket && onOpenBasket() : onRequireLogin())} />
         {!open && (
           <NavItem icon="chat" label="历史对话" active={page === "history"} onClick={() => (loggedIn ? onNavigate("history") : onRequireLogin())} />
         )}
@@ -1238,3 +1241,157 @@ function LoginModal({ onClose, onLogin }) {
 }
 
 Object.assign(window, { LoginModal });
+
+// ---------- 资源篮 (resource basket) — global overlay, openable anywhere ----------
+function BasketPanel({ open, items, onClose, onRemove, onClear, onOpenContent }) {
+  const mobile = useIsMobile();
+  useEffect(() => {
+    if (!open) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = prev; };
+  }, [open]);
+
+  const panelStyle = mobile
+    ? { position: "fixed", left: 0, right: 0, bottom: 0, height: "82dvh", maxHeight: "82vh", borderRadius: "18px 18px 0 0", transform: open ? "translateY(0)" : "translateY(101%)" }
+    : { position: "fixed", top: 0, right: 0, bottom: 0, width: "min(420px, 92vw)", borderRadius: 0, transform: open ? "translateX(0)" : "translateX(102%)" };
+
+  return (
+    <React.Fragment>
+      <div onClick={onClose} style={{ position: "fixed", inset: 0, zIndex: 90, background: "rgba(20,16,10,.42)", backdropFilter: "blur(2px)", opacity: open ? 1 : 0, pointerEvents: open ? "auto" : "none", transition: "opacity .26s ease" }} />
+      <div style={{ ...panelStyle, zIndex: 91, background: "var(--canvas)", boxShadow: "0 -18px 50px -24px rgba(0,0,0,.5)", display: "flex", flexDirection: "column", overflow: "hidden", transition: "transform .3s cubic-bezier(.32,.72,0,1)" }}>
+        {mobile && <div style={{ width: 40, height: 4, borderRadius: 999, background: "var(--line)", margin: "8px auto 0", flexShrink: 0 }} />}
+        {/* header */}
+        <div style={{ flexShrink: 0, display: "flex", alignItems: "center", gap: 11, padding: "14px 18px", borderBottom: "1px solid var(--line)", background: "var(--surface)" }}>
+          <span style={{ width: 36, height: 36, borderRadius: 10, background: "var(--brand-soft)", border: "1px solid var(--brand-soft-border)", display: "grid", placeItems: "center", color: "var(--brand-deep)", flexShrink: 0 }}><Icon name="basket" size={19} /></span>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 16, fontWeight: 800, color: "var(--ink)" }}>资源篮</div>
+            <div style={{ fontSize: 11.5, color: "var(--ink-3)", fontWeight: 600 }}>{items.length > 0 ? `已收集 ${items.length} 份资源，可一并下载或送去出卷` : "把找到的资源加进来，随时取用"}</div>
+          </div>
+          <button onClick={onClose} aria-label="关闭" style={{ width: 32, height: 32, borderRadius: 9, border: "1px solid var(--line)", background: "var(--surface)", color: "var(--ink-2)", display: "grid", placeItems: "center", cursor: "pointer", flexShrink: 0 }}>
+            <Icon name="close" size={16} sw={2.4} />
+          </button>
+        </div>
+        {/* list */}
+        {items.length === 0 ? (
+          <div style={{ flex: 1, display: "grid", placeItems: "center", padding: "30px 24px", textAlign: "center" }}>
+            <div>
+              <div style={{ display: "inline-flex", marginBottom: 12, color: "var(--line)" }}><Icon name="basket" size={46} sw={1.4} /></div>
+              <div style={{ fontSize: 15, fontWeight: 800, color: "var(--ink)", marginBottom: 6 }}>资源篮还是空的</div>
+              <div style={{ fontSize: 13, color: "var(--ink-3)", lineHeight: 1.6, maxWidth: 280 }}>在「找资源」里预览任意文档或视频，点<b style={{ color: "var(--brand-deep)" }}>加入资源篮</b>，就会出现在这里。</div>
+            </div>
+          </div>
+        ) : (
+          <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "12px 14px", display: "flex", flexDirection: "column", gap: 9 }}>
+            {items.map((it) => {
+              const isAlbum = /专辑|合集/.test(it.type || "");
+              const isVideo = /视频|微课|实验/.test(it.type || "");
+              const ic = isAlbum ? "layers" : isVideo ? "interactive" : "file";
+              const tint = isAlbum ? { c: "var(--brand-deep)", bg: "var(--brand-soft)", bd: "var(--brand-soft-border)" } : isVideo ? { c: "oklch(0.5 0.13 200)", bg: "oklch(0.95 0.04 200)", bd: "oklch(0.86 0.06 200)" } : { c: "var(--ink-3)", bg: "var(--surface-2)", bd: "var(--line)" };
+              return (
+                <div key={it.bid} style={{ display: "flex", alignItems: "center", gap: 11, padding: "12px 13px", borderRadius: 13, background: "var(--surface)", border: "1px solid var(--line)" }}>
+                  <span style={{ width: 36, height: 36, borderRadius: 9, background: tint.bg, border: "1px solid " + tint.bd, display: "grid", placeItems: "center", color: tint.c, flexShrink: 0 }}><Icon name={ic} size={17} /></span>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 13.5, fontWeight: 700, color: "var(--ink)", lineHeight: 1.4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{it.title}</div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 7, marginTop: 3 }}>
+                      <span style={{ fontSize: 10.5, fontWeight: 800, color: tint.c, background: tint.bg, border: "1px solid " + tint.bd, padding: "1px 7px", borderRadius: 6, flexShrink: 0 }}>{it.type}</span>
+                      {it.meta && <span style={{ fontSize: 11.5, color: "var(--ink-3)", fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{it.meta}</span>}
+                    </div>
+                  </div>
+                  <button onClick={() => onRemove(it.bid)} title="移出资源篮" style={{ width: 30, height: 30, borderRadius: 8, border: "1px solid var(--line)", background: "var(--surface)", color: "var(--ink-3)", display: "grid", placeItems: "center", cursor: "pointer", flexShrink: 0 }}>
+                    <Icon name="trash" size={15} />
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        )}
+        {/* footer */}
+        {items.length > 0 && (
+          <div style={{ flexShrink: 0, display: "flex", alignItems: "center", gap: 10, padding: 14, borderTop: "1px solid var(--line)", background: "var(--surface)" }}>
+            <button onClick={onClear} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "9px 13px", borderRadius: 10, border: "1px solid var(--line)", background: "var(--surface)", color: "var(--ink-3)", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "var(--font-zh)" }}>
+              <Icon name="trash" size={15} /> 清空
+            </button>
+            <div style={{ flex: 1 }} />
+            <Btn kind="primary" icon="download" onClick={onClose}>打包下载 {items.length} 份</Btn>
+          </div>
+        )}
+      </div>
+    </React.Fragment>
+  );
+}
+
+Object.assign(window, { BasketPanel });
+
+// ---------- 我的内容 (content library) — global overlay, openable from a workspace ----------
+function ContentPanel({ open, onClose, onResume }) {
+  const M = window.AIDATA.USER_MEMORY;
+  const mobile = useIsMobile();
+  const SOURCES = ["全部", "AI 生成", "学科网下载", "备课产品"];
+  const [filter, setFilter] = useState("全部");
+  useEffect(() => {
+    if (!open) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = prev; };
+  }, [open]);
+  const items = M.works.filter((w) => filter === "全部" || w.source === filter);
+  const srcStyle = (src) =>
+    src === "AI 生成" ? { c: "var(--brand-deep)", bg: "var(--brand-soft)", bd: "var(--brand-soft-border)", icon: "spark" }
+      : src === "学科网下载" ? { c: "var(--auth-ink)", bg: "var(--auth-bg)", bd: "var(--auth-border)", icon: "download" }
+        : { c: "oklch(0.5 0.13 45)", bg: "oklch(0.96 0.04 45)", bd: "oklch(0.88 0.06 45)", icon: "layers" };
+
+  const panelStyle = mobile
+    ? { position: "fixed", left: 0, right: 0, bottom: 0, height: "82dvh", maxHeight: "82vh", borderRadius: "18px 18px 0 0", transform: open ? "translateY(0)" : "translateY(101%)" }
+    : { position: "fixed", top: 0, right: 0, bottom: 0, width: "min(440px, 94vw)", borderRadius: 0, transform: open ? "translateX(0)" : "translateX(102%)" };
+
+  return (
+    <React.Fragment>
+      <div onClick={onClose} style={{ position: "fixed", inset: 0, zIndex: 90, background: "rgba(20,16,10,.42)", backdropFilter: "blur(2px)", opacity: open ? 1 : 0, pointerEvents: open ? "auto" : "none", transition: "opacity .26s ease" }} />
+      <div style={{ ...panelStyle, zIndex: 91, background: "var(--canvas)", boxShadow: "0 -18px 50px -24px rgba(0,0,0,.5)", display: "flex", flexDirection: "column", overflow: "hidden", transition: "transform .3s cubic-bezier(.32,.72,0,1)" }}>
+        {mobile && <div style={{ width: 40, height: 4, borderRadius: 999, background: "var(--line)", margin: "8px auto 0", flexShrink: 0 }} />}
+        {/* header */}
+        <div style={{ flexShrink: 0, display: "flex", alignItems: "center", gap: 11, padding: "14px 18px 12px", borderBottom: "1px solid var(--line)", background: "var(--surface)" }}>
+          <span style={{ width: 36, height: 36, borderRadius: 10, background: "var(--brand-soft)", border: "1px solid var(--brand-soft-border)", display: "grid", placeItems: "center", color: "var(--brand-deep)", flexShrink: 0 }}><Icon name="grid" size={18} /></span>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 16, fontWeight: 800, color: "var(--ink)" }}>我的内容</div>
+            <div style={{ fontSize: 11.5, color: "var(--ink-3)", fontWeight: 600 }}>AI 生成、学科网下载与备课产品，共 {M.works.length} 份</div>
+          </div>
+          <button onClick={onClose} aria-label="关闭" style={{ width: 32, height: 32, borderRadius: 9, border: "1px solid var(--line)", background: "var(--surface)", color: "var(--ink-2)", display: "grid", placeItems: "center", cursor: "pointer", flexShrink: 0 }}>
+            <Icon name="close" size={16} sw={2.4} />
+          </button>
+        </div>
+        {/* source filter */}
+        <div style={{ flexShrink: 0, display: "flex", gap: 7, padding: "10px 16px", borderBottom: "1px solid var(--line)", background: "var(--surface)", overflowX: "auto", scrollbarWidth: "none" }}>
+          {SOURCES.map((k) => (
+            <button key={k} onClick={() => setFilter(k)} style={{ flexShrink: 0, padding: "5px 13px", borderRadius: 999, fontSize: 12.5, fontWeight: 600, cursor: "pointer", fontFamily: "var(--font-zh)", whiteSpace: "nowrap", border: filter === k ? "1px solid var(--brand)" : "1px solid var(--line)", background: filter === k ? "var(--brand-soft)" : "var(--surface)", color: filter === k ? "var(--brand-deep)" : "var(--ink-2)" }}>{k}</button>
+          ))}
+        </div>
+        {/* slim list */}
+        <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "12px 14px", display: "flex", flexDirection: "column", gap: 9 }}>
+          {items.map((w) => {
+            const ss = srcStyle(w.source);
+            return (
+              <button key={w.id} onClick={() => { onResume && onResume(w); onClose(); }} style={{ display: "flex", alignItems: "center", gap: 12, padding: "11px 12px", borderRadius: 13, background: "var(--surface)", border: "1px solid var(--line)", cursor: "pointer", fontFamily: "var(--font-zh)", textAlign: "left", transition: "border-color .2s" }}
+                onMouseEnter={(e) => (e.currentTarget.style.borderColor = "var(--brand-soft-border)")}
+                onMouseLeave={(e) => (e.currentTarget.style.borderColor = "var(--line)")}>
+                <ScenarioGlyph icon={w.icon} hue={w.hue} size={38} />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 13.5, fontWeight: 700, color: "var(--ink)", lineHeight: 1.4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{w.title}</div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 7, marginTop: 3 }}>
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: 3, fontSize: 10, fontWeight: 700, color: ss.c, background: ss.bg, border: "1px solid " + ss.bd, padding: "1px 7px", borderRadius: 999, flexShrink: 0 }}><Icon name={ss.icon} size={10} /> {w.source}</span>
+                    <span style={{ fontSize: 11, color: "var(--ink-3)", fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{w.meta}</span>
+                  </div>
+                </div>
+                <span style={{ fontSize: 11, color: "var(--ink-3)", flexShrink: 0 }}>{w.when}</span>
+                <span style={{ color: "var(--ink-3)", flexShrink: 0 }}><Icon name="chevron" size={16} /></span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    </React.Fragment>
+  );
+}
+
+Object.assign(window, { ContentPanel });

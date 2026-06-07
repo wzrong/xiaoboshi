@@ -26,6 +26,18 @@ function App() {
   const [resume, setResume] = aS(null); // {scenario,title} when resuming a past creation
   const [loggedIn, setLoggedIn] = aS(true);
   const [loginOpen, setLoginOpen] = aS(false);
+  // 资源篮 — a teacher's collected resources, persisted across the session
+  const [basket, setBasket] = aS(() => { try { return JSON.parse(localStorage.getItem("aida_basket") || "[]"); } catch (e) { return []; } });
+  const [basketOpen, setBasketOpen] = aS(false);
+  const [contentOpen, setContentOpen] = aS(false);
+  aE(() => { try { localStorage.setItem("aida_basket", JSON.stringify(basket)); } catch (e) {} }, [basket]);
+  const addToBasket = (item) => {
+    const bid = item.id || item.title;
+    let added = true;
+    setBasket((b) => { if (b.find((x) => x.bid === bid)) { added = false; return b; } return [...b, { bid, title: item.title, type: item.type || item.cat || "资料", meta: item.meta || [item.edition, item.grade, item.subject].filter(Boolean).join(" · ") }]; });
+    return added;
+  };
+  const removeFromBasket = (bid) => setBasket((b) => b.filter((x) => x.bid !== bid));
 
   aE(() => applyTheme(t), [t.primary, t.dark]);
 
@@ -93,11 +105,13 @@ function App() {
         onNavigate={(p) => setScreen(p)}
         onNewChat={goHome}
         onRequireLogin={() => setLoginOpen(true)}
+        onOpenBasket={() => setBasketOpen(true)}
+        basketCount={basket.length}
       />
     );
   } else {
     const wsKey = (fromIntent ? "i:" : "") + (resume ? "r:" : "") + scenarioId + ":" + query;
-    const common = { scenario, query, fromIntent, resume, loggedIn, onHome: goHome, onSwitch: switchScenario };
+    const common = { scenario, query, fromIntent, resume, loggedIn, onHome: goHome, onSwitch: switchScenario, onAddBasket: addToBasket, onOpenBasket: () => setBasketOpen(true), onOpenContent: () => setContentOpen(true), basketCount: basket.length };
     if (scenarioId === "general") view = <GeneralWorkspace key={wsKey} {...common} />;
     else if (scenarioId === "find") view = <FindWorkspace key={wsKey} {...common} />;
     else if (scenarioId === "textbook") view = <TextbookWorkspace key={wsKey} {...common} />;
@@ -109,6 +123,8 @@ function App() {
     <React.Fragment>
       {view}
       {loginOpen && <LoginModal onClose={() => setLoginOpen(false)} onLogin={() => { setLoggedIn(true); setLoginOpen(false); }} />}
+      <BasketPanel open={basketOpen} items={basket} onClose={() => setBasketOpen(false)} onRemove={removeFromBasket} onClear={() => setBasket([])} onOpenContent={() => { setBasketOpen(false); setScreen("works"); }} />
+      <ContentPanel open={contentOpen} onClose={() => setContentOpen(false)} onResume={(item) => { setContentOpen(false); resumeCreation(item); }} />
       <TweaksPanel>
         <TweakSection label="主题" />
         <TweakColor label="主色" value={t.primary} options={PRIMARY_OPTIONS} onChange={(v) => setTweak("primary", v)} />

@@ -90,9 +90,15 @@ function MobileSheet({ open, onClose, title, children, headerRight }) {
             {headerRight ? <div style={{ flexShrink: 0 }}>{headerRight}</div> : <div style={{ width: 64, flexShrink: 0 }} />}
           </div>
         </div>
-        {/* body — the workspace content pane lives here, fills remaining space */}
+        {/* body — the workspace content pane lives here, fills remaining space.
+            We force the content root to flex/minHeight:0 so its own internal
+            scroll regions (lists, drawers with pinned footers) work on mobile. */}
         <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", position: "relative" }}>
-          {children}
+          {React.Children.map(children, (child) =>
+            React.isValidElement(child)
+              ? React.cloneElement(child, { style: { ...(child.props.style || {}), flex: 1, minHeight: 0, minWidth: 0 } })
+              : child
+          )}
         </div>
       </div>
     </React.Fragment>
@@ -112,4 +118,31 @@ function SheetPill({ label, icon = "layers", onClick, dot }) {
   );
 }
 
-Object.assign(window, { useIsMobile, useBodyMobileFlag, WSMobileContext, MobileSheet, SheetPill, MOBILE_BP, NARROW_BP });
+// An in-chat card that reveals the content sheet — a softer, contextual
+// alternative to the header pill. Renders only on mobile (chat-led layouts);
+// returns null on desktop so the conversation is unchanged.
+function ChatSheetCard({ label, count, icon = "layers", hint }) {
+  const ctx = React.useContext(WSMobileContext);
+  if (!ctx || !ctx.mobile || !ctx.isChatLed || ctx.sheetOpen) return null;
+  return (
+    <button
+      onClick={() => ctx.setSheetOpen(true)}
+      style={{ display: "flex", alignItems: "center", gap: 11, width: "100%", textAlign: "left", padding: "12px 13px", borderRadius: 14, border: "1px solid var(--brand-soft-border)", background: "var(--brand-soft)", cursor: "pointer", fontFamily: "var(--font-zh)", boxShadow: "0 6px 18px -12px var(--brand-glow)" }}
+    >
+      <span style={{ width: 38, height: 38, borderRadius: 11, background: "var(--surface)", border: "1px solid var(--brand-soft-border)", display: "grid", placeItems: "center", color: "var(--brand-deep)", flexShrink: 0 }}>
+        <Icon name={icon} size={19} />
+      </span>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontSize: 13.5, fontWeight: 800, color: "var(--brand-deep)", display: "flex", alignItems: "center", gap: 7 }}>
+          {typeof count === "number" ? `已为你整理 ${count} 个${label}` : `查看${label}`}
+        </div>
+        <div style={{ fontSize: 11.5, color: "var(--ink-3)", fontWeight: 600, marginTop: 1 }}>{hint || "点此展开查看"}</div>
+      </div>
+      <span style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "7px 12px", borderRadius: 999, background: "var(--brand)", color: "#fff", fontSize: 12.5, fontWeight: 700, flexShrink: 0 }}>
+        展开 <Icon name="chevron" size={14} sw={2.4} />
+      </span>
+    </button>
+  );
+}
+
+Object.assign(window, { useIsMobile, useBodyMobileFlag, WSMobileContext, MobileSheet, SheetPill, ChatSheetCard, MOBILE_BP, NARROW_BP });

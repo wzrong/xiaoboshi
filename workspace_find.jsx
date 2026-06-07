@@ -71,7 +71,7 @@ function ChatResizer({ children }) {
   );
 }
 
-function WorkspaceShell({ scenario, onHome, onSwitch, children, right, titleMeta, subtitleOverride, recognizing, headerRecognizing, mobilePanelLabel = "结果", mobilePanelIcon = "layers" }) {
+function WorkspaceShell({ scenario, onHome, onSwitch, children, right, titleMeta, subtitleOverride, recognizing, headerRecognizing, mobilePanelLabel = "结果", mobilePanelIcon = "layers", openSheetKey }) {
   const showRec = recognizing || headerRecognizing;
   const [switcher, setSwitcher] = React.useState(false);
   const mobile = useIsMobile();
@@ -81,6 +81,15 @@ function WorkspaceShell({ scenario, onHome, onSwitch, children, right, titleMeta
   const canSwitch = typeof onSwitch === "function" && !showRec;
   const kids = React.Children.toArray(children);
   const isChatLed = !recognizing && kids.length >= 2 && kids[0] && kids[0].type === ChatPanel;
+  // mobile: auto-slide the content sheet up when the result pane becomes ready
+  // or the user opens a specific item (key changes). Never auto-opens twice for
+  // the same state, so it stays out of the way once dismissed.
+  const lastKey = React.useRef(undefined);
+  React.useEffect(() => {
+    if (!mobile || !isChatLed) { lastKey.current = openSheetKey; return; }
+    if (openSheetKey && openSheetKey !== lastKey.current) setSheetOpen(true);
+    lastKey.current = openSheetKey;
+  }, [openSheetKey, mobile, isChatLed]);
   return (
     <WSMobileContext.Provider value={{ mobile, sheetOpen, setSheetOpen, isChatLed }}>
     <div style={{ height: "100dvh", display: "flex", flexDirection: "column", background: "var(--canvas)" }}>
@@ -246,7 +255,7 @@ function RecognizingPanel() {
 }
 
 // ---- Chat panel (left) ----
-function ChatPanel({ messages, onSend, suggestions, placeholder, width = 380 }) {
+function ChatPanel({ messages, onSend, suggestions, placeholder, width = 380, pinnedCard }) {
   const [draft, setDraft] = uS("");
   const [att, setAtt] = uS([]);
   const scrollRef = uR(null);
@@ -266,6 +275,7 @@ function ChatPanel({ messages, onSend, suggestions, placeholder, width = 380 }) 
         {messages.map((m, i) => (
           <Bubble key={i} m={m} />
         ))}
+        {pinnedCard}
       </div>
       {suggestions && suggestions.length > 0 && (
         <div style={{ padding: "10px 16px 4px", display: "flex", flexWrap: "wrap", gap: 8 }}>
@@ -414,7 +424,7 @@ function detectKind(q) {
   return "all";
 }
 
-function FindWorkspace({ scenario, query, onHome, onSwitch, fromIntent, resume, loggedIn }) {
+function FindWorkspace({ scenario, query, onHome, onSwitch, fromIntent, resume, loggedIn, onAddBasket, onOpenBasket, onOpenContent, basketCount = 0 }) {
   const ALL = window.AIDATA.RESOURCES;
   const isResume = !!resume;
   const initKind = detectKind(query);
@@ -430,6 +440,8 @@ function FindWorkspace({ scenario, query, onHome, onSwitch, fromIntent, resume, 
   const [album, setAlbum] = uS(null);
   const [toast, setToast] = uS(null);
   const [highlight, setHighlight] = uS(false);
+  const mobile = useIsMobile();
+  const [condOpen, setCondOpen] = uS(false); // mobile: collapse the "理解为" bar so the list gets room
   // started=true → show real results; false → cold start (no input) or mid intent-thinking
   const [started, setStarted] = uS(!!query && !fromIntent);
 
@@ -573,6 +585,15 @@ function FindWorkspace({ scenario, query, onHome, onSwitch, fromIntent, resume, 
 
   const curCount = counts[tab] || 0;
 
+  // mobile: which "thing" is showing in the result pane right now — used to
+  // auto-slide the sheet up when content becomes ready or an item is opened.
+  const sheetKey = preview ? "p:" + preview.title : player ? "v:" + player.title : album ? "a:" + (album.id || album.title) : started ? "results" : "";
+
+  const addBasket = (item) => {
+    const ok = onAddBasket ? onAddBasket(item) : true;
+    showToast(ok ? "已加入资源篮" : "已在资源篮中");
+  };
+
   let body;
   if (curCount === 0) {
     body = <NotFound topic={topicMatch || (filters.subject || "")} onSwitch={onSwitch} query={query} />;
@@ -587,61 +608,96 @@ function FindWorkspace({ scenario, query, onHome, onSwitch, fromIntent, resume, 
   }
 
   return (
-    <WorkspaceShell scenario={scenario} onHome={onHome} onSwitch={onSwitch} headerRecognizing={headerRecognizing} mobilePanelLabel="资源" mobilePanelIcon="search" right={
-      <button style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 13px", borderRadius: 10, border: "1px solid var(--line)", background: "var(--surface)", color: "var(--ink-2)", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "var(--font-zh)" }}>
-        <Icon name="layers" size={15} /> 我的资源夹
-      </button>
+    <WorkspaceShell scenario={scenario} onHome={onHome} onSwitch={onSwitch} headerRecognizing={headerRecognizing} mobilePanelLabel="资源" mobilePanelIcon="search" openSheetKey={sheetKey} right={
+      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <button onClick={() => onOpenContent && onOpenContent()} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 12px", borderRadius: 10, border: "1px solid var(--line)", background: "var(--surface)", color: "var(--ink-2)", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "var(--font-zh)", flexShrink: 0 }}>
+          <Icon name="grid" size={15} /> 我的内容
+        </button>
+        <button onClick={() => onOpenBasket && onOpenBasket()} style={{ position: "relative", display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 12px", borderRadius: 10, border: "1px solid var(--line)", background: "var(--surface)", color: "var(--ink-2)", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "var(--font-zh)", flexShrink: 0 }}>
+          <Icon name="basket" size={15} /> 资源篮
+          {basketCount > 0 && <span style={{ minWidth: 18, height: 18, padding: "0 5px", borderRadius: 999, background: "var(--brand)", color: "#fff", fontSize: 11, fontWeight: 800, fontFamily: "var(--font-num)", display: "inline-grid", placeItems: "center" }}>{basketCount}</span>}
+        </button>
+      </div>
     }>
-      <ChatPanel messages={messages} onSend={send} suggestions={suggestions} placeholder="例如：只看实验视频 / 整套打包下载" />
+      <ChatPanel messages={messages} onSend={send} suggestions={suggestions} placeholder="例如：只看实验视频 / 整套打包下载" pinnedCard={started ? <ChatSheetCard label="资源" count={curCount} icon="search" hint="点此查看 / 收起结果" /> : null} />
       {/* results */}
       <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", position: "relative" }}>
         {!started && <FindColdStart loggedIn={!resume && loggedIn} onPick={(q) => handleSend(q)} />}
         {started && <React.Fragment>
-        {/* AI-understood conditions bar — folds in the memory context */}
-        <div style={{ padding: "13px 22px 12px", borderBottom: "1px solid var(--line)", background: "var(--surface)" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-            <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12.5, color: "var(--brand-deep)", fontWeight: 700 }}>
-              <Icon name="spark" size={14} /> {isResume ? "小博士已为你恢复" : "小博士已按你的记忆理解为"}
-            </span>
-            {isResume && (
-              <span style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "5px 10px", borderRadius: 999, background: "var(--surface-2)", border: "1px solid var(--line)", fontSize: 12, fontWeight: 700, color: "var(--ink-3)" }}>
-                <Icon name="history" size={12} /> 历史创作 · 恢复自{resume.when}
+        {/* AI-understood conditions bar — folds in the memory context.
+            On mobile it collapses to a single tappable line so the resource
+            list (what the teacher actually scans) gets the vertical room. */}
+        {mobile ? (
+          <div style={{ borderBottom: "1px solid var(--line)", background: "var(--surface)" }}>
+            <button onClick={() => setCondOpen((o) => !o)} style={{ width: "100%", display: "flex", alignItems: "center", gap: 8, padding: "8px 16px", border: "none", background: "transparent", cursor: "pointer", fontFamily: "var(--font-zh)", textAlign: "left" }}>
+              <Icon name="spark" size={14} />
+              <span style={{ flex: 1, minWidth: 0, fontSize: 12, color: "var(--ink-2)", fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                <b style={{ color: "var(--brand-deep)" }}>{isResume ? "已恢复" : "已按记忆理解"}</b>
+                {conditions.length > 0 ? "：" + conditions.map((c) => c.label).join(" · ") : "：全部资源"}
               </span>
+              <span style={{ color: "var(--ink-3)", display: "grid", placeItems: "center", transition: "transform .2s", transform: condOpen ? "rotate(180deg)" : "none", flexShrink: 0 }}><Icon name="chevron" size={15} /></span>
+            </button>
+            {condOpen && (
+              <div style={{ padding: "0 16px 11px", display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                {conditions.length === 0 && <span style={{ fontSize: 12, color: "var(--ink-3)" }}>未限定条件</span>}
+                {conditions.map((c, i) => (
+                  <span key={i} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "4px 10px", borderRadius: 999, background: c.fixed ? "var(--brand)" : "var(--brand-soft)", color: c.fixed ? "#fff" : "var(--brand-deep)", border: c.fixed ? "none" : "1px solid var(--brand-soft-border)", fontSize: 12, fontWeight: 700 }}>
+                    {c.label}
+                    {!c.fixed && <span onClick={() => removeCond(c.key)} style={{ display: "inline-flex", cursor: "pointer", opacity: 0.55 }}><Icon name="close" size={12} sw={2.6} /></span>}
+                  </span>
+                ))}
+                <span style={{ fontSize: 11, color: "var(--ink-3)", width: "100%" }}>点 × 放宽条件，或在对话里直接对小博士说</span>
+              </div>
             )}
-            {conditions.length === 0 && <span style={{ fontSize: 12.5, color: "var(--ink-3)" }}>全部资源 · 未限定条件</span>}
-            {conditions.map((c, i) => (
-              <span key={i} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "5px 10px", borderRadius: 999, background: c.fixed ? "var(--brand)" : "var(--brand-soft)", color: c.fixed ? "#fff" : "var(--brand-deep)", border: c.fixed ? "none" : "1px solid var(--brand-soft-border)", fontSize: 12.5, fontWeight: 700 }}>
-                {c.label}
-                {!c.fixed && <span onClick={() => removeCond(c.key)} style={{ display: "inline-flex", cursor: "pointer", opacity: 0.55 }}><Icon name="close" size={12} sw={2.6} /></span>}
-              </span>
-            ))}
-            <span style={{ fontSize: 11.5, color: "var(--ink-3)" }}>· 想换条件，点 × 放宽，或直接在左侧对我说</span>
           </div>
-        </div>
+        ) : (
+          <div style={{ padding: "13px 22px 12px", borderBottom: "1px solid var(--line)", background: "var(--surface)" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12.5, color: "var(--brand-deep)", fontWeight: 700 }}>
+                <Icon name="spark" size={14} /> {isResume ? "小博士已为你恢复" : "小博士已按你的记忆理解为"}
+              </span>
+              {isResume && (
+                <span style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "5px 10px", borderRadius: 999, background: "var(--surface-2)", border: "1px solid var(--line)", fontSize: 12, fontWeight: 700, color: "var(--ink-3)" }}>
+                  <Icon name="history" size={12} /> 历史创作 · 恢复自{resume.when}
+                </span>
+              )}
+              {conditions.length === 0 && <span style={{ fontSize: 12.5, color: "var(--ink-3)" }}>全部资源 · 未限定条件</span>}
+              {conditions.map((c, i) => (
+                <span key={i} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "5px 10px", borderRadius: 999, background: c.fixed ? "var(--brand)" : "var(--brand-soft)", color: c.fixed ? "#fff" : "var(--brand-deep)", border: c.fixed ? "none" : "1px solid var(--brand-soft-border)", fontSize: 12.5, fontWeight: 700 }}>
+                  {c.label}
+                  {!c.fixed && <span onClick={() => removeCond(c.key)} style={{ display: "inline-flex", cursor: "pointer", opacity: 0.55 }}><Icon name="close" size={12} sw={2.6} /></span>}
+                </span>
+              ))}
+              <span style={{ fontSize: 11.5, color: "var(--ink-3)" }}>· 想换条件，点 × 放宽，或直接在左侧对我说</span>
+            </div>
+          </div>
+        )}
         {/* content-type tabs */}
-        <div style={{ padding: "12px 22px 0", display: "flex", alignItems: "center", gap: 8 }}>
-          <div style={{ display: "inline-flex", gap: 4, background: "var(--surface-2)", border: "1px solid var(--line)", borderRadius: 11, padding: 3 }}>
+        <div style={{ padding: mobile ? "9px 16px 0" : "12px 22px 0", display: "flex", alignItems: "center", gap: 8 }}>
+          <div style={{ display: "inline-flex", gap: 4, background: "var(--surface-2)", border: "1px solid var(--line)", borderRadius: 11, padding: 3, maxWidth: "100%", overflowX: "auto", scrollbarWidth: "none" }}>
             {RESULT_TABS.map((tb) => (
-              <button key={tb.k} onClick={() => setTab(tb.k)} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "6px 14px", borderRadius: 8, border: "none", cursor: "pointer", fontFamily: "var(--font-zh)", fontSize: 13, fontWeight: 700, background: tab === tb.k ? "var(--surface)" : "transparent", color: tab === tb.k ? "var(--brand-deep)" : "var(--ink-3)", boxShadow: tab === tb.k ? "0 2px 8px -4px rgba(0,0,0,.25)" : "none", transition: "all .15s" }}>
+              <button key={tb.k} onClick={() => setTab(tb.k)} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: mobile ? "6px 11px" : "6px 14px", borderRadius: 8, border: "none", cursor: "pointer", fontFamily: "var(--font-zh)", fontSize: 13, fontWeight: 700, whiteSpace: "nowrap", flexShrink: 0, background: tab === tb.k ? "var(--surface)" : "transparent", color: tab === tb.k ? "var(--brand-deep)" : "var(--ink-3)", boxShadow: tab === tb.k ? "0 2px 8px -4px rgba(0,0,0,.25)" : "none", transition: "all .15s" }}>
                 {tb.label}
                 <span style={{ fontSize: 11, fontWeight: 800, fontFamily: "var(--font-num)", padding: "1px 6px", borderRadius: 999, background: tab === tb.k ? "var(--brand-soft)" : "var(--line)", color: tab === tb.k ? "var(--brand-deep)" : "var(--ink-3)" }}>{counts[tb.k]}</span>
               </button>
             ))}
           </div>
           <div style={{ flex: 1 }} />
-          <div style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, color: "var(--auth-ink)", fontWeight: 600 }}>
-            <Icon name="shield" size={14} /> 全部来自学科网资源库
-          </div>
+          {!mobile && (
+            <div style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, color: "var(--auth-ink)", fontWeight: 600 }}>
+              <Icon name="shield" size={14} /> 全部来自学科网资源库
+            </div>
+          )}
         </div>
         {/* result list */}
-        <div className={highlight ? "results-pulse" : ""} style={{ flex: 1, overflowY: "auto", padding: "14px 22px 24px", display: "flex", flexDirection: "column", gap: 12 }}>
+        <div className={highlight ? "results-pulse" : ""} style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: mobile ? "11px 16px 20px" : "14px 22px 24px", display: "flex", flexDirection: "column", gap: mobile ? 9 : 12 }}>
           {body}
         </div>
         </React.Fragment>}
 
-        {album && <AlbumPage a={album} onClose={() => setAlbum(null)} onPreviewItem={previewItem} onPlayItem={playItem} onDownload={(msg) => showToast(msg)} />}
-        {preview && <PreviewDrawer r={preview} onClose={() => setPreview(null)} onAsk={askAbout} onDownload={() => showToast("已开始下载，可在「我的资源夹」查看")} />}
-        {player && <VideoPlayer v={player} onClose={() => setPlayer(null)} onAsk={askAbout} onDownload={() => showToast(`已开始下载视频《${player.title.slice(0, 12)}…》`)} />}
+        {album && <AlbumPage a={album} onClose={() => setAlbum(null)} onPreviewItem={previewItem} onPlayItem={playItem} onDownload={(msg) => showToast(msg)} onAddBasket={addBasket} />}
+        {preview && <PreviewDrawer r={preview} onClose={() => setPreview(null)} onAsk={askAbout} onAddBasket={addBasket} onDownload={() => showToast("已开始下载，可在「资源篮」查看")} />}
+        {player && <VideoPlayer v={player} onClose={() => setPlayer(null)} onAsk={askAbout} onAddBasket={addBasket} onDownload={() => showToast(`已开始下载视频《${player.title.slice(0, 12)}…》`)} />}
         {toast && (
           <div className="enter-pop" style={{ position: "absolute", bottom: 22, left: "50%", transform: "translateX(-50%)", background: "var(--ink)", color: "var(--surface)", padding: "11px 18px", borderRadius: 12, fontSize: 13.5, fontWeight: 600, boxShadow: "0 12px 30px -12px rgba(0,0,0,.5)", display: "inline-flex", alignItems: "center", gap: 8, zIndex: 60 }}>
             <Icon name="check" size={16} sw={2.6} /> {toast}
@@ -782,52 +838,47 @@ function ResourceCard({ r, onPreview, onDownload }) {
   return (
     <div
       className="res-card"
-      style={{ background: "var(--surface)", border: "1px solid var(--line)", borderRadius: 16, padding: 16, transition: "box-shadow .2s, border-color .2s", cursor: "pointer" }}
+      style={{ background: "var(--surface)", border: "1px solid var(--line)", borderRadius: 14, padding: 13, transition: "box-shadow .2s, border-color .2s", cursor: "pointer", display: "flex", gap: 13, alignItems: "center" }}
       onClick={onPreview}
-      onMouseEnter={(e) => { e.currentTarget.style.boxShadow = "0 12px 28px -18px rgba(0,0,0,.3)"; e.currentTarget.style.borderColor = "var(--brand-soft-border)"; }}
+      onMouseEnter={(e) => { e.currentTarget.style.boxShadow = "0 10px 24px -18px rgba(0,0,0,.3)"; e.currentTarget.style.borderColor = "var(--brand-soft-border)"; }}
       onMouseLeave={(e) => { e.currentTarget.style.boxShadow = "none"; e.currentTarget.style.borderColor = "var(--line)"; }}
     >
-      <div style={{ display: "flex", gap: 14 }}>
-        <div style={{ flexShrink: 0, textAlign: "center" }}>
-          <div style={{ position: "relative", width: 50, height: 50 }}>
-            <svg width="50" height="50" style={{ transform: "rotate(-90deg)" }}>
-              <circle cx="25" cy="25" r="21" fill="none" stroke="var(--line)" strokeWidth="4" />
-              <circle cx="25" cy="25" r="21" fill="none" stroke="var(--brand)" strokeWidth="4" strokeLinecap="round" strokeDasharray={`${(r.match / 100) * 132} 132`} />
-            </svg>
-            <div style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center", fontSize: 13, fontWeight: 800, color: "var(--brand-deep)", fontFamily: "var(--font-num)" }}>{r.match}</div>
-          </div>
-          <div style={{ fontSize: 10, color: "var(--ink-3)", marginTop: 3 }}>匹配度</div>
+      <div style={{ flexShrink: 0, textAlign: "center" }}>
+        <div style={{ position: "relative", width: 44, height: 44 }}>
+          <svg width="44" height="44" style={{ transform: "rotate(-90deg)" }}>
+            <circle cx="22" cy="22" r="18" fill="none" stroke="var(--line)" strokeWidth="4" />
+            <circle cx="22" cy="22" r="18" fill="none" stroke="var(--brand)" strokeWidth="4" strokeLinecap="round" strokeDasharray={`${(r.match / 100) * 113} 113`} />
+          </svg>
+          <div style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center", fontSize: 12, fontWeight: 800, color: "var(--brand-deep)", fontFamily: "var(--font-num)" }}>{r.match}</div>
         </div>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10 }}>
-            <div style={{ fontSize: 15, fontWeight: 700, color: "var(--ink)", lineHeight: 1.45 }}>{r.title}</div>
-          </div>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 9 }}>
-            {[r.edition, r.grade, r.subject, r.type, `难度·${r.diff}`].map((t, i) => (
-              <span key={i} style={{ padding: "3px 9px", borderRadius: 7, background: "var(--surface-2)", border: "1px solid var(--line)", fontSize: 11.5, fontWeight: 600, color: "var(--ink-3)" }}>{t}</span>
-            ))}
-          </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 16, marginTop: 11, fontSize: 12, color: "var(--ink-3)", flexWrap: "wrap", rowGap: 8 }}>
-            <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}><Icon name="download" size={13} /> {r.downloads} 次下载</span>
-            {r.qcount > 0 && <span>{r.qcount} 题</span>}
-            <span>{r.pages} 页</span>
-            <span>更新 {r.updated}</span>
-            <div style={{ flex: 1, minWidth: 8 }} />
-            <button onClick={(e) => { e.stopPropagation(); onPreview(); }} style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "6px 12px", borderRadius: 9, border: "1px solid var(--line)", background: "var(--surface)", color: "var(--ink-2)", fontWeight: 700, fontSize: 12.5, cursor: "pointer", fontFamily: "var(--font-zh)" }}>
-              <Icon name="eye" size={14} /> 预览
-            </button>
-            <button onClick={(e) => { e.stopPropagation(); onDownload(); }} style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "6px 12px", borderRadius: 9, border: "none", background: "var(--brand-soft)", color: "var(--brand-deep)", fontWeight: 700, fontSize: 12.5, cursor: "pointer", fontFamily: "var(--font-zh)" }}>
-              <Icon name="download" size={14} /> 下载
-            </button>
-          </div>
+        <div style={{ fontSize: 9, color: "var(--ink-3)", marginTop: 2 }}>匹配度</div>
+      </div>
+      <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 7 }}>
+        <div style={{ fontSize: 14, fontWeight: 700, color: "var(--ink)", lineHeight: 1.4, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{r.title}</div>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 11, color: "var(--ink-3)", flexWrap: "wrap", rowGap: 4 }}>
+          <span style={{ fontWeight: 700, color: "var(--ink-2)", whiteSpace: "nowrap" }}>{r.edition} · {r.grade}{r.subject}</span>
+          <span style={{ padding: "1px 7px", borderRadius: 5, background: "var(--surface-2)", border: "1px solid var(--line)", fontWeight: 600, whiteSpace: "nowrap" }}>{r.type}</span>
+          <span style={{ whiteSpace: "nowrap" }}>难度·{r.diff}</span>
+          {r.qcount > 0 && <span style={{ whiteSpace: "nowrap" }}>{r.qcount} 题</span>}
+          <span style={{ whiteSpace: "nowrap" }}>{r.pages} 页</span>
         </div>
       </div>
+      <Icon name="chevron" size={18} />
     </div>
   );
 }
 
-function PreviewDrawer({ r, onClose, onDownload, onAsk }) {
+function canSendToPaper(r) {
+  if (!r) return false;
+  if (r.qcount > 0) return true;
+  const s = (r.type || "") + (r.title || "");
+  if (/课件|教案|课时|教学设计|说课|课堂实录/.test(r.type || "")) return false;
+  return /练习|测试|卷|题|真题|专项|习题|训练|检测/.test(s);
+}
+
+function PreviewDrawer({ r, onClose, onDownload, onAsk, onAddBasket }) {
   const asks = ["总结这份资料的内容", "这份适合我的班级吗", "提取讲解重点", "据此出一份同类卷子"];
+  const canPaper = canSendToPaper(r);
   return (
     <div className="drawer-pop" style={{ position: "absolute", inset: 0, zIndex: 25, background: "var(--canvas)", display: "flex", flexDirection: "column" }}>
       {/* header */}
@@ -843,19 +894,6 @@ function PreviewDrawer({ r, onClose, onDownload, onAsk }) {
           <Icon name="close" size={16} sw={2.4} />
         </button>
       </div>
-      {/* keep-collaborating hint + quick asks (chat stays usable on the left) */}
-      {onAsk && (
-        <div style={{ padding: "11px 20px", borderBottom: "1px solid var(--line)", background: "var(--brand-soft)", display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-          <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 700, color: "var(--brand-deep)" }}>
-            <Icon name="spark" size={14} /> 边看边问小博士
-          </span>
-          <div style={{ display: "flex", gap: 7, flexWrap: "wrap" }}>
-            {asks.map((q, i) => (
-              <button key={i} onClick={() => onAsk(q, r)} style={{ padding: "5px 11px", borderRadius: 999, border: "1px solid var(--brand-soft-border)", background: "var(--surface)", color: "var(--brand-deep)", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "var(--font-zh)" }}>{q}</button>
-            ))}
-          </div>
-        </div>
-      )}
       {/* pages preview */}
       <div style={{ flex: 1, overflowY: "auto", padding: "20px 24px", display: "flex", flexDirection: "column", gap: 16, alignItems: "center" }}>
         {[0, 1].map((p) => (
@@ -872,11 +910,26 @@ function PreviewDrawer({ r, onClose, onDownload, onAsk }) {
           </div>
         ))}
       </div>
-      {/* footer */}
-      <div style={{ padding: 16, borderTop: "1px solid var(--line)", background: "var(--surface)", display: "flex", gap: 10, alignItems: "center" }}>
-        <Btn kind="primary" icon="download" onClick={onDownload}>下载原件</Btn>
-        <Btn kind="soft" icon="plus">加入资源夹</Btn>
-        <Btn kind="ghost" icon="paper">送去出卷子</Btn>
+      {/* bottom: keep-collaborating asks (sticky, thumb-reachable) + actions */}
+      <div style={{ flexShrink: 0, borderTop: "1px solid var(--line)", background: "var(--surface)" }}>
+        {onAsk && (
+          <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 16px", borderBottom: "1px solid var(--line)", background: "var(--brand-soft)" }}>
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 12, fontWeight: 700, color: "var(--brand-deep)", flexShrink: 0 }}>
+              <Icon name="spark" size={14} /> 问小博士
+            </span>
+            <div style={{ flex: 1, minWidth: 0, display: "flex", gap: 7, overflowX: "auto", paddingBottom: 2, scrollbarWidth: "none" }}>
+              {asks.map((q, i) => (
+                <button key={i} onClick={() => onAsk(q, r)} style={{ whiteSpace: "nowrap", flexShrink: 0, padding: "6px 12px", borderRadius: 999, border: "1px solid var(--brand-soft-border)", background: "var(--surface)", color: "var(--brand-deep)", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "var(--font-zh)" }}>{q}</button>
+              ))}
+            </div>
+          </div>
+        )}
+        <div style={{ padding: 14, display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", rowGap: 10 }}>
+          <Btn kind="primary" icon="download" onClick={onDownload}>下载文档</Btn>
+          <Btn kind="soft" icon="basket" onClick={() => onAddBasket && onAddBasket(r)}>加入资源篮</Btn>
+          <div style={{ flex: 1, minWidth: 8 }} />
+          {canPaper && <Btn kind="ghost" icon="paper">送去出卷子</Btn>}
+        </div>
       </div>
     </div>
   );

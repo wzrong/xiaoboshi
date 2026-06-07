@@ -204,6 +204,18 @@ function Icon({ name, size = 24, sw = 1.8 }) {
         <line x1="4" y1="17" x2="20" y2="17" />
       </g>
     ),
+    basket: (
+      <g>
+        <path d="M5 9h14l-1.2 9.2a2 2 0 0 1-2 1.8H8.2a2 2 0 0 1-2-1.8L5 9z" />
+        <path d="M9 9l1.5-5M15 9l-1.5-5" />
+        <line x1="3.5" y1="9" x2="20.5" y2="9" />
+      </g>
+    ),
+    trash: (
+      <g>
+        <path d="M5 7h14M10 7V5h4v2M6 7l1 13h10l1-13" />
+      </g>
+    ),
   };
   return <svg {...common}>{paths[name] || paths.spark}</svg>;
 }
