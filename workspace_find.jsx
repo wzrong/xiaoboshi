@@ -98,7 +98,8 @@ function WorkspaceShell({ scenario, onHome, onSwitch, children, right, titleMeta
           display: "flex",
           alignItems: "center",
           gap: mobile ? 8 : 12,
-          padding: mobile ? "10px 12px" : "12px 22px",
+          height: mobile ? 56 : 60,
+          padding: mobile ? "0 12px" : "0 22px",
           background: "var(--surface)",
           borderBottom: "1px solid var(--line)",
           flexShrink: 0,
@@ -255,7 +256,7 @@ function RecognizingPanel() {
 }
 
 // ---- Chat panel (left) ----
-function ChatPanel({ messages, onSend, suggestions, placeholder, width = 380, pinnedCard }) {
+function ChatPanel({ messages, onSend, suggestions, placeholder, width = 380, pinnedCard, roundsById, shownId, onOpenRound, retrieving }) {
   const [draft, setDraft] = uS("");
   const [att, setAtt] = uS([]);
   const scrollRef = uR(null);
@@ -272,9 +273,10 @@ function ChatPanel({ messages, onSend, suggestions, placeholder, width = 380, pi
   return (
     <div style={{ width, flexShrink: 0, display: "flex", flexDirection: "column", background: "var(--surface)", borderRight: "1px solid var(--line)" }}>
       <div ref={scrollRef} style={{ flex: 1, overflowY: "auto", padding: "20px 18px", display: "flex", flexDirection: "column", gap: 16 }}>
-        {messages.map((m, i) => (
-          <Bubble key={i} m={m} />
-        ))}
+        {messages.map((m, i) => {
+          const round = roundsById && m.roundId != null ? roundsById[m.roundId] : null;
+          return <Bubble key={i} m={m} round={round} active={round && round.id === shownId && !retrieving} onOpenRound={onOpenRound} />;
+        })}
         {pinnedCard}
       </div>
       {suggestions && suggestions.length > 0 && (
@@ -334,7 +336,7 @@ function ChatPanel({ messages, onSend, suggestions, placeholder, width = 380, pi
   );
 }
 
-function Bubble({ m }) {
+function Bubble({ m, round, active, onOpenRound }) {
   if (m.role === "user") {
     return (
       <div style={{ alignSelf: "flex-end", maxWidth: "85%", display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6 }}>
@@ -359,8 +361,14 @@ function Bubble({ m }) {
   return (
     <div style={{ display: "flex", gap: 9, alignItems: "flex-start", maxWidth: m.wide ? "98%" : "92%", width: m.wide ? "100%" : "auto" }}>
       <BotAvatar size={28} />
-      <div style={{ flex: m.wide ? 1 : "0 1 auto", minWidth: 0, background: "var(--surface-2)", border: "1px solid var(--line)", padding: "10px 13px", borderRadius: "4px 14px 14px 14px", fontSize: 13.5, lineHeight: 1.65, color: "var(--ink)" }}>
-        {m.typing ? <Dots /> : m.render ? m.render() : (m.node || m.text)}
+      <div style={{ flex: m.wide ? 1 : "0 1 auto", minWidth: 0, display: "flex", flexDirection: "column", gap: 8 }}>
+        <div style={{ background: "var(--surface-2)", border: "1px solid var(--line)", padding: "10px 13px", borderRadius: "4px 14px 14px 14px", fontSize: 13.5, lineHeight: 1.65, color: "var(--ink)" }}>
+          {m.typing ? <Dots /> : m.render ? m.render() : (m.node || m.text)}
+        </div>
+        {/* per-round result pill — a sibling BELOW the bubble, not nested inside it */}
+        {!m.typing && round && (
+          <ResultPill count={round.count} active={active} onOpen={() => onOpenRound && onOpenRound(round.id)} />
+        )}
       </div>
     </div>
   );
@@ -424,7 +432,114 @@ function detectKind(q) {
   return "all";
 }
 
-function FindWorkspace({ scenario, query, onHome, onSwitch, fromIntent, resume, loggedIn, onAddBasket, onOpenBasket, onOpenContent, basketCount = 0 }) {
+// ---- per-round result model ----------------------------------------------
+// Every query produces a FROZEN result set ("round"). Each AI reply carries its
+// round's id; clicking that reply's pill re-opens exactly those results. Rounds
+// are never overwritten — "given to you, it's yours."
+
+const SOURCE_STYLE = {
+  "学科网": { label: "学科网", icon: "shield", c: "var(--auth-ink)", bg: "var(--auth-bg)", bd: "var(--auth-border)" },
+  "我的内容": { label: "我的内容", icon: "grid", c: "oklch(0.47 0.13 300)", bg: "oklch(0.965 0.025 300)", bd: "oklch(0.88 0.05 300)" },
+  "资源篮": { label: "资源篮", icon: "basket", c: "oklch(0.48 0.12 55)", bg: "oklch(0.965 0.04 75)", bd: "oklch(0.88 0.07 70)" },
+};
+function SourceTag({ source }) {
+  const s = SOURCE_STYLE[source] || SOURCE_STYLE["学科网"];
+  return (
+    <span style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "1px 7px", borderRadius: 5, background: s.bg, border: `1px solid ${s.bd}`, color: s.c, fontSize: 10.5, fontWeight: 800, whiteSpace: "nowrap" }}>
+      <Icon name={s.icon} size={11} sw={2} /> {s.label}
+    </span>
+  );
+}
+
+const KIND_LABEL = { all: "文档·视频·专辑", doc: "文档", video: "视频", album: "专辑" };
+
+// build a frozen, source-tagged, mixed item list for one round
+function buildRound(text, id, ctx, loggedIn, basketTitles) {
+  const R = window.AIDATA.RESOURCES, V = window.AIDATA.VIDEOS, A = window.AIDATA.ALBUMS;
+  const kind = detectKind(text);
+  const subject = pickSubject(text) || ctx.subject;
+  const grade = pickGrade(text) || ctx.grade;
+  ctx.subject = subject; ctx.grade = grade; // remember for vague follow-ups
+  const sjOK = (x) => !subject || x.subject === subject || x.subject === "通用";
+  const grOK = (x) => !grade || !x.grade || x.grade === grade;
+  let docs = R.filter((x) => sjOK(x) && grOK(x));
+  if (!docs.length) docs = R.filter(sjOK);
+  if (!docs.length) docs = R.slice();
+  let vids = V.filter(sjOK); if (!vids.length) vids = V.slice();
+  let albs = A.filter(sjOK); if (!albs.length) albs = A.slice();
+  const tag = (arr, k) => arr.map((x) => ({ ...x, _kind: k }));
+  let items;
+  if (kind === "video") items = [...tag(vids, "video"), ...tag(albs.slice(0, 1), "album"), ...tag(docs.slice(0, 3), "doc")];
+  else if (kind === "album") items = [...tag(albs, "album"), ...tag(docs.slice(0, 5), "doc"), ...tag(vids.slice(0, 2), "video")];
+  else items = [...tag(albs.slice(0, 2), "album"), ...tag(docs.slice(0, 8), "doc"), ...tag(vids.slice(0, 3), "video")];
+  items = items.slice(0, 14).map((x) => ({ ...x, _source: "学科网" }));
+  const bt = basketTitles || [];
+  items = items.map((it) => (bt.some((t) => t && (it.title.includes(t) || t.includes(it.title))) ? { ...it, _source: "资源篮" } : it));
+  if (loggedIn) {
+    const di = items.findIndex((x) => x._kind === "doc" && x._source === "学科网");
+    if (di >= 0) items[di] = { ...items[di], _source: "我的内容" };
+  }
+  if (bt.length && !items.some((x) => x._source === "资源篮")) {
+    const di = items.findIndex((x) => x._source === "学科网");
+    if (di >= 0) items[di] = { ...items[di], _source: "资源篮" };
+  }
+  const rank = { "我的内容": 0, "资源篮": 1, "学科网": 2 };
+  items.sort((a, b) => rank[a._source] - rank[b._source]);
+  return { id, query: text, items, count: items.length, kind, subject, grade };
+}
+
+function roundReplyNode(round) {
+  const ctxBits = [round.grade, round.subject].filter(Boolean).join("");
+  const cnt = (s) => round.items.filter((x) => x._source === s).length;
+  const mine = cnt("我的内容"), bag = cnt("资源篮");
+  const extra = [];
+  if (mine) extra.push(`${mine} 项来自你的内容`);
+  if (bag) extra.push(`${bag} 项来自资源篮收藏`);
+  return (
+    <span>
+      已按你的需求{ctxBits ? <span>（理解为 <b style={{ color: "var(--brand-deep)" }}>{ctxBits}</b>）</span> : null}，从<b style={{ color: "var(--auth-ink)" }}>学科网资源库</b>检索整理出 <b>{round.count}</b> 项{extra.length ? <span>，其中 {extra.join("、")}</span> : null}。点下方查看，合适就收藏或下载，不合适我也能直接生成。
+    </span>
+  );
+}
+
+const ROUND_SUGS = {
+  video: ["只看实验视频", "教师研修视频", "下载这个视频", "据此配套出题"],
+  album: ["展开专辑内容", "整套打包下载", "只要试卷部分", "换个复习专辑"],
+  all: ["只看视频", "有没有成套专辑", "只要含答案的文档", "难度再高一点"],
+};
+
+// result pill — sits BELOW the reply bubble (not nested inside it), width follows the bubble column
+function ResultPill({ count, active, onOpen }) {
+  return (
+    <button onClick={onOpen} style={{ width: "100%", display: "flex", alignItems: "center", gap: 9, textAlign: "left", padding: "9px 11px", borderRadius: 11, border: `1px solid ${active ? "var(--brand)" : "var(--brand-soft-border)"}`, background: active ? "var(--brand-soft)" : "var(--surface)", cursor: "pointer", fontFamily: "var(--font-zh)" }}>
+      <span style={{ width: 30, height: 30, borderRadius: 9, background: "var(--brand-soft)", border: "1px solid var(--brand-soft-border)", display: "grid", placeItems: "center", color: "var(--brand-deep)", flexShrink: 0 }}><Icon name="search" size={15} /></span>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontSize: 12.5, fontWeight: 800, color: "var(--brand-deep)" }}>已为你匹配 {count} 个资源</div>
+        <div style={{ fontSize: 10.5, color: "var(--ink-3)", fontWeight: 600, marginTop: 1 }}>{active ? "当前正在查看" : "点此查看本轮结果"}</div>
+      </div>
+      <Icon name={active ? "check" : "chevronRight"} size={15} />
+    </button>
+  );
+}
+
+// right-pane skeleton shown WHILE retrieving (so results never appear before the reply)
+function RetrievingPanel() {
+  const mobile = useIsMobile();
+  return (
+    <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
+      <div style={{ padding: mobile ? "12px 16px" : "14px 22px", borderBottom: "1px solid var(--line)", background: "var(--surface)", display: "flex", alignItems: "center", gap: 10 }}>
+        <Dots /> <span style={{ fontSize: 13, color: "var(--ink-2)", fontWeight: 600 }}>正在从 <b style={{ color: "var(--auth-ink)" }}>学科网资源库</b> 检索匹配…</span>
+      </div>
+      <div style={{ flex: 1, overflowY: "auto", padding: mobile ? "14px 16px" : "16px 22px", display: "flex", flexDirection: "column", gap: 12 }}>
+        {[0, 1, 2, 3, 4].map((i) => (
+          <div key={i} className="skeleton-row" style={{ height: 76, borderRadius: 14, background: "var(--surface-2)", border: "1px solid var(--line)", animationDelay: `${i * 0.12}s` }} />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function FindWorkspace({ scenario, query, onHome, onSwitch, fromIntent, resume, loggedIn, onAddBasket, onOpenBasket, onOpenContent, basketCount = 0, basketItems }) {
   const ALL = window.AIDATA.RESOURCES;
   const isResume = !!resume;
   const initKind = detectKind(query);
@@ -432,136 +547,88 @@ function FindWorkspace({ scenario, query, onHome, onSwitch, fromIntent, resume, 
   const initSubject = pickSubject(query) || (initKind === "all" ? "数学" : null);
   const initGrade = pickGrade(query) || (initKind === "all" ? "七年级" : null);
 
-  const [filters, setFilters] = uS({ grade: initGrade, subject: initSubject, edition: initKind === "all" ? "人教版" : null, type: null, diff: null });
-  const [tab, setTab] = uS(initKind);
-  const [showMore, setShowMore] = uS(false);
   const [preview, setPreview] = uS(null);
   const [player, setPlayer] = uS(null);
   const [album, setAlbum] = uS(null);
   const [toast, setToast] = uS(null);
-  const [highlight, setHighlight] = uS(false);
   const mobile = useIsMobile();
-  const [condOpen, setCondOpen] = uS(false); // mobile: collapse the "理解为" bar so the list gets room
-  // started=true → show real results; false → cold start (no input) or mid intent-thinking
-  const [started, setStarted] = uS(!!query && !fromIntent);
 
-  const kindGreet = {
-    video: <span>收到！已从<b style={{ color: "var(--brand-deep)" }}>学科网视频库</b>为你找到相关教学视频，支持<b>在线播放、按章节跳转</b>，也可下载。想看实验类还是研修类，直接跟我说。</span>,
-    album: <span>收到！我为你匹配到成套的<b style={{ color: "var(--brand-deep)" }}>精品专辑</b>（含课件 / 教案 / 试卷等），可<b>整套打包</b>或挑单份下载，全部来自学科网资源库。</span>,
-    all: <span>收到！我已从<b style={{ color: "var(--brand-deep)" }}>学科网资源库</b>为你检索，结果包含<b>文档、视频、专辑</b>三类，可在上方切换。想更精准，直接跟我说就行。</span>,
+  // accumulated understanding (subject/grade) so vague follow-ups still resolve
+  const ctxRef = uR({ subject: initSubject, grade: initGrade });
+  const idRef = uR(0);
+  const sheetSeqRef = uR(0);
+  const basketTitles = (basketItems || []).map((b) => b.title).filter(Boolean);
+
+  // every query → a FROZEN round; rounds are appended, never overwritten
+  const [rounds, setRounds] = uS(() => {
+    if (isResume) return [buildRound(resume.title || query || "", idRef.current++, ctxRef.current, loggedIn, basketTitles)];
+    if (query && !fromIntent) return [buildRound(query, idRef.current++, ctxRef.current, loggedIn, basketTitles)];
+    return [];
+  });
+  const [activeRound, setActiveRound] = uS(null); // null → show the latest round
+  const [retrieving, setRetrieving] = uS(false);
+  const [sheetAnchor, setSheetAnchor] = uS(""); // "" so the first round doesn't auto-cover the chat on mobile
+
+  // build & commit the first round after the cross-scenario intent animation
+  const beginFirstRound = (text) => {
+    setRetrieving(true);
+    setTimeout(() => {
+      const round = buildRound(text, idRef.current++, ctxRef.current, loggedIn, basketTitles);
+      setRounds([round]);
+      setRetrieving(false);
+      setActiveRound(round.id);
+      setMessages((m) => [...m, { role: "ai", roundId: round.id, node: roundReplyNode(round) }]);
+      setSuggestions(ROUND_SUGS[round.kind] || ROUND_SUGS.all);
+    }, 220);
   };
-
-  const greetMsg = () => ({ role: "ai", node: <div>{kindGreet[initKind] || kindGreet.all}</div> });
 
   const [messages, setMessages] = uS(() => {
     if (isResume) {
-      return [
-        { role: "ai", node: (<div>已恢复你 <b>{resume.when}</b> 关于「{(resume.title || "").replace(/[《》]/g, "")}」的检索与收藏，下面就是当时的结果，<b style={{ color: "var(--brand-deep)" }}>已收藏的资源</b>也都还在。继续筛选或换个方向都行。</div>) },
-      ];
+      return [{ role: "ai", roundId: 0, node: (<div>已恢复你 <b>{resume.when}</b> 关于「{(resume.title || "").replace(/[《》]/g, "")}」的检索，下面就是当时整理的结果，<b style={{ color: "var(--brand-deep)" }}>已收藏的资源</b>也都还在。继续筛选或换个方向都行。</div>) }];
     }
     if (fromIntent && query) {
       return [
         { role: "user", text: query },
-        { role: "ai", wide: true, render: () => <InlineIntent query={query} onDone={() => { setStarted(true); setMessages((m) => [...m, greetMsg()]); }} /> },
+        { role: "ai", wide: true, render: () => <InlineIntent query={query} onDone={() => beginFirstRound(query)} /> },
       ];
     }
-    if (query) return [{ role: "user", text: query }, greetMsg()];
+    if (query) return [{ role: "user", text: query }, { role: "ai", roundId: rounds[0].id, node: roundReplyNode(rounds[0]) }];
     return [{ role: "ai", node: (<div>你好老师，告诉我你要找什么 —— 文档、<b>实验/研修视频</b>、还是<b>成套专辑</b>都行，例如「凸透镜成像的实验视频」「六年级语文期末复习专辑」。我会从<b style={{ color: "var(--auth-ink)" }}>学科网资源库</b>为你精准匹配。</div>) }];
   });
-  const initSug = {
-    video: ["只看实验视频", "教师研修视频", "有没有高清的", "下载这个视频"],
-    album: ["展开专辑内容", "整套打包下载", "只要试卷部分", "换个复习专辑"],
-    all: ["只看视频", "有没有成套专辑", "只要含答案的文档", "难度再高一点"],
-  };
-  const [suggestions, setSuggestions] = uS(query && !fromIntent ? (initSug[initKind] || initSug.all) : []);
+  const [suggestions, setSuggestions] = uS(rounds.length ? (ROUND_SUGS[rounds[0].kind] || ROUND_SUGS.all) : []);
 
   const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(null), 2200); };
 
-  const docs = ALL.filter((r) =>
-    (!filters.grade || r.grade === filters.grade) &&
-    (!filters.subject || r.subject === filters.subject) &&
-    (!filters.edition || r.edition === filters.edition || r.edition === "通用") &&
-    (!filters.type || r.type === filters.type) &&
-    (!filters.diff || r.diff === filters.diff)
-  );
-  const vids = window.AIDATA.VIDEOS.filter((v) => !filters.subject || v.subject === filters.subject || v.subject === "通用");
-  const albs = window.AIDATA.ALBUMS.filter((a) => !filters.subject || a.subject === filters.subject);
-  const counts = { all: docs.length + vids.length + albs.length, doc: docs.length, video: vids.length, album: albs.length };
-
-  const pulse = () => { setHighlight(true); setTimeout(() => setHighlight(false), 600); };
-  const aiReply = (node, newSugs) => {
-    setMessages((m) => [...m, { role: "ai", typing: true }]);
-    setTimeout(() => {
-      setMessages((m) => [...m.slice(0, -1), { role: "ai", node }]);
-      if (newSugs) setSuggestions(newSugs);
-    }, 650);
-  };
+  // open a (frozen) round in the result pane; on mobile also slide the sheet up
+  const openRound = (id) => { setRetrieving(false); setActiveRound(id); setSheetAnchor("r" + id + "#" + (sheetSeqRef.current++)); };
 
   const handleSend = (text, files) => {
     setMessages((m) => [...m, { role: "user", text, files }]);
-    // #3 — if the chat isn't about the currently-open right-side content (a doc
-    // detail / video player / album), the right pane should follow the chat:
-    // close the overlay so the results reflect the new request. Messages that
-    // explicitly reference the open item (这个 / 这份 / 当前…) keep it open.
+    // keep an open item if the message is about it; otherwise the pane follows the chat
     const aboutCurrent = /这个|这份|这节|这道|这段|这本|它|当前|上面|本视频|本资料|本节|刚才/.test(text || "");
-    if (!aboutCurrent && (preview || player || album)) {
-      setPreview(null);
-      setPlayer(null);
-      setAlbum(null);
-    }
-    if (!started) {
-      // cold start: first input → infer subject/grade/kind from it
-      const k = detectKind(text);
-      const sj = pickSubject(text), gr = pickGrade(text);
-      if (sj || gr) setFilters((f) => ({ ...f, subject: sj || f.subject, grade: gr || f.grade }));
-      if (k !== "all") setTab(k);
-      setStarted(true);
-      aiReply(<span>收到！已从<b style={{ color: "var(--brand-deep)" }}>学科网资源库</b>为你检索「{text}」，已整理好，可按文档 / 视频 / 专辑切换查看。</span>, initSug[k] || initSug.all);
-      return;
-    }
-    if (files && files.length) {
-      pulse();
-      aiReply(<span>已收到你上传的参考材料，我会<b>结合它</b>从学科网资源库筛选最贴合的资源。</span>, ["难度再高一点", "只要含答案的", "找不到就帮我生成"]);
-      return;
-    }
-    if (/专辑|合集|套|打包|串讲|资源包/.test(text)) {
-      setTab("album"); pulse();
-      aiReply(<span>已切到<b>专辑 / 合集</b>视图。整套资料来自学科网资源库，可一键打包，也能展开挑单份。</span>, ["展开专辑内容", "整套打包下载", "只要试卷部分"]);
-      return;
-    }
-    if (/视频|实验|研修|播放|示范课/.test(text)) {
-      setTab("video"); pulse();
-      aiReply(<span>已切到<b>视频</b>视图。支持在线播放与章节跳转，全部为学科网教学 / 实验视频。</span>, ["只看实验视频", "教师研修视频", "下载这个视频"]);
-      return;
-    }
-    if (/文档|资料|课件|教案|习题|练习/.test(text)) setTab("doc");
-    if (text.includes("答案") || text.includes("解析")) {
-      setFilters((f) => ({ ...f, type: "同步练习" })); setTab("doc"); pulse();
-      aiReply(<span>已为你筛选<b>含答案解析</b>的文档，均来自学科网资源库。</span>, ["难度再高一点", "我要单元测试卷", "都不太合适"]);
-    } else if (text.includes("难") || text.includes("高") || text.includes("拔高") || text.includes("培优")) {
-      setFilters((f) => ({ ...f, diff: "拔高", type: null })); setTab("doc"); pulse();
-      aiReply(<span>已切换到<b>拔高 / 培优</b>难度，题目均来自学科网<b style={{ color: "var(--auth-ink)" }}>资源库</b>。</span>, ["要易错题专项", "再降一点难度", "都不太合适"]);
-    } else if (text.includes("北师")) {
-      setFilters((f) => ({ ...f, edition: "北师大版" })); pulse();
-      aiReply(<span>已切换到<b>北师大版</b>。如该版本暂缺，我会用通用精品资源补齐。</span>, ["只要含答案的", "难度再高一点", "都不太合适"]);
-    } else if (text.includes("单元") || text.includes("测试") || text.includes("卷")) {
-      setFilters((f) => ({ ...f, type: "单元测试", diff: null })); setTab("doc"); pulse();
-      aiReply(<span>已筛选<b>单元测试卷</b>。需要的话我可以直接把它送进「出卷子」二次编辑。</span>, ["难度再高一点", "送去出卷子", "只要含答案的"]);
-    } else if (text.includes("生成") || text.includes("不合适") || text.includes("找不到") || text.includes("没有")) {
-      aiReply(<span>没问题 —— 现成资源不完全合适时，我可以<b style={{ color: "var(--brand-deep)" }}>基于同一资源库直接为你生成</b>。在结果面板底部，选一个方向即可。</span>, ["直接出卷子", "生成配套教案"]);
-    } else if (text.includes("出卷")) {
-      onSwitch && onSwitch("paper", query || "基于检索结果的练习");
-    } else {
-      pulse();
-      aiReply(<span>我已根据「{text}」重新排序，结果均标注<b style={{ color: "var(--auth-ink)" }}>学科网来源</b>。</span>, ["只看视频", "有没有成套专辑", "难度再高一点"]);
-    }
+    if (!aboutCurrent && (preview || player || album)) { setPreview(null); setPlayer(null); setAlbum(null); }
+    // explicit generation request → hand off to the 出卷子 scenario
+    if (text.includes("出卷") && !aboutCurrent) { onSwitch && onSwitch("paper", text); return; }
+    // retrieval: reply appears FIRST, results only after a brief search (no fake-instant pane)
+    setMessages((m) => [...m, { role: "ai", typing: true }]);
+    setRetrieving(true);
+    setActiveRound(null);
+    setSuggestions([]);
+    const id = idRef.current++;
+    setTimeout(() => {
+      const round = buildRound(text, id, ctxRef.current, loggedIn, basketTitles);
+      setRounds((rs) => [...rs, round]);
+      setRetrieving(false);
+      setActiveRound(round.id);
+      setSheetAnchor("r" + round.id + "#" + (sheetSeqRef.current++));
+      setMessages((m) => [...m.slice(0, -1), { role: "ai", roundId: round.id, node: roundReplyNode(round) }]);
+      setSuggestions(ROUND_SUGS[round.kind] || ROUND_SUGS.all);
+    }, 850);
   };
 
-  const setF = (key, val) => { setFilters((f) => ({ ...f, [key]: f[key] === val ? null : val })); pulse(); };
   const { headerRecognizing, send } = useSmartSend({ scenarioId: scenario.id, onSwitch, setMessages, localSend: handleSend });
 
-  // ask the AI about a specific resource / video while it stays open on the right.
-  // Replies are GROUNDED in the item's real fields so everything stays self-consistent.
+  // ask the AI about a specific open item; replies stay grounded in its real fields
   const askAbout = (q, item) => {
     setMessages((m) => [...m, { role: "user", text: q }, { role: "ai", typing: true }]);
     setTimeout(() => {
@@ -569,131 +636,76 @@ function FindWorkspace({ scenario, query, onHome, onSwitch, fromIntent, resume, 
     }, 750);
   };
 
-  const conditions = [
-    filters.edition && { key: "edition", label: filters.edition },
-    filters.grade && { key: "grade", label: filters.grade },
-    filters.subject && { key: "subject", label: filters.subject },
-    topicMatch && { key: "__topic", label: topicMatch, fixed: true },
-    filters.type && { key: "type", label: filters.type },
-    filters.diff && { key: "diff", label: `难度·${filters.diff}` },
-  ].filter(Boolean);
-  const removeCond = (key) => { if (key === "__topic") return; setFilters((f) => ({ ...f, [key]: null })); pulse(); };
-
   // album item helpers
   const previewItem = (it) => setPreview({ title: it.title, pages: it.pages || 12, qcount: it.q || 0, updated: album ? album.updated : "2025", type: it.type });
   const playItem = (it) => setPlayer({ title: it.title, cat: "微课", subject: album ? album.subject : "", grade: album ? album.grade : "", edition: album ? album.edition : "", duration: it.dur || "08:00", quality: "1080P", plays: "—", updated: album ? album.updated : "2025", chapters: [{ t: "00:00", name: "精讲开始" }, { t: "03:00", name: "重点解析" }, { t: "06:00", name: "小结" }] });
-
-  const curCount = counts[tab] || 0;
-
-  // mobile: which "thing" is showing in the result pane right now — used to
-  // auto-slide the sheet up when content becomes ready or an item is opened.
-  const sheetKey = preview ? "p:" + preview.title : player ? "v:" + player.title : album ? "a:" + (album.id || album.title) : started ? "results" : "";
 
   const addBasket = (item) => {
     const ok = onAddBasket ? onAddBasket(item) : true;
     showToast(ok ? "已加入资源篮" : "已在资源篮中");
   };
 
-  let body;
-  if (curCount === 0) {
-    body = <NotFound topic={topicMatch || (filters.subject || "")} onSwitch={onSwitch} query={query} />;
-  } else {
-    const docCards = docs.map((r) => <ResourceCard key={r.id} r={r} onPreview={() => setPreview(r)} onDownload={() => showToast(`已开始下载《${r.title.slice(0, 12)}…》`)} />);
-    const vidCards = vids.map((v) => <VideoCard key={v.id} v={v} onPlay={() => setPlayer(v)} onDownload={() => showToast(`已开始下载《${v.title.slice(0, 12)}…》`)} />);
-    const albCards = albs.map((a) => <AlbumCard key={a.id} a={a} onOpen={() => setAlbum(a)} />);
-    if (tab === "doc") body = <React.Fragment>{docCards}<HandoffBar topic={topicMatch} onSwitch={onSwitch} query={query} /></React.Fragment>;
-    else if (tab === "video") body = vidCards;
-    else if (tab === "album") body = albCards;
-    else body = <React.Fragment>{albCards}{docCards}{vidCards}<HandoffBar topic={topicMatch} onSwitch={onSwitch} query={query} /></React.Fragment>;
-  }
+  // which round is shown on the right (explicit selection, else the latest)
+  const roundsById = {}; rounds.forEach((r) => { roundsById[r.id] = r; });
+  const shownRound = (activeRound != null ? roundsById[activeRound] : null) || (rounds.length ? rounds[rounds.length - 1] : null);
+  const shownId = shownRound ? shownRound.id : null;
+
+  // mobile: which thing the sheet should reveal (open item overrides the round anchor)
+  const sheetKey = preview ? "p:" + preview.title : player ? "v:" + player.title : album ? "a:" + (album.id || album.title) : sheetAnchor;
+
+  const renderItem = (it, idx) => {
+    const key = it._kind + "_" + (it.id || it.title) + "_" + idx;
+    if (it._kind === "video") return <VideoCard key={key} v={it} source={it._source} onPlay={() => setPlayer(it)} onDownload={() => showToast(`已开始下载《${(it.title || "").slice(0, 12)}…》`)} />;
+    if (it._kind === "album") return <AlbumCard key={key} a={it} source={it._source} onOpen={() => setAlbum(it)} />;
+    return <ResourceCard key={key} r={it} source={it._source} onPreview={() => setPreview(it)} onDownload={() => showToast(`已开始下载《${(it.title || "").slice(0, 12)}…》`)} />;
+  };
+
+  const items = shownRound ? shownRound.items : [];
+  const presentSources = ["我的内容", "资源篮", "学科网"].filter((s) => items.some((x) => x._source === s));
+  const resultBody = items.length
+    ? <React.Fragment>{items.map(renderItem)}<HandoffBar topic={shownRound.subject || ""} onSwitch={onSwitch} query={shownRound.query} /></React.Fragment>
+    : <NotFound topic={shownRound ? (shownRound.subject || "") : ""} onSwitch={onSwitch} query={shownRound ? shownRound.query : query} />;
+
+  const hdrBtn = { display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 12px", borderRadius: 10, border: "1px solid var(--line)", background: "var(--surface)", color: "var(--ink-2)", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "var(--font-zh)", flexShrink: 0 };
 
   return (
     <WorkspaceShell scenario={scenario} onHome={onHome} onSwitch={onSwitch} headerRecognizing={headerRecognizing} mobilePanelLabel="资源" mobilePanelIcon="search" openSheetKey={sheetKey} right={
       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-        <button onClick={() => onOpenContent && onOpenContent()} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 12px", borderRadius: 10, border: "1px solid var(--line)", background: "var(--surface)", color: "var(--ink-2)", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "var(--font-zh)", flexShrink: 0 }}>
+        <button onClick={() => onOpenContent && onOpenContent()} style={hdrBtn}>
           <Icon name="grid" size={15} /> 我的内容
         </button>
-        <button onClick={() => onOpenBasket && onOpenBasket()} style={{ position: "relative", display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 12px", borderRadius: 10, border: "1px solid var(--line)", background: "var(--surface)", color: "var(--ink-2)", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "var(--font-zh)", flexShrink: 0 }}>
+        <button onClick={() => onOpenBasket && onOpenBasket()} style={{ ...hdrBtn, position: "relative" }}>
           <Icon name="basket" size={15} /> 资源篮
           {basketCount > 0 && <span style={{ minWidth: 18, height: 18, padding: "0 5px", borderRadius: 999, background: "var(--brand)", color: "#fff", fontSize: 11, fontWeight: 800, fontFamily: "var(--font-num)", display: "inline-grid", placeItems: "center" }}>{basketCount}</span>}
         </button>
+        <button onClick={() => window.open("https://www.zxxk.com", "_blank", "noopener")} title="前往学科网（新窗口打开）" style={{ ...hdrBtn, color: "var(--auth-ink)", borderColor: "var(--auth-border)", background: "var(--auth-bg)" }}>
+          <Icon name="external" size={15} /> 学科网
+        </button>
       </div>
     }>
-      <ChatPanel messages={messages} onSend={send} suggestions={suggestions} placeholder="例如：只看实验视频 / 整套打包下载" pinnedCard={started ? <ChatSheetCard label="资源" count={curCount} icon="search" hint="点此查看 / 收起结果" /> : null} />
+      <ChatPanel messages={messages} onSend={send} suggestions={suggestions} placeholder="例如：只看实验视频 / 整套打包下载" roundsById={roundsById} shownId={shownId} retrieving={retrieving} onOpenRound={openRound} />
       {/* results */}
       <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", position: "relative" }}>
-        {!started && <FindColdStart loggedIn={!resume && loggedIn} onPick={(q) => handleSend(q)} />}
-        {started && <React.Fragment>
-        {/* AI-understood conditions bar — folds in the memory context.
-            On mobile it collapses to a single tappable line so the resource
-            list (what the teacher actually scans) gets the vertical room. */}
-        {mobile ? (
-          <div style={{ borderBottom: "1px solid var(--line)", background: "var(--surface)" }}>
-            <button onClick={() => setCondOpen((o) => !o)} style={{ width: "100%", display: "flex", alignItems: "center", gap: 8, padding: "8px 16px", border: "none", background: "transparent", cursor: "pointer", fontFamily: "var(--font-zh)", textAlign: "left" }}>
-              <Icon name="spark" size={14} />
-              <span style={{ flex: 1, minWidth: 0, fontSize: 12, color: "var(--ink-2)", fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                <b style={{ color: "var(--brand-deep)" }}>{isResume ? "已恢复" : "已按记忆理解"}</b>
-                {conditions.length > 0 ? "：" + conditions.map((c) => c.label).join(" · ") : "：全部资源"}
-              </span>
-              <span style={{ color: "var(--ink-3)", display: "grid", placeItems: "center", transition: "transform .2s", transform: condOpen ? "rotate(180deg)" : "none", flexShrink: 0 }}><Icon name="chevron" size={15} /></span>
-            </button>
-            {condOpen && (
-              <div style={{ padding: "0 16px 11px", display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                {conditions.length === 0 && <span style={{ fontSize: 12, color: "var(--ink-3)" }}>未限定条件</span>}
-                {conditions.map((c, i) => (
-                  <span key={i} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "4px 10px", borderRadius: 999, background: c.fixed ? "var(--brand)" : "var(--brand-soft)", color: c.fixed ? "#fff" : "var(--brand-deep)", border: c.fixed ? "none" : "1px solid var(--brand-soft-border)", fontSize: 12, fontWeight: 700 }}>
-                    {c.label}
-                    {!c.fixed && <span onClick={() => removeCond(c.key)} style={{ display: "inline-flex", cursor: "pointer", opacity: 0.55 }}><Icon name="close" size={12} sw={2.6} /></span>}
-                  </span>
-                ))}
-                <span style={{ fontSize: 11, color: "var(--ink-3)", width: "100%" }}>点 × 放宽条件，或在对话里直接对小博士说</span>
-              </div>
-            )}
-          </div>
-        ) : (
-          <div style={{ padding: "13px 22px 12px", borderBottom: "1px solid var(--line)", background: "var(--surface)" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-              <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12.5, color: "var(--brand-deep)", fontWeight: 700 }}>
-                <Icon name="spark" size={14} /> {isResume ? "小博士已为你恢复" : "小博士已按你的记忆理解为"}
-              </span>
-              {isResume && (
-                <span style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "5px 10px", borderRadius: 999, background: "var(--surface-2)", border: "1px solid var(--line)", fontSize: 12, fontWeight: 700, color: "var(--ink-3)" }}>
-                  <Icon name="history" size={12} /> 历史创作 · 恢复自{resume.when}
+        {!rounds.length && !retrieving && <FindColdStart loggedIn={!resume && loggedIn} onPick={(q) => handleSend(q)} />}
+        {retrieving && <RetrievingPanel />}
+        {!retrieving && shownRound && (
+          <React.Fragment>
+            <div style={{ padding: mobile ? "11px 16px" : "13px 22px", borderBottom: "1px solid var(--line)", background: "var(--surface)", display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", rowGap: 7 }}>
+              <span style={{ fontSize: 13.5, fontWeight: 800, color: "var(--ink)" }}>以下是为你匹配的资源</span>
+              <span style={{ fontSize: 11.5, fontWeight: 800, fontFamily: "var(--font-num)", padding: "1px 8px", borderRadius: 999, background: "var(--brand-soft)", border: "1px solid var(--brand-soft-border)", color: "var(--brand-deep)" }}>{items.length} 项</span>
+              <div style={{ flex: 1 }} />
+              {presentSources.length > 0 && (
+                <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 11, color: "var(--ink-3)", fontWeight: 600, flexWrap: "wrap", rowGap: 5 }}>
+                  {!mobile && <span>来源</span>}
+                  {presentSources.map((s) => <SourceTag key={s} source={s} />)}
                 </span>
               )}
-              {conditions.length === 0 && <span style={{ fontSize: 12.5, color: "var(--ink-3)" }}>全部资源 · 未限定条件</span>}
-              {conditions.map((c, i) => (
-                <span key={i} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "5px 10px", borderRadius: 999, background: c.fixed ? "var(--brand)" : "var(--brand-soft)", color: c.fixed ? "#fff" : "var(--brand-deep)", border: c.fixed ? "none" : "1px solid var(--brand-soft-border)", fontSize: 12.5, fontWeight: 700 }}>
-                  {c.label}
-                  {!c.fixed && <span onClick={() => removeCond(c.key)} style={{ display: "inline-flex", cursor: "pointer", opacity: 0.55 }}><Icon name="close" size={12} sw={2.6} /></span>}
-                </span>
-              ))}
-              <span style={{ fontSize: 11.5, color: "var(--ink-3)" }}>· 想换条件，点 × 放宽，或直接在左侧对我说</span>
             </div>
-          </div>
+            <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: mobile ? "11px 16px 20px" : "14px 22px 24px", display: "flex", flexDirection: "column", gap: mobile ? 9 : 12 }}>
+              {resultBody}
+            </div>
+          </React.Fragment>
         )}
-        {/* content-type tabs */}
-        <div style={{ padding: mobile ? "9px 16px 0" : "12px 22px 0", display: "flex", alignItems: "center", gap: 8 }}>
-          <div style={{ display: "inline-flex", gap: 4, background: "var(--surface-2)", border: "1px solid var(--line)", borderRadius: 11, padding: 3, maxWidth: "100%", overflowX: "auto", scrollbarWidth: "none" }}>
-            {RESULT_TABS.map((tb) => (
-              <button key={tb.k} onClick={() => setTab(tb.k)} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: mobile ? "6px 11px" : "6px 14px", borderRadius: 8, border: "none", cursor: "pointer", fontFamily: "var(--font-zh)", fontSize: 13, fontWeight: 700, whiteSpace: "nowrap", flexShrink: 0, background: tab === tb.k ? "var(--surface)" : "transparent", color: tab === tb.k ? "var(--brand-deep)" : "var(--ink-3)", boxShadow: tab === tb.k ? "0 2px 8px -4px rgba(0,0,0,.25)" : "none", transition: "all .15s" }}>
-                {tb.label}
-                <span style={{ fontSize: 11, fontWeight: 800, fontFamily: "var(--font-num)", padding: "1px 6px", borderRadius: 999, background: tab === tb.k ? "var(--brand-soft)" : "var(--line)", color: tab === tb.k ? "var(--brand-deep)" : "var(--ink-3)" }}>{counts[tb.k]}</span>
-              </button>
-            ))}
-          </div>
-          <div style={{ flex: 1 }} />
-          {!mobile && (
-            <div style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, color: "var(--auth-ink)", fontWeight: 600 }}>
-              <Icon name="shield" size={14} /> 全部来自学科网资源库
-            </div>
-          )}
-        </div>
-        {/* result list */}
-        <div className={highlight ? "results-pulse" : ""} style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: mobile ? "11px 16px 20px" : "14px 22px 24px", display: "flex", flexDirection: "column", gap: mobile ? 9 : 12 }}>
-          {body}
-        </div>
-        </React.Fragment>}
 
         {album && <AlbumPage a={album} onClose={() => setAlbum(null)} onPreviewItem={previewItem} onPlayItem={playItem} onDownload={(msg) => showToast(msg)} onAddBasket={addBasket} />}
         {preview && <PreviewDrawer r={preview} onClose={() => setPreview(null)} onAsk={askAbout} onAddBasket={addBasket} onDownload={() => showToast("已开始下载，可在「资源篮」查看")} />}
@@ -834,7 +846,7 @@ function NotFound({ topic, onSwitch, query }) {
   );
 }
 
-function ResourceCard({ r, onPreview, onDownload }) {
+function ResourceCard({ r, onPreview, onDownload, source }) {
   return (
     <div
       className="res-card"
@@ -856,6 +868,7 @@ function ResourceCard({ r, onPreview, onDownload }) {
       <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 7 }}>
         <div style={{ fontSize: 14, fontWeight: 700, color: "var(--ink)", lineHeight: 1.4, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{r.title}</div>
         <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 11, color: "var(--ink-3)", flexWrap: "wrap", rowGap: 4 }}>
+          {source && <SourceTag source={source} />}
           <span style={{ fontWeight: 700, color: "var(--ink-2)", whiteSpace: "nowrap" }}>{r.edition} · {r.grade}{r.subject}</span>
           <span style={{ padding: "1px 7px", borderRadius: 5, background: "var(--surface-2)", border: "1px solid var(--line)", fontWeight: 600, whiteSpace: "nowrap" }}>{r.type}</span>
           <span style={{ whiteSpace: "nowrap" }}>难度·{r.diff}</span>
@@ -863,7 +876,7 @@ function ResourceCard({ r, onPreview, onDownload }) {
           <span style={{ whiteSpace: "nowrap" }}>{r.pages} 页</span>
         </div>
       </div>
-      <Icon name="chevron" size={18} />
+      <Icon name="chevronRight" size={18} />
     </div>
   );
 }

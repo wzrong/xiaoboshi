@@ -112,7 +112,7 @@ function App() {
     );
   } else {
     const wsKey = (fromIntent ? "i:" : "") + (resume ? "r:" : "") + scenarioId + ":" + query;
-    const common = { scenario, query, fromIntent, resume, loggedIn, onHome: goHome, onSwitch: switchScenario, onAddBasket: addToBasket, onOpenBasket: () => setBasketOpen(true), onOpenContent: () => setContentOpen(true), basketCount: basket.length };
+    const common = { scenario, query, fromIntent, resume, loggedIn, onHome: goHome, onSwitch: switchScenario, onAddBasket: addToBasket, onOpenBasket: () => setBasketOpen(true), onOpenContent: () => setContentOpen(true), basketCount: basket.length, basketItems: basket };
     if (scenarioId === "general") view = <GeneralWorkspace key={wsKey} {...common} />;
     else if (scenarioId === "find") view = <FindWorkspace key={wsKey} {...common} />;
     else if (scenarioId === "textbook") view = <TextbookWorkspace key={wsKey} {...common} />;

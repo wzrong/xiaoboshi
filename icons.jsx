@@ -118,6 +118,11 @@ function Icon({ name, size = 24, sw = 1.8 }) {
         <path d="M6 9l6 6 6-6" />
       </g>
     ),
+    chevronRight: (
+      <g>
+        <path d="M9 6l6 6-6 6" />
+      </g>
+    ),
     plus: (
       <g>
         <line x1="12" y1="5" x2="12" y2="19" />
@@ -225,6 +230,13 @@ function Icon({ name, size = 24, sw = 1.8 }) {
       <g>
         <path d="M14 3h4a1 1 0 0 1 1 1v16a1 1 0 0 1-1 1h-4" />
         <path d="M4 12h11M11 8l4 4-4 4" />
+      </g>
+    ),
+    external: (
+      <g>
+        <path d="M14 4h6v6" />
+        <path d="M20 4l-9 9" />
+        <path d="M18 13v5a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h5" />
       </g>
     ),
   };

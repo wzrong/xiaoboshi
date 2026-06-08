@@ -13,7 +13,7 @@ function fmtTime(s) {
 }
 
 // ---- VIDEO CARD ---- (compact, scannable list row — detail lives in the player)
-function VideoCard({ v, onPlay, onDownload }) {
+function VideoCard({ v, onPlay, onDownload, source }) {
   const mobile = useIsMobile();
   const thumbW = mobile ? 116 : 150;
   return (
@@ -36,6 +36,7 @@ function VideoCard({ v, onPlay, onDownload }) {
       <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", justifyContent: "center", gap: 6 }}>
         <div style={{ fontSize: 14, fontWeight: 700, color: "var(--ink)", lineHeight: 1.4, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{v.title}</div>
         <div style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 11.5, color: "var(--ink-3)", flexWrap: "wrap", rowGap: 3 }}>
+          {source && <SourceTag source={source} />}
           <span style={{ fontWeight: 700, color: "var(--ink-2)", whiteSpace: "nowrap" }}>{v.grade}{v.subject}</span>
           <span style={{ whiteSpace: "nowrap" }}>{v.quality}</span>
           <span style={{ whiteSpace: "nowrap" }}>{v.chapters.length} 章节</span>
@@ -164,7 +165,7 @@ function VideoPlayer({ v, onClose, onDownload, onAsk, onAddBasket }) {
 // ---- ALBUM CARD (in results) ----
 const TYPE_HUE = { 课件: 255, 教案: 320, 试卷: 25, 习题: 150, 微课: 200, 视频: 200 };
 
-function AlbumCard({ a, onOpen }) {
+function AlbumCard({ a, onOpen, source }) {
   return (
     <div
       className="res-card"
@@ -187,10 +188,11 @@ function AlbumCard({ a, onOpen }) {
       </div>
       {/* body */}
       <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 6 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 7 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 7, flexWrap: "wrap", rowGap: 4 }}>
           <span style={{ display: "inline-flex", alignItems: "center", gap: 4, background: "var(--brand-soft)", color: "var(--brand-deep)", border: "1px solid var(--brand-soft-border)", fontSize: 10, fontWeight: 800, padding: "1px 7px", borderRadius: 5, flexShrink: 0 }}>
             <Icon name="layers" size={11} /> 专辑
           </span>
+          {source && <SourceTag source={source} />}
           <span style={{ fontSize: 11, color: "var(--ink-3)", fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{a.edition} · {a.grade}{a.subject}</span>
         </div>
         <div style={{ fontSize: 14, fontWeight: 800, color: "var(--ink)", lineHeight: 1.4, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{a.title}</div>
@@ -198,7 +200,7 @@ function AlbumCard({ a, onOpen }) {
           含 {a.composition.map((c) => `${c.type}${c.n}`).join(" · ")}
         </div>
       </div>
-      <Icon name="chevron" size={18} />
+      <Icon name="chevronRight" size={18} />
     </div>
   );
 }
