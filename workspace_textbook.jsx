@@ -26,6 +26,11 @@ function TextbookWorkspace({ scenario, query, onHome, onSwitch, fromIntent, logg
   const [book, setBook] = tS(() => (query ? demoBook : memBook)); // null → show picker
   const viaMemory = !query && !!memBook;
 
+  // ---- which chapter/section is open in the catalog (clickable TOC) ----
+  const findActiveSec = () => { for (let ci = 0; ci < TREE.chapters.length; ci++) for (let si = 0; si < TREE.chapters[ci].sections.length; si++) if (TREE.chapters[ci].sections[si].active) return { ci, si }; return { ci: 0, si: 0 }; };
+  const [activeSec, setActiveSec] = tS(findActiveSec);
+  const curSection = TREE.chapters[activeSec.ci] ? TREE.chapters[activeSec.ci].sections[activeSec.si] : null;
+
   // ---- layout: collapsible catalog + resizable citation pane ----
   const [navOpen, setNavOpen] = tS(false); // catalog drawer (left overlay)
   const [switcherOpen, setSwitcherOpen] = tS(false); // 切换教材 drawer (right overlay)
@@ -57,11 +62,11 @@ function TextbookWorkspace({ scenario, query, onHome, onSwitch, fromIntent, logg
     role: "ai",
     node:
       bk && bk.free ? (
-        <div>好的，<b style={{ color: "var(--brand-deep)" }}>不限定教材</b>，你可以直接问任何学科问题。我会优先依据教材作答并<b style={{ color: "var(--auth-ink)" }}>标注原文出处</b>；想锁定某一本教材，点右上角<b>选择教材</b>即可。</div>
+        <div>好的，<b style={{ color: "var(--brand-deep)" }}>不限定教材</b>，你可以直接问任何学科问题。我会优先依据教材作答并<b style={{ color: "var(--auth-ink)" }}>标注原文出处</b>；想锁定某一本教材，点顶部<b>选择教材</b>即可。</div>
       ) : bk && bk.multi ? (
         <div>已选好 <b style={{ color: "var(--brand-deep)" }}>{bk.list.length} 本教材</b>（{bk.list.map((b) => b.subject + b.name).join("、")}），适合<b>跨年级综合复习</b>。我会在多本教材之间对照作答，并<b style={{ color: "var(--auth-ink)" }}>分别标注各自出处</b>。</div>
       ) : kind === "memory" ? (
-        <div>欢迎回来！已按你常看的 <b style={{ color: "var(--brand-deep)" }}>{bk.edition} {bk.subject} · {bk.name}</b> 打开{bk.section ? <span>（上次看到 <b>{bk.section}</b>）</span> : null}。问我本教材的任何问题，回答都会<b style={{ color: "var(--auth-ink)" }}>逐条标注原文出处</b>。也可在右上角<b>切换教材</b>。</div>
+        <div>欢迎回来！已按你常看的 <b style={{ color: "var(--brand-deep)" }}>{bk.edition} {bk.subject} · {bk.name}</b> 打开{bk.section ? <span>（上次看到 <b>{bk.section}</b>）</span> : null}。问我本教材的任何问题，回答都会<b style={{ color: "var(--auth-ink)" }}>逐条标注原文出处</b>。也可在顶部<b>切换教材</b>。</div>
       ) : kind === "picked" ? (
         <div>已为你打开 <b style={{ color: "var(--brand-deep)" }}>{bk.edition} {bk.subject} · {bk.name}</b>。问我本教材的任何问题，我的回答会<b style={{ color: "var(--auth-ink)" }}>逐条标注教材原文出处</b>，绝不凭空作答。</div>
       ) : (
@@ -84,10 +89,25 @@ function TextbookWorkspace({ scenario, query, onHome, onSwitch, fromIntent, logg
     return [greet];
   });
 
-  // open a textbook chosen from the picker
-  const openBook = (bk) => { setBook(bk); setThread([greetFor(bk, "picked")]); setAnswered(false); };
-  const openFree = () => { const bk = { free: true }; setBook(bk); setThread([greetFor(bk, "free")]); setAnswered(false); };
-  const openMulti = (list) => { const bk = { multi: true, list }; setBook(bk); setThread([greetFor(bk, "multi")]); setAnswered(false); };
+  // switching a textbook should NOT wipe the conversation — only a cold (first) open starts a fresh greeting.
+  const hasConvo = (t) => t.some((m) => m.role === "user" || m.answer || m.compare);
+  const switchNote = (bk) => ({ role: "sys", icon: "refresh", text: bk.free ? "已切换为「不限教材」· 后续提问不再锁定教材" : bk.multi ? `已切换为 ${bk.list.length} 本教材综合` : `已切换教材 · ${bk.edition} ${bk.subject} · ${bk.name}` });
+  const applyBook = (bk, kind) => {
+    if (book && hasConvo(thread)) { setBook(bk); setThread((t) => [...t, switchNote(bk)]); }
+    else { setBook(bk); setThread([greetFor(bk, kind)]); setAnswered(false); }
+  };
+  // open / switch a textbook chosen from the picker
+  const openBook = (bk) => applyBook(bk, "picked");
+  const openFree = () => applyBook({ free: true }, "free");
+  const openMulti = (list) => applyBook({ multi: true, list }, "multi");
+  // click a section in the catalog → locate it, keep the conversation, drop a context note
+  const pickSection = (ci, si) => {
+    const sec = TREE.chapters[ci] && TREE.chapters[ci].sections[si];
+    if (!sec) return;
+    setActiveSec({ ci, si });
+    setNavOpen(false);
+    if (hasConvo(thread)) setThread((t) => [...t, { role: "sys", icon: "book", text: `已定位到 ${TREE.chapters[ci].name} · ${sec.name}` }]);
+  };
   // switching an already-open book slides the picker in from the right (smoother than swapping the page)
   const switchBook = () => setSwitcherOpen(true);
   const pickFromDrawer = (bk) => { openBook(bk); setSwitcherOpen(false); };
@@ -123,46 +143,53 @@ function TextbookWorkspace({ scenario, query, onHome, onSwitch, fromIntent, logg
     );
   }
 
-  // header-right: 教材目录 (single book) + current textbook / switch — fills the top-right
-  const headerRight = (
-    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-      {isSingle && (
-        <button onClick={() => setNavOpen(true)} title="教材目录" style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "7px 11px", borderRadius: 11, border: "1px solid var(--line)", background: "var(--surface)", color: "var(--ink-2)", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "var(--font-zh)", flexShrink: 0 }}
-          onMouseEnter={(e) => { e.currentTarget.style.borderColor = "var(--brand-soft-border)"; e.currentTarget.style.background = "var(--brand-soft)"; }}
-          onMouseLeave={(e) => { e.currentTarget.style.borderColor = "var(--line)"; e.currentTarget.style.background = "var(--surface)"; }}>
-          <Icon name="book" size={15} /> 目录
-        </button>
-      )}
-      <button onClick={switchBook} title="切换 / 选择教材" style={{ display: "inline-flex", alignItems: "center", gap: 7, maxWidth: 260, padding: "7px 12px", borderRadius: 11, border: "1px solid var(--line)", background: "var(--surface)", color: "var(--ink-2)", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "var(--font-zh)", flexShrink: 0 }}
-        onMouseEnter={(e) => { e.currentTarget.style.borderColor = "var(--brand-soft-border)"; e.currentTarget.style.background = "var(--brand-soft)"; }}
-        onMouseLeave={(e) => { e.currentTarget.style.borderColor = "var(--line)"; e.currentTarget.style.background = "var(--surface)"; }}>
+  // textbook + catalog controls live in the header, right beside the 「问教材」 title (via afterTitle slot)
+  const headerControls = (
+    <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+      <div style={{ width: 1, height: 22, background: "var(--line)", flexShrink: 0 }} />
+      {/* primary: current textbook → switch */}
+      <button onClick={switchBook} title="切换 / 选择教材"
+        style={{ display: "inline-flex", alignItems: "center", gap: 7, minWidth: 0, maxWidth: 248, padding: "6px 11px", borderRadius: 11, border: "1px solid var(--brand-soft-border)", background: "var(--brand-soft)", color: "var(--brand-deep)", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "var(--font-zh)", flexShrink: 0, transition: "box-shadow .15s" }}
+        onMouseEnter={(e) => (e.currentTarget.style.boxShadow = "0 5px 16px -12px var(--brand-glow)")}
+        onMouseLeave={(e) => (e.currentTarget.style.boxShadow = "none")}>
         <Icon name={book.multi ? "layers" : book.free ? "spark" : "book"} size={15} />
         <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{bookLabel}</span>
         <span style={{ color: "var(--ink-3)", fontWeight: 700, flexShrink: 0 }}>切换</span>
         <Icon name="chevron" size={14} />
       </button>
+      {/* secondary: catalog — only once a single textbook is open */}
+      {isSingle && (
+        <button onClick={() => setNavOpen(true)} title="教材目录 · 切换章节"
+          style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "6px 11px", borderRadius: 11, border: "1px solid var(--line)", background: "var(--surface)", color: "var(--ink-2)", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "var(--font-zh)", flexShrink: 0, transition: "border-color .15s, background .15s" }}
+          onMouseEnter={(e) => { e.currentTarget.style.borderColor = "var(--brand-soft-border)"; e.currentTarget.style.background = "var(--brand-soft)"; }}
+          onMouseLeave={(e) => { e.currentTarget.style.borderColor = "var(--line)"; e.currentTarget.style.background = "var(--surface)"; }}>
+          <Icon name="menu" size={15} /> 目录
+        </button>
+      )}
     </div>
   );
 
   return (
-    <WorkspaceShell scenario={scenario} onHome={onHome} onSwitch={onSwitch} headerRecognizing={headerRecognizing} subtitleOverride={bookLabel} right={!mobile ? headerRight : null}>
+    <WorkspaceShell scenario={scenario} onHome={onHome} onSwitch={onSwitch} headerRecognizing={headerRecognizing} afterTitle={!mobile ? headerControls : null}>
       {/* catalog & switcher are overlay drawers (rendered after the panes) — no persistent left bar, so the base layout matches other scenarios */}
       {/* center: Q&A */}
       <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", background: "var(--canvas)" }}>
         {mobile && (
           <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", borderBottom: "1px solid var(--line)", background: "var(--surface)", flexShrink: 0 }}>
-            {isSingle ? (
-              <button onClick={() => setNavOpen(true)} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "7px 12px", borderRadius: 10, border: "1px solid var(--line)", background: "var(--surface)", color: "var(--ink-2)", fontSize: 12.5, fontWeight: 700, cursor: "pointer", fontFamily: "var(--font-zh)", minWidth: 0 }}>
-                <Icon name="book" size={15} /> <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{book.subject}{book.name}</span>
-              </button>
-            ) : (
-              <button onClick={switchBook} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "7px 12px", borderRadius: 10, border: "1px solid var(--line)", background: "var(--surface)", color: "var(--ink-2)", fontSize: 12.5, fontWeight: 700, cursor: "pointer", fontFamily: "var(--font-zh)", minWidth: 0 }}>
-                <Icon name={book.multi ? "layers" : "spark"} size={15} /> <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{bookLabel} · 切换</span>
+            {/* textbook first, then catalog */}
+            <button onClick={switchBook} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "7px 11px", borderRadius: 10, border: "1px solid var(--brand-soft-border)", background: "var(--brand-soft)", color: "var(--brand-deep)", fontSize: 12.5, fontWeight: 700, cursor: "pointer", fontFamily: "var(--font-zh)", minWidth: 0, maxWidth: isSingle ? 152 : "none" }}>
+              <Icon name={book.multi ? "layers" : book.free ? "spark" : "book"} size={15} />
+              <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{book.free ? "不限教材" : book.multi ? bookLabel : book.subject + book.name}</span>
+              <Icon name="chevron" size={13} />
+            </button>
+            {isSingle && (
+              <button onClick={() => setNavOpen(true)} title="教材目录" style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "7px 10px", borderRadius: 10, border: "1px solid var(--line)", background: "var(--surface)", color: "var(--ink-2)", fontSize: 12.5, fontWeight: 700, cursor: "pointer", fontFamily: "var(--font-zh)", flexShrink: 0 }}>
+                <Icon name="menu" size={15} /> 目录
               </button>
             )}
             <div style={{ flex: 1 }} />
-            <button onClick={() => setCiteOpen(true)} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "7px 12px", borderRadius: 10, border: "1px solid var(--brand-soft-border)", background: "var(--brand-soft)", color: "var(--brand-deep)", fontSize: 12.5, fontWeight: 700, cursor: "pointer", fontFamily: "var(--font-zh)" }}>
-              <Icon name="shield" size={15} /> 教材依据{answered === "compare" ? ` · ${CMP.editions.length}` : answered ? ` · ${A.citations.length}` : ""}
+            <button onClick={() => setCiteOpen(true)} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "7px 11px", borderRadius: 10, border: "1px solid var(--line)", background: "var(--surface)", color: "var(--ink-2)", fontSize: 12.5, fontWeight: 700, cursor: "pointer", fontFamily: "var(--font-zh)", flexShrink: 0 }}>
+              <Icon name="shield" size={15} /> 依据{answered === "compare" ? ` · ${CMP.editions.length}` : answered ? ` · ${A.citations.length}` : ""}
             </button>
           </div>
         )}
@@ -171,7 +198,7 @@ function TextbookWorkspace({ scenario, query, onHome, onSwitch, fromIntent, logg
             {viaMemory && answered === false && thread.length <= 1 && (
               <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "11px 14px", borderRadius: 12, background: "var(--brand-soft)", border: "1px solid var(--brand-soft-border)" }}>
                 <Icon name="spark" size={15} />
-                <span style={{ fontSize: 12.5, color: "var(--brand-deep)", fontWeight: 600, lineHeight: 1.5 }}>已根据「记忆」自动打开你常看的教材——若要换一本，点右上角「切换」即可。</span>
+                <span style={{ fontSize: 12.5, color: "var(--brand-deep)", fontWeight: 600, lineHeight: 1.5 }}>已根据「记忆」自动打开你常看的教材——若要换一本，点顶部「切换」即可。</span>
               </div>
             )}
             {thread.map((m, i) =>
@@ -179,6 +206,14 @@ function TextbookWorkspace({ scenario, query, onHome, onSwitch, fromIntent, logg
                 <AnswerBlock key={i} A={A} activeCite={activeCite} setActiveCite={setActiveCite} />
               ) : m.compare ? (
                 <CompareBlock key={i} CMP={CMP} activeCite={activeCite} setActiveCite={setActiveCite} onAsk={ask} />
+              ) : m.role === "sys" ? (
+                <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, padding: "2px 0" }}>
+                  <span style={{ flex: 1, height: 1, background: "var(--line)" }} />
+                  <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 11.5, fontWeight: 700, color: "var(--ink-3)", background: "var(--surface-2)", border: "1px solid var(--line)", padding: "4px 12px", borderRadius: 999, maxWidth: "100%" }}>
+                    <Icon name={m.icon || "refresh"} size={12} /> <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.text}</span>
+                  </span>
+                  <span style={{ flex: 1, height: 1, background: "var(--line)" }} />
+                </div>
               ) : (
                 <Bubble key={i} m={m} />
               )
@@ -343,9 +378,17 @@ function TextbookWorkspace({ scenario, query, onHome, onSwitch, fromIntent, logg
               {TREE.chapters.map((ch, ci) => (
                 <div key={ci} style={{ marginBottom: 6 }}>
                   <div style={{ fontSize: 12.5, fontWeight: 700, color: "var(--ink-2)", padding: "8px 10px" }}>{ch.name}</div>
-                  {ch.sections.map((sec, si) => (
-                    <div key={si} style={{ fontSize: 12.5, padding: "8px 10px 8px 18px", borderRadius: 9, marginBottom: 2, cursor: "pointer", fontWeight: sec.active ? 700 : 500, color: sec.active ? "var(--brand-deep)" : "var(--ink-3)", background: sec.active ? "var(--brand-soft)" : "transparent", borderLeft: sec.active ? "2px solid var(--brand)" : "2px solid transparent" }}>{sec.name}</div>
-                  ))}
+                  {ch.sections.map((sec, si) => {
+                    const on = activeSec.ci === ci && activeSec.si === si;
+                    return (
+                      <button key={si} onClick={() => pickSection(ci, si)} style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", textAlign: "left", fontFamily: "var(--font-zh)", fontSize: 12.5, padding: "8px 10px 8px 16px", borderRadius: 9, marginBottom: 2, cursor: "pointer", fontWeight: on ? 700 : 500, color: on ? "var(--brand-deep)" : "var(--ink-2)", background: on ? "var(--brand-soft)" : "transparent", border: "none", borderLeft: `2px solid ${on ? "var(--brand)" : "transparent"}`, transition: "background .15s, color .15s" }}
+                        onMouseEnter={(e) => { if (!on) e.currentTarget.style.background = "var(--surface-2)"; }}
+                        onMouseLeave={(e) => { if (!on) e.currentTarget.style.background = "transparent"; }}>
+                        <span style={{ flex: 1, minWidth: 0 }}>{sec.name}</span>
+                        {on && <span style={{ color: "var(--brand)", flexShrink: 0, display: "inline-flex" }}><Icon name="check" size={13} sw={2.6} /></span>}
+                      </button>
+                    );
+                  })}
                 </div>
               ))}
             </div>
@@ -357,7 +400,7 @@ function TextbookWorkspace({ scenario, query, onHome, onSwitch, fromIntent, logg
       <div onClick={() => setSwitcherOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 84, background: "rgba(20,16,10,.42)", backdropFilter: "blur(2px)", opacity: switcherOpen ? 1 : 0, pointerEvents: switcherOpen ? "auto" : "none", transition: "opacity .26s" }} />
       <div style={mobile
         ? { position: "fixed", left: 0, right: 0, bottom: 0, height: "88dvh", zIndex: 85, background: "var(--canvas)", borderRadius: "18px 18px 0 0", display: "flex", flexDirection: "column", overflow: "hidden", transform: switcherOpen ? "translateY(0)" : "translateY(101%)", transition: "transform .3s cubic-bezier(.32,.72,0,1)", boxShadow: "0 -18px 50px -24px rgba(0,0,0,.5)" }
-        : { position: "fixed", top: 0, right: 0, bottom: 0, width: "min(560px, 96vw)", zIndex: 85, background: "var(--canvas)", display: "flex", flexDirection: "column", overflow: "hidden", transform: switcherOpen ? "translateX(0)" : "translateX(102%)", transition: "transform .3s cubic-bezier(.32,.72,0,1)", boxShadow: "0 -18px 60px -24px rgba(0,0,0,.5)" }}>
+        : { position: "fixed", top: 0, left: 0, bottom: 0, width: "min(560px, 96vw)", zIndex: 85, background: "var(--canvas)", display: "flex", flexDirection: "column", overflow: "hidden", transform: switcherOpen ? "translateX(0)" : "translateX(-102%)", transition: "transform .3s cubic-bezier(.32,.72,0,1)", boxShadow: "0 18px 60px -24px rgba(0,0,0,.5)" }}>
         {mobile && <div style={{ width: 40, height: 4, borderRadius: 999, background: "var(--line)", margin: "8px auto 0", flexShrink: 0 }} />}
         <div style={{ flexShrink: 0, display: "flex", alignItems: "center", gap: 10, padding: "13px 18px", borderBottom: "1px solid var(--line)", background: "var(--surface)" }}>
           <span style={{ width: 34, height: 34, borderRadius: 10, background: "var(--brand-soft)", border: "1px solid var(--brand-soft-border)", display: "grid", placeItems: "center", color: "var(--brand-deep)", flexShrink: 0 }}><Icon name="book" size={17} /></span>
@@ -381,6 +424,17 @@ function TextbookWorkspace({ scenario, query, onHome, onSwitch, fromIntent, logg
 function TextbookInput({ onAsk }) {
   const [v, setV] = tS("");
   const [att, setAtt] = tS([]);
+  const taRef = tR(null);
+  // auto-grow: 1 line → up to 5 lines, then scroll inside
+  tE(() => {
+    const el = taRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    const maxH = Math.round(13.5 * 1.5 * 5) + 8; // 5 lines + vertical padding
+    const next = Math.min(el.scrollHeight, maxH);
+    el.style.height = next + "px";
+    el.style.overflowY = el.scrollHeight > maxH + 1 ? "auto" : "hidden";
+  }, [v]);
   const send = () => {
     if (!v.trim() && att.length === 0) return;
     onAsk(v.trim() || "（请结合我上传的材料分析）");
@@ -392,6 +446,7 @@ function TextbookInput({ onAsk }) {
       <FileChips files={att} onRemove={(i) => setAtt((f) => f.filter((_, j) => j !== i))} style={{ marginBottom: 8 }} />
       <div style={{ display: "flex", gap: 8, alignItems: "flex-end", background: "var(--surface-2)", border: "1px solid var(--line)", borderRadius: 14, padding: 9 }}>
         <textarea
+          ref={taRef}
           value={v}
           onChange={(e) => setV(e.target.value)}
           onKeyDown={(e) => {
@@ -402,7 +457,7 @@ function TextbookInput({ onAsk }) {
           }}
           rows={1}
           placeholder="就本节教材内容提问，答案有据可依…"
-          style={{ flex: 1, border: "none", outline: "none", background: "transparent", resize: "none", fontSize: 13.5, fontFamily: "var(--font-zh)", color: "var(--ink)", lineHeight: 1.5, padding: "4px 4px" }}
+          style={{ flex: 1, border: "none", outline: "none", background: "transparent", resize: "none", fontSize: 13.5, fontFamily: "var(--font-zh)", color: "var(--ink)", lineHeight: 1.5, padding: "4px 4px", overflowY: "hidden", boxSizing: "border-box" }}
         />
         <ClipButton onFiles={(names) => setAtt((f) => [...f, ...names].slice(0, 6))} compact />
         <button onClick={send} style={{ width: 36, height: 36, borderRadius: 10, border: "none", background: "var(--brand)", color: "#fff", display: "grid", placeItems: "center", cursor: "pointer", flexShrink: 0 }}>

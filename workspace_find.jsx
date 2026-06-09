@@ -71,7 +71,7 @@ function ChatResizer({ children }) {
   );
 }
 
-function WorkspaceShell({ scenario, onHome, onSwitch, children, right, titleMeta, subtitleOverride, recognizing, headerRecognizing, mobilePanelLabel = "结果", mobilePanelIcon = "layers", openSheetKey }) {
+function WorkspaceShell({ scenario, onHome, onSwitch, children, right, afterTitle, titleMeta, subtitleOverride, recognizing, headerRecognizing, mobilePanelLabel = "结果", mobilePanelIcon = "layers", openSheetKey }) {
   const showRec = recognizing || headerRecognizing;
   const [switcher, setSwitcher] = React.useState(false);
   const mobile = useIsMobile();
@@ -217,6 +217,7 @@ function WorkspaceShell({ scenario, onHome, onSwitch, children, right, titleMeta
             )}
           </div>
         )}
+        {!showRec && afterTitle}
         <div style={{ flex: 1 }} />
         {!showRec && (mobile && isChatLed ? <SheetPill label={mobilePanelLabel} icon={mobilePanelIcon} onClick={() => setSheetOpen(true)} /> : right)}
       </header>
