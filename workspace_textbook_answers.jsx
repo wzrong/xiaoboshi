@@ -57,8 +57,8 @@ function buildTbAnswer(q, book) {
       blocks: [
         { kind: "answer", text: A.summary },
         { kind: "table", cols: ["光反应", "暗反应"], colHues: [200, 145], rows: A.points.map((p) => ({ label: p.label, a: p.light, b: p.dark })) },
-        { kind: "pitfall", title: "易混点", items: ["暗反应≠在黑暗中进行，有光无光均可，名字只是相对光反应而言。", "ATP 和 [H] 是两阶段的"纽带"，光反应供给、暗反应消耗，停光后很快耗尽。"] },
-        { kind: "note", text: "记忆法：光反应"见光、放氧、产能"，暗反应"固碳、还原、耗能"。" },
+        { kind: "pitfall", title: "易混点", items: ["暗反应≠在黑暗中进行，有光无光均可，名字只是相对光反应而言。", "ATP 和 [H] 是两阶段的「纽带」，光反应供给、暗反应消耗，停光后很快耗尽。"] },
+        { kind: "note", text: "记忆法：光反应「见光、放氧、产能」，暗反应「固碳、还原、耗能」。" },
       ],
       follow: ["举个例子", "生成对比导图", "出几道练习题"],
       citations: A.citations,
@@ -68,7 +68,7 @@ function buildTbAnswer(q, book) {
   // —— 通用模板（按类型生成贴合问题的自然回答）——
   const cite = (loc, quote) => ({ id: "c" + Math.random().toString(36).slice(2, 7), source: src || "教材", loc, quote });
   const defaultCites = [
-    cite("教材正文 · 本节", `教材在介绍"${subject}"时给出了定义与典型例证，可作为作答依据。`),
+    cite("教材正文 · 本节", `教材在介绍「${subject}」时给出了定义与典型例证，可作为作答依据。`),
   ];
 
   if (type === "concept") {
@@ -100,7 +100,7 @@ function buildTbAnswer(q, book) {
           "因此导致结果 —— 由机制必然推出所观察到的现象。",
         ] },
         { kind: "scene", title: "情境还原", items: ["把过程放回教材给出的实验/情境里，逐步对照每一环，结论就自然成立。"] },
-        { kind: "pitfall", title: "常见误区", items: ["不要把"相关"当成"因果"，注意区分必要条件与充分条件。"] },
+        { kind: "pitfall", title: "常见误区", items: ["不要把「相关」当成「因果」，注意区分必要条件与充分条件。"] },
       ],
       follow: ["展开原因链", "还原实验过程", "出一道辨析题"],
       citations: defaultCites,
