@@ -71,16 +71,53 @@ function ChatResizer({ children }) {
   );
 }
 
-function WorkspaceShell({ scenario, onHome, onSwitch, children, right, afterTitle, titleMeta, subtitleOverride, recognizing, headerRecognizing, mobilePanelLabel = "结果", mobilePanelIcon = "layers", openSheetKey }) {
+// ---- Scenario bar: lives at the TOP OF THE STAGE (right pane). The assistant
+// stays on the left; scenarios are just "stages" it opens — switching happens here. ----
+function ScenarioBar({ scenario, onSwitch, disabled }) {
+  const SC = window.AIDATA.SCENARIOS;
+  const canSwitch = typeof onSwitch === "function" && !disabled;
+  return (
+    <div data-screen-label="场景切换栏" style={{ display: "flex", alignItems: "center", gap: 3, padding: "8px 8px 8px 12px", overflowX: "auto", flexShrink: 1, minWidth: 0, scrollbarWidth: "none" }}>
+      {SC.map((s) => {
+        const active = scenario && s.id === scenario.id;
+        return (
+          <button
+            key={s.id}
+            onClick={() => { if (canSwitch && !active) onSwitch(s.id, ""); }}
+            title={active ? "当前场景" : "切换到" + s.name}
+            style={{
+              display: "inline-flex", alignItems: "center", gap: 6, flexShrink: 0,
+              padding: "5px 11px 5px 6px", borderRadius: 999,
+              border: "1px solid " + (active ? "var(--brand-soft-border)" : "transparent"),
+              background: active ? "var(--brand-soft)" : "transparent",
+              color: active ? "var(--brand-deep)" : "var(--ink-2)",
+              fontSize: 12.5, fontWeight: active ? 800 : 600,
+              cursor: active || !canSwitch ? "default" : "pointer", fontFamily: "var(--font-zh)",
+              opacity: disabled ? 0.55 : 1,
+              transition: "background .15s, border-color .15s, color .15s",
+            }}
+            onMouseEnter={(e) => { if (canSwitch && !active) e.currentTarget.style.background = "var(--surface-2)"; }}
+            onMouseLeave={(e) => { if (canSwitch && !active) e.currentTarget.style.background = active ? "var(--brand-soft)" : "transparent"; }}
+          >
+            <ScenarioGlyph icon={s.icon} hue={s.hue} size={22} active={active} />
+            {s.name}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function WorkspaceShell({ scenario, onHome, onSwitch, children, right, afterTitle, titleMeta, subtitleOverride, recognizing, headerRecognizing, mobilePanelLabel = "结果", mobilePanelIcon = "layers", openSheetKey, nav, chatLed }) {
   const showRec = recognizing || headerRecognizing;
-  const [switcher, setSwitcher] = React.useState(false);
   const mobile = useIsMobile();
   const [sheetOpen, setSheetOpen] = React.useState(false);
-  const SC = window.AIDATA.SCENARIOS;
-  const GEN = window.AIDATA.GENERAL;
-  const canSwitch = typeof onSwitch === "function" && !showRec;
+  const [navOpen, setNavOpen] = React.useState(false); // mobile nav drawer
+  // desktop rail: collapsed = fully hidden, just an expand button in the header (Claude/豆包 style)
+  const [railOpen, setRailOpenState] = React.useState(() => localStorage.getItem("aida_rail_open") !== "0");
+  const setRailOpen = (v) => { setRailOpenState(v); try { localStorage.setItem("aida_rail_open", v ? "1" : "0"); } catch (e) {} };
   const kids = React.Children.toArray(children);
-  const isChatLed = !recognizing && kids.length >= 2 && kids[0] && kids[0].type === ChatPanel;
+  const isChatLed = chatLed || (kids.length >= 2 && kids[0] && kids[0].type === ChatPanel);
   // mobile: auto-slide the content sheet up when the result pane becomes ready
   // or the user opens a specific item (key changes). Never auto-opens twice for
   // the same state, so it stays out of the way once dismissed.
@@ -90,150 +127,128 @@ function WorkspaceShell({ scenario, onHome, onSwitch, children, right, afterTitl
     if (openSheetKey && openSheetKey !== lastKey.current) setSheetOpen(true);
     lastKey.current = openSheetKey;
   }, [openSheetKey, mobile, isChatLed]);
+
+  // assistant identity — mobile header only (the desktop rail already carries the brand,
+  // so the chat column gets a slim status line instead of a second avatar)
+  const identity = (small) => showRec ? (
+    <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0, flex: 1 }}>
+      <div style={{ position: "relative", flexShrink: 0 }}><BotAvatar size={small ? 30 : 32} glow /><span className="bot-ring" /></div>
+      <div style={{ minWidth: 0 }}>
+        <div style={{ fontSize: small ? 13.5 : 14.5, fontWeight: 800, color: "var(--ink)", display: "inline-flex", alignItems: "center", gap: 8, whiteSpace: "nowrap" }}>正在识别你的需求 <Dots /></div>
+        <div style={{ fontSize: 11, color: "var(--ink-3)", fontWeight: 600, whiteSpace: "nowrap" }}>判断该用哪个场景为你服务…</div>
+      </div>
+    </div>
+  ) : (
+    <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0, flex: 1 }}>
+      <BotAvatar size={small ? 30 : 32} />
+      <div style={{ minWidth: 0 }}>
+        <div style={{ fontSize: small ? 13.5 : 14.5, fontWeight: 800, color: "var(--ink)", display: "flex", alignItems: "center", gap: 7, whiteSpace: "nowrap" }}>AI 小博士 {titleMeta}</div>
+        <div style={{ fontSize: 11, color: "var(--ink-3)", fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{subtitleOverride || (scenario && scenario.id !== "general" ? `正在陪你 · ${scenario.name}` : "有问必答，全程陪伴的教学助手")}</div>
+      </div>
+    </div>
+  );
+
+  // expand + new-chat buttons shown when the rail is collapsed — no narrow icon bar, just these
+  const iconBtnStyle = { width: 32, height: 32, borderRadius: 9, border: "1px solid var(--line)", background: "var(--surface)", color: "var(--ink-2)", display: "grid", placeItems: "center", cursor: "pointer", flexShrink: 0 };
+  const hoverFx = {
+    onMouseEnter: (e) => (e.currentTarget.style.background = "var(--surface-2)"),
+    onMouseLeave: (e) => (e.currentTarget.style.background = "var(--surface)"),
+  };
+  const expandBtn = nav && !mobile && !railOpen ? (
+    <span style={{ display: "inline-flex", gap: 6 }}>
+      <button onClick={() => setRailOpen(true)} data-tip="展开菜单" data-tip-pos="bottom-left" aria-label="展开菜单" style={iconBtnStyle} {...hoverFx}>
+        <Icon name="panelExpand" size={17} />
+      </button>
+      {nav.onNewChat && (
+        <button onClick={() => nav.onNewChat()} data-tip="新对话" aria-label="新对话" style={iconBtnStyle} {...hoverFx}>
+          <Icon name="plus" size={17} />
+        </button>
+      )}
+    </span>
+  ) : null;
+
+  // slim chat-column header: status only — the avatar lives in the rail, not here
+  const chatHeader = (
+    <div style={{ display: "flex", alignItems: "center", gap: 9, padding: "0 12px", borderBottom: "1px solid var(--line)", background: "var(--surface)", flexShrink: 0, height: 51 }}>
+      {expandBtn}
+      {showRec ? (
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 8, fontSize: 12.5, fontWeight: 800, color: "var(--brand-deep)", minWidth: 0, whiteSpace: "nowrap" }}>
+          正在识别你的需求 <Dots />
+        </span>
+      ) : (
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 8, fontSize: 12.5, fontWeight: 700, color: "var(--ink-2)", minWidth: 0 }}>
+          <span style={{ width: 7, height: 7, borderRadius: 999, background: "oklch(0.72 0.17 150)", flexShrink: 0 }} />
+          <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{subtitleOverride || (scenario && scenario.id !== "general" ? `正在陪你 · ${scenario.name}` : "有问必答 · 全程陪伴")}</span>
+        </span>
+      )}
+      {titleMeta}
+    </div>
+  );
+
+  // stage header — scenario tabs + per-scenario controls + actions, top of the RIGHT pane
+  const stageHeader = (
+    <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "0 12px 0 4px", background: "var(--surface)", borderBottom: "1px solid var(--line)", flexShrink: 0, minHeight: 51 }}>
+      {!isChatLed && expandBtn && <span style={{ marginLeft: 8, display: "inline-flex" }}>{expandBtn}</span>}
+      {!isChatLed && showRec && (
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 7, padding: "5px 11px", marginLeft: 8, borderRadius: 999, background: "var(--brand-soft)", border: "1px solid var(--brand-soft-border)", fontSize: 12, fontWeight: 700, color: "var(--brand-deep)", whiteSpace: "nowrap", flexShrink: 0 }}>
+          <BotAvatar size={20} /> 正在识别需求 <Dots />
+        </span>
+      )}
+      <ScenarioBar scenario={scenario} onSwitch={onSwitch} disabled={showRec} />
+      {!showRec && afterTitle}
+      <div style={{ flex: 1 }} />
+      {!mobile && right}
+    </div>
+  );
+
+  const stage = (content) => (
+    <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", background: "var(--canvas)" }}>
+      {stageHeader}
+      <div style={{ flex: 1, minHeight: 0, display: "flex", position: "relative" }}>{content}</div>
+    </div>
+  );
+
   return (
     <WSMobileContext.Provider value={{ mobile, sheetOpen, setSheetOpen, isChatLed }}>
-    <div style={{ height: "100dvh", display: "flex", flexDirection: "column", background: "var(--canvas)" }}>
-      <header
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: mobile ? 8 : 12,
-          height: mobile ? 56 : 60,
-          padding: mobile ? "0 12px" : "0 22px",
-          background: "var(--surface)",
-          borderBottom: "1px solid var(--line)",
-          flexShrink: 0,
-          zIndex: 30,
-        }}
-      >
-        <button
-          onClick={onHome}
-          title="返回首页"
-          aria-label="返回首页"
-          style={{
-            display: "inline-flex",
-            alignItems: "center",
-            justifyContent: "center",
-            width: 38,
-            height: 38,
-            borderRadius: 11,
-            border: "1px solid var(--line)",
-            background: "var(--surface)",
-            color: "var(--ink-2)",
-            cursor: "pointer",
-            flexShrink: 0,
-            transition: "background .15s, color .15s, border-color .15s",
-          }}
-          onMouseEnter={(e) => { e.currentTarget.style.background = "var(--brand-soft)"; e.currentTarget.style.color = "var(--brand-deep)"; e.currentTarget.style.borderColor = "var(--brand-soft-border)"; }}
-          onMouseLeave={(e) => { e.currentTarget.style.background = "var(--surface)"; e.currentTarget.style.color = "var(--ink-2)"; e.currentTarget.style.borderColor = "var(--line)"; }}
-        >
-          <Icon name="home" size={18} />
-        </button>
-        <div style={{ width: 1, height: 24, background: "var(--line)", flexShrink: 0 }} />
-        {showRec ? (
-          <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
-            <BotAvatar size={32} glow />
-            <div style={{ minWidth: 0 }}>
-              <div style={{ fontSize: 15.5, fontWeight: 800, color: "var(--ink)", display: "inline-flex", alignItems: "center", gap: 8 }}>
-                小博士正在识别你的需求 <Dots />
-              </div>
-              <div style={{ fontSize: 11.5, color: "var(--ink-3)", fontWeight: 600 }}>判断该用哪个场景为你服务…</div>
-            </div>
-          </div>
-        ) : (
-          <div style={{ position: "relative", minWidth: 0 }}>
-            <button
-              onClick={() => canSwitch && setSwitcher((s) => !s)}
-              title={canSwitch ? "切换场景" : undefined}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 10,
-                minWidth: 0,
-                padding: "5px 10px 5px 6px",
-                borderRadius: 12,
-                border: "1px solid " + (switcher ? "var(--brand-soft-border)" : "transparent"),
-                background: switcher ? "var(--brand-soft)" : "transparent",
-                cursor: canSwitch ? "pointer" : "default",
-                fontFamily: "var(--font-zh)",
-                transition: "background .15s, border-color .15s",
-              }}
-              onMouseEnter={(e) => { if (canSwitch && !switcher) e.currentTarget.style.background = "var(--surface-2)"; }}
-              onMouseLeave={(e) => { if (canSwitch && !switcher) e.currentTarget.style.background = "transparent"; }}
-            >
-              <ScenarioGlyph icon={scenario.icon} hue={scenario.hue} size={34} />
-              <div style={{ minWidth: 0, textAlign: "left" }}>
-                <div style={{ fontSize: 15.5, fontWeight: 800, color: "var(--ink)", display: "flex", alignItems: "center", gap: 7, whiteSpace: "nowrap" }}>
-                  {scenario.name}
-                  {titleMeta}
-                  {canSwitch && <span style={{ color: "var(--ink-3)", display: "grid", placeItems: "center", transition: "transform .2s", transform: switcher ? "rotate(180deg)" : "none" }}><Icon name="chevron" size={15} /></span>}
-                </div>
-                {!mobile && <div style={{ fontSize: 11.5, color: "var(--ink-3)", fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{subtitleOverride || scenario.tagline}</div>}
-              </div>
-            </button>
-            {switcher && (
-              <React.Fragment>
-                <div onClick={() => setSwitcher(false)} style={{ position: "fixed", inset: 0, zIndex: 40 }} />
-                <div className="enter-pop" style={{ position: "absolute", top: "calc(100% + 8px)", left: 0, width: 320, maxWidth: "calc(100vw - 40px)", background: "var(--surface)", border: "1px solid var(--line)", borderRadius: 16, boxShadow: "0 24px 60px -28px rgba(0,0,0,.45)", padding: 8, zIndex: 41 }}>
-                  <div style={{ padding: "6px 10px 8px", fontSize: 11.5, fontWeight: 700, color: "var(--ink-3)", display: "flex", alignItems: "center", gap: 6 }}>
-                    <Icon name="spark" size={13} /> 切换到其他场景
-                  </div>
-                  <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                    {SC.map((s) => {
-                      const active = s.id === scenario.id;
-                      return (
-                        <button
-                          key={s.id}
-                          onClick={() => { setSwitcher(false); if (!active) onSwitch(s.id, ""); }}
-                          style={{ display: "flex", alignItems: "center", gap: 11, padding: "9px 10px", borderRadius: 11, border: "none", background: active ? "var(--brand-soft)" : "transparent", cursor: active ? "default" : "pointer", fontFamily: "var(--font-zh)", textAlign: "left", transition: "background .15s" }}
-                          onMouseEnter={(e) => { if (!active) e.currentTarget.style.background = "var(--surface-2)"; }}
-                          onMouseLeave={(e) => { if (!active) e.currentTarget.style.background = "transparent"; }}
-                        >
-                          <ScenarioGlyph icon={s.icon} hue={s.hue} size={32} active={active} />
-                          <div style={{ flex: 1, minWidth: 0 }}>
-                            <div style={{ fontSize: 13.5, fontWeight: 700, color: active ? "var(--brand-deep)" : "var(--ink)" }}>{s.name}</div>
-                            <div style={{ fontSize: 11, color: "var(--ink-3)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{s.tagline}</div>
-                          </div>
-                          {active && <span style={{ color: "var(--brand-deep)", flexShrink: 0 }}><Icon name="check" size={16} sw={2.4} /></span>}
-                        </button>
-                      );
-                    })}
-                  </div>
-                  <div style={{ height: 1, background: "var(--line)", margin: "6px 6px" }} />
-                  <button
-                    onClick={() => { setSwitcher(false); if (scenario.id !== "general") onSwitch("general", ""); }}
-                    style={{ width: "100%", display: "flex", alignItems: "center", gap: 11, padding: "9px 10px", borderRadius: 11, border: "none", background: "transparent", cursor: "pointer", fontFamily: "var(--font-zh)", textAlign: "left" }}
-                    onMouseEnter={(e) => (e.currentTarget.style.background = "var(--surface-2)")}
-                    onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
-                  >
-                    <span style={{ width: 32, height: 32, borderRadius: 9, background: "var(--brand-soft)", border: "1px solid var(--brand-soft-border)", display: "grid", placeItems: "center", color: "var(--brand-deep)", flexShrink: 0 }}><Icon name="spark" size={16} /></span>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: 13.5, fontWeight: 700, color: "var(--ink)" }}>{GEN.name}</div>
-                      <div style={{ fontSize: 11, color: "var(--ink-3)" }}>不确定用哪个？交给小博士判断</div>
-                    </div>
-                  </button>
-                </div>
-              </React.Fragment>
+    <div style={{ height: "100dvh", display: "flex", background: "var(--canvas)", overflow: "hidden" }}>
+      {nav && (mobile
+        ? <LeftRail page="" {...nav} mobile mobileOpen={navOpen} onCloseMobile={() => setNavOpen(false)} />
+        : railOpen
+        ? <LeftRail page="" {...nav} forceOpen onCollapse={() => setRailOpen(false)} />
+        : null)}
+      <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
+        {mobile && (
+          <header style={{ display: "flex", alignItems: "center", gap: 8, height: 56, padding: "0 12px", background: "var(--surface)", borderBottom: "1px solid var(--line)", flexShrink: 0, zIndex: 30 }}>
+            {nav ? (
+              <button onClick={() => setNavOpen(true)} aria-label="打开菜单" style={{ width: 38, height: 38, flexShrink: 0, borderRadius: 11, border: "1px solid var(--line)", background: "var(--surface)", color: "var(--ink-2)", display: "grid", placeItems: "center", cursor: "pointer" }}>
+                <Icon name="menu" size={19} />
+              </button>
+            ) : (
+              <button onClick={onHome} aria-label="返回首页" style={{ width: 38, height: 38, flexShrink: 0, borderRadius: 11, border: "1px solid var(--line)", background: "var(--surface)", color: "var(--ink-2)", display: "grid", placeItems: "center", cursor: "pointer" }}>
+                <Icon name="home" size={18} />
+              </button>
             )}
-          </div>
+            {identity(true)}
+            {!showRec && (isChatLed ? <SheetPill label={mobilePanelLabel} icon={mobilePanelIcon} onClick={() => setSheetOpen(true)} /> : right)}
+          </header>
         )}
-        {!showRec && afterTitle}
-        <div style={{ flex: 1 }} />
-        {!showRec && (mobile && isChatLed ? <SheetPill label={mobilePanelLabel} icon={mobilePanelIcon} onClick={() => setSheetOpen(true)} /> : right)}
-      </header>
-      <div style={{ flex: 1, minHeight: 0, display: "flex", position: "relative" }}>
-        {mobile && isChatLed ? (
-          <React.Fragment>
-            {React.cloneElement(kids[0], { width: "100%" })}
-            <MobileSheet open={sheetOpen} onClose={() => setSheetOpen(false)} title={mobilePanelLabel} headerRight={right}>
-              {kids.slice(1)}
-            </MobileSheet>
-          </React.Fragment>
-        ) : isChatLed ? (
-          <ChatResizer>{children}</ChatResizer>
-        ) : (
-          children
-        )}
+        <div style={{ flex: 1, minHeight: 0, display: "flex", position: "relative" }}>
+          {mobile && isChatLed ? (
+            <React.Fragment>
+              {React.cloneElement(kids[0], { width: "100%" })}
+              <MobileSheet open={sheetOpen} onClose={() => setSheetOpen(false)} title={mobilePanelLabel} headerRight={right}>
+                {stage(kids.slice(1))}
+              </MobileSheet>
+            </React.Fragment>
+          ) : isChatLed ? (
+            <ChatResizer>
+              {React.cloneElement(kids[0], { header: chatHeader })}
+              {stage(kids.slice(1))}
+            </ChatResizer>
+          ) : (
+            stage(children)
+          )}
+        </div>
       </div>
     </div>
     </WSMobileContext.Provider>
@@ -257,7 +272,7 @@ function RecognizingPanel() {
 }
 
 // ---- Chat panel (left) ----
-function ChatPanel({ messages, onSend, suggestions, placeholder, width = 380, pinnedCard, roundsById, shownId, onOpenRound, retrieving }) {
+function ChatPanel({ messages, onSend, suggestions, placeholder, width = 380, pinnedCard, roundsById, shownId, onOpenRound, retrieving, header }) {
   const [draft, setDraft] = uS("");
   const [att, setAtt] = uS([]);
   const scrollRef = uR(null);
@@ -273,6 +288,7 @@ function ChatPanel({ messages, onSend, suggestions, placeholder, width = 380, pi
   };
   return (
     <div style={{ width, flexShrink: 0, display: "flex", flexDirection: "column", background: "var(--surface)", borderRight: "1px solid var(--line)" }}>
+      {header}
       <div ref={scrollRef} style={{ flex: 1, overflowY: "auto", padding: "20px 18px", display: "flex", flexDirection: "column", gap: 16 }}>
         {messages.map((m, i) => {
           const round = roundsById && m.roundId != null ? roundsById[m.roundId] : null;
@@ -327,7 +343,7 @@ function ChatPanel({ messages, onSend, suggestions, placeholder, width = 380, pi
           <ClipButton onFiles={(names) => setAtt((f) => [...f, ...names].slice(0, 6))} compact />
           <button
             onClick={() => send()}
-            style={{ width: 34, height: 34, borderRadius: 10, border: "none", background: "var(--brand)", color: "#fff", display: "grid", placeItems: "center", cursor: "pointer", flexShrink: 0 }}
+            style={{ width: 34, height: 34, borderRadius: 10, border: "none", background: "var(--brand-grad)", backgroundColor: "var(--brand)", color: "#fff", display: "grid", placeItems: "center", cursor: "pointer", flexShrink: 0 }}
           >
             <Icon name="send" size={16} />
           </button>
@@ -337,7 +353,41 @@ function ChatPanel({ messages, onSend, suggestions, placeholder, width = 380, pi
   );
 }
 
+// artifact chip — a frozen round/creation carried across scenarios; click to reopen it
+function ArtifactChip({ a }) {
+  const S = (window.AIDATA.SCENARIOS.find((s) => s.id === a.scenario)) || window.AIDATA.GENERAL;
+  return (
+    <button
+      onClick={() => window.openSessionArtifact && window.openSessionArtifact(a)}
+      title={"重新打开这轮结果"}
+      style={{ width: "100%", display: "flex", alignItems: "center", gap: 9, textAlign: "left", padding: "8px 11px", borderRadius: 11, border: "1px solid var(--line)", background: "var(--surface)", cursor: "pointer", fontFamily: "var(--font-zh)", transition: "border-color .15s, box-shadow .15s" }}
+      onMouseEnter={(e) => { e.currentTarget.style.borderColor = "var(--brand-soft-border)"; e.currentTarget.style.boxShadow = "0 6px 16px -10px var(--brand-glow)"; }}
+      onMouseLeave={(e) => { e.currentTarget.style.borderColor = "var(--line)"; e.currentTarget.style.boxShadow = "none"; }}
+    >
+      <ScenarioGlyph icon={a.icon || S.icon} hue={S.hue} size={28} />
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontSize: 12.5, fontWeight: 800, color: "var(--ink)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{a.title}</div>
+        <div style={{ fontSize: 10.5, color: "var(--ink-3)", fontWeight: 600, marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{S.name}{a.meta ? " · " + a.meta : ""} · 点此重新打开</div>
+      </div>
+      <Icon name="chevronRight" size={15} />
+    </button>
+  );
+}
+
 function Bubble({ m, round, active, onOpenRound }) {
+  // slim system marker — scenario switches etc. A divider, not a chat bubble.
+  if (m.role === "sys") {
+    return (
+      <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "1px 0" }}>
+        <span style={{ flex: 1, height: 1, background: "var(--line)" }} />
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 11.5, fontWeight: 700, color: "var(--ink-3)", whiteSpace: "nowrap" }}>
+          {m.icon && <Icon name={m.icon} size={13} />}
+          {m.text}
+        </span>
+        <span style={{ flex: 1, height: 1, background: "var(--line)" }} />
+      </div>
+    );
+  }
   if (m.role === "user") {
     return (
       <div style={{ alignSelf: "flex-end", maxWidth: "85%", display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6 }}>
@@ -352,7 +402,7 @@ function Bubble({ m, round, active, onOpenRound }) {
           </div>
         )}
         {m.text && (
-          <div style={{ background: "var(--brand)", color: "#fff", padding: "10px 13px", borderRadius: "14px 14px 4px 14px", fontSize: 13.5, lineHeight: 1.6, fontWeight: 500 }}>
+          <div style={{ background: "var(--brand-grad)", backgroundColor: "var(--brand)", color: "#fff", padding: "10px 13px", borderRadius: "14px 14px 4px 14px", fontSize: 13.5, lineHeight: 1.6, fontWeight: 500 }}>
             {m.text}
           </div>
         )}
@@ -369,6 +419,10 @@ function Bubble({ m, round, active, onOpenRound }) {
         {/* per-round result pill — a sibling BELOW the bubble, not nested inside it */}
         {!m.typing && round && (
           <ResultPill count={round.count} active={active} onOpen={() => onOpenRound && onOpenRound(round.id)} />
+        )}
+        {/* cross-scenario artifact chip — reopens an earlier round/creation, even from another scenario */}
+        {!m.typing && !round && m.artifact && (
+          <ArtifactChip a={m.artifact} />
         )}
       </div>
     </div>
@@ -540,7 +594,7 @@ function RetrievingPanel() {
   );
 }
 
-function FindWorkspace({ scenario, query, onHome, onSwitch, fromIntent, resume, loggedIn, onAddBasket, onOpenBasket, onOpenContent, basketCount = 0, basketItems }) {
+function FindWorkspace({ scenario, query, onHome, onSwitch, fromIntent, resume, loggedIn, nav, onAddBasket, onOpenBasket, onOpenContent, basketCount = 0, basketItems }) {
   const ALL = window.AIDATA.RESOURCES;
   const isResume = !!resume;
   const initKind = detectKind(query);
@@ -556,47 +610,77 @@ function FindWorkspace({ scenario, query, onHome, onSwitch, fromIntent, resume, 
 
   // accumulated understanding (subject/grade) so vague follow-ups still resolve
   const ctxRef = uR({ subject: initSubject, grade: initGrade });
-  const idRef = uR(0);
+  const findStored = window.ChatSession.scratch.find || {};
+  const idRef = uR(findStored.nextId || 0);
   const sheetSeqRef = uR(0);
   const basketTitles = (basketItems || []).map((b) => b.title).filter(Boolean);
+  // a clicked artifact chip reopens that round, even when arriving from another scenario
+  const pendingA = window.ChatSession.pendingArtifact && window.ChatSession.pendingArtifact.scenario === "find" ? window.ChatSession.pendingArtifact : null;
+  if (pendingA) window.ChatSession.pendingArtifact = null;
 
-  // every query → a FROZEN round; rounds are appended, never overwritten
+  // every query → a FROZEN round; rounds are appended, never overwritten —
+  // and they SURVIVE scenario switches via the session scratch store
   const [rounds, setRounds] = uS(() => {
-    if (isResume) return [buildRound(resume.title || query || "", idRef.current++, ctxRef.current, loggedIn, basketTitles)];
-    if (query && !fromIntent) return [buildRound(query, idRef.current++, ctxRef.current, loggedIn, basketTitles)];
-    return [];
+    const prev = findStored.rounds || [];
+    if (isResume) return [...prev, buildRound(resume.title || query || "", idRef.current++, ctxRef.current, loggedIn, basketTitles)];
+    if (query && !fromIntent) return [...prev, buildRound(query, idRef.current++, ctxRef.current, loggedIn, basketTitles)];
+    return prev;
   });
-  const [activeRound, setActiveRound] = uS(null); // null → show the latest round
+  const [activeRound, setActiveRound] = uS(pendingA ? pendingA.id : null); // null → show the latest round
   const [retrieving, setRetrieving] = uS(false);
   const [sheetAnchor, setSheetAnchor] = uS(""); // "" so the first round doesn't auto-cover the chat on mobile
+  // persist rounds so every round stays reopenable for the whole session
+  uE(() => { window.ChatSession.scratch.find = { rounds, nextId: idRef.current }; }, [rounds]);
+
+  // an AI reply that carries its round: result pill locally + artifact chip across scenarios
+  const roundMsg = (round, node) => ({
+    role: "ai",
+    roundId: round.id,
+    artifact: { scenario: "find", id: round.id, icon: "search", title: `已匹配 ${round.count} 个资源`, meta: (round.query || "").slice(0, 18) },
+    node: node || roundReplyNode(round),
+  });
 
   // build & commit the first round after the cross-scenario intent animation
   const beginFirstRound = (text) => {
     setRetrieving(true);
     setTimeout(() => {
       const round = buildRound(text, idRef.current++, ctxRef.current, loggedIn, basketTitles);
-      setRounds([round]);
+      setRounds([...(findStored.rounds || []), round]);
       setRetrieving(false);
       setActiveRound(round.id);
-      setMessages((m) => [...m, { role: "ai", roundId: round.id, node: roundReplyNode(round) }]);
+      setMessages((m) => [...m, roundMsg(round)]);
       setSuggestions(ROUND_SUGS[round.kind] || ROUND_SUGS.all);
     }, 220);
   };
 
   const [messages, setMessages] = uS(() => {
     if (isResume) {
-      return [{ role: "ai", roundId: 0, node: (<div>已恢复你 <b>{resume.when}</b> 关于「{(resume.title || "").replace(/[《》]/g, "")}」的检索，下面就是当时整理的结果，<b style={{ color: "var(--brand-deep)" }}>已收藏的资源</b>也都还在。继续筛选或换个方向都行。</div>) }];
+      const r0 = rounds[rounds.length - 1];
+      return [roundMsg(r0, (<div>已恢复你 <b>{resume.when}</b> 关于「{(resume.title || "").replace(/[《》]/g, "")}」的检索，下面就是当时整理的结果，<b style={{ color: "var(--brand-deep)" }}>已收藏的资源</b>也都还在。继续筛选或换个方向都行。</div>))];
     }
     if (fromIntent && query) {
       return [
-        { role: "user", text: query },
-        { role: "ai", wide: true, render: () => <InlineIntent query={query} onDone={() => beginFirstRound(query)} /> },
+        ...window.ChatSession.take(),
+        ...(window.ChatSession.echoed(query) ? [] : [{ role: "user", text: query }]),
+        { role: "ai", wide: true, intent: query, render: () => <InlineIntent query={query} onDone={() => beginFirstRound(query)} /> },
       ];
     }
-    if (query) return [{ role: "user", text: query }, { role: "ai", roundId: rounds[0].id, node: roundReplyNode(rounds[0]) }];
+    if (query) {
+      return [
+        ...window.ChatSession.take(),
+        ...(window.ChatSession.echoed(query) ? [] : [{ role: "user", text: query }]),
+        roundMsg(rounds[rounds.length - 1]),
+      ];
+    }
+    {
+      const hist = window.ChatSession.take();
+      if (hist.length) return window.enterThread(scenario);
+    }
     return [{ role: "ai", node: (<div>你好老师，告诉我你要找什么 —— 文档、<b>实验/研修视频</b>、还是<b>成套专辑</b>都行，例如「凸透镜成像的实验视频」「六年级语文期末复习专辑」。我会从<b style={{ color: "var(--auth-ink)" }}>学科网资源库</b>为你精准匹配。</div>) }];
   });
-  const [suggestions, setSuggestions] = uS(rounds.length ? (ROUND_SUGS[rounds[0].kind] || ROUND_SUGS.all) : []);
+  const [suggestions, setSuggestions] = uS(rounds.length ? (ROUND_SUGS[rounds[rounds.length - 1].kind] || ROUND_SUGS.all) : []);
+  // persist the thread so the assistant keeps the SAME conversation across scenario switches
+  uE(() => { window.ChatSession.save(window.freezeChat(messages)); }, [messages]);
 
   const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(null), 2200); };
 
@@ -622,7 +706,7 @@ function FindWorkspace({ scenario, query, onHome, onSwitch, fromIntent, resume, 
       setRetrieving(false);
       setActiveRound(round.id);
       setSheetAnchor("r" + round.id + "#" + (sheetSeqRef.current++));
-      setMessages((m) => [...m.slice(0, -1), { role: "ai", roundId: round.id, node: roundReplyNode(round) }]);
+      setMessages((m) => [...m.slice(0, -1), roundMsg(round)]);
       setSuggestions(ROUND_SUGS[round.kind] || ROUND_SUGS.all);
     }, 850);
   };
@@ -670,20 +754,7 @@ function FindWorkspace({ scenario, query, onHome, onSwitch, fromIntent, resume, 
   const hdrBtn = { display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 12px", borderRadius: 10, border: "1px solid var(--line)", background: "var(--surface)", color: "var(--ink-2)", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "var(--font-zh)", flexShrink: 0 };
 
   return (
-    <WorkspaceShell scenario={scenario} onHome={onHome} onSwitch={onSwitch} headerRecognizing={headerRecognizing} mobilePanelLabel="资源" mobilePanelIcon="search" openSheetKey={sheetKey} right={
-      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-        <button onClick={() => onOpenContent && onOpenContent()} style={hdrBtn}>
-          <Icon name="grid" size={15} /> 我的内容
-        </button>
-        <button onClick={() => onOpenBasket && onOpenBasket()} style={{ ...hdrBtn, position: "relative" }}>
-          <Icon name="basket" size={15} /> 资源篮
-          {basketCount > 0 && <span style={{ minWidth: 18, height: 18, padding: "0 5px", borderRadius: 999, background: "var(--brand)", color: "#fff", fontSize: 11, fontWeight: 800, fontFamily: "var(--font-num)", display: "inline-grid", placeItems: "center" }}>{basketCount}</span>}
-        </button>
-        <button onClick={() => window.open("https://www.zxxk.com", "_blank", "noopener")} title="前往学科网（新窗口打开）" style={{ ...hdrBtn, color: "var(--auth-ink)", borderColor: "var(--auth-border)", background: "var(--auth-bg)" }}>
-          <Icon name="external" size={15} /> 学科网
-        </button>
-      </div>
-    }>
+    <WorkspaceShell scenario={scenario} onHome={onHome} onSwitch={onSwitch} nav={nav} headerRecognizing={headerRecognizing} mobilePanelLabel="资源" mobilePanelIcon="search" openSheetKey={sheetKey}>
       <ChatPanel messages={messages} onSend={send} suggestions={suggestions} placeholder="例如：只看实验视频 / 整套打包下载" roundsById={roundsById} shownId={shownId} retrieving={retrieving} onOpenRound={openRound} />
       {/* results */}
       <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", position: "relative" }}>

@@ -30,6 +30,7 @@ function App() {
   const [basket, setBasket] = aS(() => { try { return JSON.parse(localStorage.getItem("aida_basket") || "[]"); } catch (e) { return []; } });
   const [basketOpen, setBasketOpen] = aS(false);
   const [contentOpen, setContentOpen] = aS(false);
+  const [wsNonce, setWsNonce] = aS(0); // bumped when an artifact chip is clicked → forces the stage to re-open it
   aE(() => { try { localStorage.setItem("aida_basket", JSON.stringify(basket)); } catch (e) {} }, [basket]);
   const addToBasket = (item) => {
     const bid = item.id || item.title;
@@ -49,6 +50,7 @@ function App() {
   const goIntent = (txt) => {
     const q = (typeof txt === "string" ? txt : draft).trim();
     if (!q) return;
+    window.ChatSession && window.ChatSession.clear();
     setQuery(q);
     setDraft(q);
     setScenarioId("general");
@@ -57,6 +59,7 @@ function App() {
     setScreen("workspace");
   };
   const pickScenario = (id) => {
+    window.ChatSession && window.ChatSession.clear();
     setScenarioId(id);
     setQuery(draft.trim());
     setFromIntent(false);
@@ -64,6 +67,7 @@ function App() {
     setScreen("workspace");
   };
   const goHome = () => {
+    window.ChatSession && window.ChatSession.clear();
     setScreen("home");
     setDraft("");
     setQuery("");
@@ -80,6 +84,7 @@ function App() {
   };
   // resume a finished past creation → open its workspace in the COMPLETED state
   const resumeCreation = (item) => {
+    window.ChatSession && window.ChatSession.clear();
     setScenarioId(item.scenario);
     setQuery(item.title);
     setFromIntent(false);
@@ -88,6 +93,33 @@ function App() {
   };
 
   const isHomeShell = screen === "home" || screen === "memory" || screen === "works" || screen === "history";
+
+  // clicking an artifact chip in the chat reopens that round/creation — even from another scenario
+  aE(() => {
+    window.openSessionArtifact = (a) => {
+      if (!a || !a.scenario) return;
+      window.ChatSession.pendingArtifact = a;
+      setScenarioId(a.scenario);
+      setQuery("");
+      setFromIntent(false);
+      setResume(null);
+      setWsNonce((n) => n + 1);
+      setScreen("workspace");
+    };
+    return () => { delete window.openSessionArtifact; };
+  }, []);
+
+  // left rail props shared by homepage AND workspaces (the menu stays in every screen)
+  const railNav = {
+    loggedIn,
+    onNavigate: (p) => setScreen(p),
+    onNewChat: goHome,
+    onResume: (it) => resumeCreation(it),
+    onLogout: () => { setLoggedIn(false); setScreen("home"); },
+    onRequireLogin: () => setLoginOpen(true),
+    onOpenBasket: () => setBasketOpen(true),
+    basketCount: basket.length,
+  };
 
   let view;
   if (isHomeShell) {
@@ -111,8 +143,8 @@ function App() {
       />
     );
   } else {
-    const wsKey = (fromIntent ? "i:" : "") + (resume ? "r:" : "") + scenarioId + ":" + query;
-    const common = { scenario, query, fromIntent, resume, loggedIn, onHome: goHome, onSwitch: switchScenario, onAddBasket: addToBasket, onOpenBasket: () => setBasketOpen(true), onOpenContent: () => setContentOpen(true), basketCount: basket.length, basketItems: basket };
+    const wsKey = (fromIntent ? "i:" : "") + (resume ? "r:" : "") + scenarioId + ":" + query + ":" + wsNonce;
+    const common = { scenario, query, fromIntent, resume, loggedIn, nav: railNav, onHome: goHome, onSwitch: switchScenario, onAddBasket: addToBasket, onOpenBasket: () => setBasketOpen(true), onOpenContent: () => setContentOpen(true), basketCount: basket.length, basketItems: basket };
     if (scenarioId === "general") view = <GeneralWorkspace key={wsKey} {...common} />;
     else if (scenarioId === "find") view = <FindWorkspace key={wsKey} {...common} />;
     else if (scenarioId === "textbook") view = <TextbookWorkspace key={wsKey} {...common} />;

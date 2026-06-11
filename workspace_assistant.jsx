@@ -172,7 +172,7 @@ function CenteredChat({ messages, onSend, suggestions, placeholder, recognizing 
                 style={{ flex: 1, border: "none", outline: "none", background: "transparent", resize: "none", fontSize: 14, fontFamily: "var(--font-zh)", color: "var(--ink)", lineHeight: 1.5, padding: "5px 4px", overflowY: "hidden", boxSizing: "border-box" }}
               />
               <ClipButton onFiles={(names) => setAtt((f) => [...f, ...names].slice(0, 6))} compact />
-              <button onClick={() => send()} style={{ width: 36, height: 36, borderRadius: 11, border: "none", background: "var(--brand)", color: "#fff", display: "grid", placeItems: "center", cursor: "pointer", flexShrink: 0 }}>
+              <button onClick={() => send()} style={{ width: 36, height: 36, borderRadius: 11, border: "none", background: "var(--brand-grad)", backgroundColor: "var(--brand)", color: "#fff", display: "grid", placeItems: "center", cursor: "pointer", flexShrink: 0 }}>
                 <Icon name="send" size={16} />
               </button>
             </div>
@@ -183,7 +183,53 @@ function CenteredChat({ messages, onSend, suggestions, placeholder, recognizing 
   );
 }
 
-function GeneralWorkspace({ query, fromIntent, onHome, onSwitch }) {
+// ---- The stage (right pane) for the general assistant: scenarios open here ----
+function GeneralStage({ onSwitch, recognizing }) {
+  const SC = window.AIDATA.SCENARIOS;
+  return (
+    <div style={{ flex: 1, minWidth: 0, overflowY: "auto", display: "grid", placeItems: "center", padding: "30px 24px", background: "var(--canvas)" }}>
+      <div className="home-fade" style={{ width: "min(560px, 100%)", textAlign: "center" }}>
+        {recognizing ? (
+          <React.Fragment>
+            <div style={{ position: "relative", display: "inline-flex", marginBottom: 16 }}>
+              <BotAvatar size={52} glow />
+              <span className="bot-ring" />
+            </div>
+            <h2 style={{ fontSize: 18, fontWeight: 800, color: "var(--ink)", margin: "0 0 8px" }}>正在理解你的需求…</h2>
+            <p style={{ fontSize: 13.5, color: "var(--ink-2)", lineHeight: 1.65, margin: 0 }}>如果需要动手创作，我会在这里为你打开对应的场景。</p>
+          </React.Fragment>
+        ) : (
+          <React.Fragment>
+            <h2 style={{ fontSize: 18, fontWeight: 800, color: "var(--ink)", margin: "0 0 8px" }}>这里是场景区</h2>
+            <p style={{ fontSize: 13, color: "var(--ink-2)", lineHeight: 1.7, margin: "0 0 22px" }}>
+              在左侧告诉我你想做什么，我理解后会在这里为你打开对应场景；<br />也可以直接选一个开始 —— 对话不会中断。
+            </p>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: 10 }}>
+              {SC.map((s, i) => (
+                <button
+                  key={s.id}
+                  className="chip-pop"
+                  onClick={() => onSwitch && onSwitch(s.id, "")}
+                  style={{ animationDelay: `${i * 0.05}s`, display: "flex", alignItems: "center", gap: 10, padding: "12px 13px", borderRadius: 14, border: "1px solid var(--line)", background: "var(--surface)", cursor: "pointer", fontFamily: "var(--font-zh)", textAlign: "left", transition: "transform .18s var(--ease-out), border-color .2s, box-shadow .2s" }}
+                  onMouseEnter={(e) => { e.currentTarget.style.transform = "translateY(-2px)"; e.currentTarget.style.borderColor = `oklch(0.78 0.09 ${s.hue})`; e.currentTarget.style.boxShadow = `0 10px 22px -12px oklch(0.55 0.12 ${s.hue} / .5)`; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.transform = "none"; e.currentTarget.style.borderColor = "var(--line)"; e.currentTarget.style.boxShadow = "none"; }}
+                >
+                  <ScenarioGlyph icon={s.icon} hue={s.hue} size={36} />
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ fontSize: 13.5, fontWeight: 800, color: "var(--ink)" }}>{s.name}</div>
+                    <div style={{ fontSize: 11, color: "var(--ink-3)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{s.tagline}</div>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </React.Fragment>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function GeneralWorkspace({ query, fromIntent, onHome, onSwitch, nav }) {
   const GEN = window.AIDATA.GENERAL;
   const willRecognize = fromIntent && !!query;
   const [recognizing, setRecognizing] = gaS(willRecognize);
@@ -202,20 +248,26 @@ function GeneralWorkspace({ query, fromIntent, onHome, onSwitch }) {
   const [messages, setMessages] = gaS(() => {
     if (willRecognize) {
       return [
-        { role: "user", text: query },
-        { role: "ai", wide: true, render: () => <InlineIntent query={query} onDone={(t) => recapRef.current(t)} /> },
+        ...window.ChatSession.take(),
+        ...(window.ChatSession.echoed(query) ? [] : [{ role: "user", text: query }]),
+        { role: "ai", wide: true, intent: query, render: () => <InlineIntent query={query} onDone={(t) => recapRef.current(t)} /> },
       ];
     }
+    const hist = window.ChatSession.take();
+    if (hist.length) return window.enterThread(scenario);
     return [
+      ...hist,
       { role: "ai", node: (
         <div style={{ fontSize: 14, color: "var(--ink)", lineHeight: 1.75 }}>
-          你好，我是 <b style={{ color: "var(--brand-deep)" }}>AI 小博士</b>。教学上的问题都可以问我；当你需要出卷子、做课件、写教案时，我会自动带你进入对应的工作台。
+          <span>你好，我是 <b style={{ color: "var(--brand-deep)" }}>AI 小博士</b>。教学上的问题都可以问我；当你需要出卷子、做课件、写教案时，我会在右侧为你打开对应的场景。</span>
         </div>
       ) },
     ];
   });
   const [sugs, setSugs] = gaS(willRecognize ? [] : ["悬浊液和乳浊液的区别", "我要上公开课，有什么学生活动建议？", "平均分 72、及格率 85%，帮我分析", "近三年化学高考实验安全的考查规律"]);
   recapRef.current = handleRecognized;
+  // persist the thread — the assistant keeps ONE conversation across scenario switches
+  gaE(() => { window.ChatSession.save(window.freezeChat(messages)); }, [messages]);
 
   const handleSend = (text) => {
     // a follow-up might itself be a specific request → re-route
@@ -230,14 +282,14 @@ function GeneralWorkspace({ query, fromIntent, onHome, onSwitch }) {
   };
 
   return (
-    <WorkspaceShell scenario={GEN} onHome={onHome} onSwitch={onSwitch} recognizing={recognizing}>
-      <CenteredChat
+    <WorkspaceShell scenario={GEN} onHome={onHome} onSwitch={onSwitch} nav={nav} headerRecognizing={recognizing} mobilePanelLabel="场景" mobilePanelIcon="grid">
+      <ChatPanel
         messages={messages}
         onSend={handleSend}
-        suggestions={sugs}
-        recognizing={recognizing}
+        suggestions={recognizing ? [] : sugs}
         placeholder="问我任何教学问题，或描述你想创作的内容…"
       />
+      <GeneralStage onSwitch={onSwitch} recognizing={recognizing} />
     </WorkspaceShell>
   );
 }

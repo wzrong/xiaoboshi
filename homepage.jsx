@@ -33,18 +33,20 @@ function SmartInput({ value, setValue, onSubmit, big, placeholder, ghost }) {
     <div
       style={{
         background: "var(--surface)",
-        border: "2px solid var(--input-border)",
-        borderRadius: 20,
+        border: "1.5px solid var(--input-border)",
+        borderRadius: 22,
         boxShadow: "var(--input-shadow)",
         padding: big ? "18px 18px 14px" : "12px 12px 10px",
-        transition: "border-color .2s, box-shadow .2s",
+        transition: "border-color .2s, box-shadow .25s",
       }}
-      onFocusCapture={(e) =>
-        (e.currentTarget.style.borderColor = "var(--brand)")
-      }
-      onBlurCapture={(e) =>
-        (e.currentTarget.style.borderColor = "var(--input-border)")
-      }
+      onFocusCapture={(e) => {
+        e.currentTarget.style.borderColor = "var(--brand)";
+        e.currentTarget.style.boxShadow = "var(--ring), var(--input-shadow)";
+      }}
+      onBlurCapture={(e) => {
+        e.currentTarget.style.borderColor = "var(--input-border)";
+        e.currentTarget.style.boxShadow = "var(--input-shadow)";
+      }}
     >
       <textarea
         ref={ref}
@@ -119,15 +121,15 @@ function SmartInput({ value, setValue, onSubmit, big, placeholder, ghost }) {
             alignItems: "center",
             gap: 7,
             padding: big ? "11px 24px" : "8px 18px",
-            borderRadius: 13,
+            borderRadius: 999,
             border: "none",
-            background: value.trim() ? "var(--brand)" : "var(--line)",
+            background: value.trim() ? "var(--brand-grad)" : "var(--line)",
             color: value.trim() ? "#fff" : "var(--ink-3)",
             fontSize: big ? 15 : 13.5,
             fontWeight: 700,
             cursor: value.trim() ? "pointer" : "default",
             fontFamily: "var(--font-zh)",
-            boxShadow: value.trim() ? "0 4px 14px -5px var(--brand-glow)" : "none",
+            boxShadow: value.trim() ? "inset 0 1px 0 rgba(255,255,255,.25), 0 6px 16px -6px var(--brand-glow)" : "none",
             transition: "all .2s",
             flexShrink: 0,
           }}
@@ -154,7 +156,7 @@ function HomeConversation({ value, setValue, onSubmit, onPick, onResume, loggedI
         <div style={{ display: "flex", justifyContent: "center", marginBottom: mobile ? 16 : 20 }}>
           <BotAvatar size={mobile ? 54 : 66} glow />
         </div>
-        <h1 style={{ fontSize: mobile ? 25 : 34, fontWeight: 800, color: "var(--ink)", margin: "0 0 10px", letterSpacing: "-0.5px" }}>
+        <h1 style={{ fontSize: mobile ? 25 : 36, fontWeight: 800, color: "var(--ink)", margin: "0 0 12px", letterSpacing: "-0.8px" }}>
           老师好，今天想准备点什么？
         </h1>
         <p style={{ fontSize: mobile ? 14.5 : 16, color: "var(--ink-2)", margin: 0, lineHeight: 1.6 }}>
@@ -167,8 +169,8 @@ function HomeConversation({ value, setValue, onSubmit, onPick, onResume, loggedI
             <button
               key={i}
               onClick={() => onSubmit(ex.t)}
-              className="chip-pop"
-              style={{ animationDelay: `${i * 0.04}s`, maxWidth: "100%", padding: "6px 12px", borderRadius: 999, border: "1px dashed var(--brand-soft-border)", background: "var(--brand-soft)", color: "var(--brand-deep)", fontSize: 12.5, fontWeight: 600, cursor: "pointer", fontFamily: "var(--font-zh)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}
+              className="chip-pop ex-chip"
+              style={{ animationDelay: `${i * 0.04}s`, maxWidth: "100%", padding: "7px 13px", borderRadius: 999, border: "1px solid var(--brand-soft-border)", background: "color-mix(in oklab, var(--brand-soft), var(--surface) 40%)", color: "var(--brand-deep)", fontSize: 12.5, fontWeight: 600, cursor: "pointer", fontFamily: "var(--font-zh)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}
             >
               {ex.t}
             </button>
@@ -205,7 +207,7 @@ function HomeConversation({ value, setValue, onSubmit, onPick, onResume, loggedI
             }}
             onMouseEnter={(e) => {
               e.currentTarget.style.transform = "translateY(-2px)";
-              e.currentTarget.style.boxShadow = "0 8px 20px -10px rgba(0,0,0,.2)";
+              e.currentTarget.style.boxShadow = `0 10px 24px -12px oklch(0.55 0.12 ${s.hue} / .55)`;
               e.currentTarget.style.borderColor = `oklch(0.7 0.1 ${s.hue})`;
             }}
             onMouseLeave={(e) => {
@@ -272,7 +274,7 @@ function LoginHook({ onLogin }) {
         <div style={{ flexShrink: 0 }}>
           <button
             onClick={onLogin}
-            style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "12px 26px", borderRadius: 13, border: "none", background: "var(--brand)", color: "#fff", fontSize: 15, fontWeight: 700, cursor: "pointer", fontFamily: "var(--font-zh)", boxShadow: "0 6px 18px -6px var(--brand-glow)", whiteSpace: "nowrap" }}
+            style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "12px 26px", borderRadius: 13, border: "none", background: "var(--brand-grad)", backgroundColor: "var(--brand)", color: "#fff", fontSize: 15, fontWeight: 700, cursor: "pointer", fontFamily: "var(--font-zh)", boxShadow: "0 6px 18px -6px var(--brand-glow)", whiteSpace: "nowrap" }}
           >
             登录 / 注册 <Icon name="arrow" size={17} />
           </button>
@@ -320,7 +322,7 @@ function MemoryPanel({ onResume, onManageMemory, onOpenWorks }) {
         border: "1px solid var(--line)",
         borderRadius: 20,
         overflow: "hidden",
-        boxShadow: "0 12px 34px -24px rgba(0,0,0,.35)",
+        boxShadow: "var(--shadow-card)",
         textAlign: "left",
       }}
     >
@@ -517,7 +519,7 @@ function HomePersona({ value, setValue, onSubmit, onPick, onResume, loggedIn, on
             border: "1px solid var(--line)",
             borderRadius: "4px 20px 20px 20px",
             padding: "18px 20px",
-            boxShadow: "0 10px 30px -18px rgba(0,0,0,.25)",
+            boxShadow: "var(--shadow-card)",
             position: "relative",
           }}
         >
@@ -534,7 +536,7 @@ function HomePersona({ value, setValue, onSubmit, onPick, onResume, loggedIn, on
 
         {/* memory belongs to the assistant's persona — folded in here, not laid flat */}
         {loggedIn ? (
-          <div className="mem-card" style={{ marginTop: 16, background: "var(--surface)", border: "1px solid var(--line)", borderRadius: 18, overflow: "hidden", boxShadow: "0 12px 34px -24px rgba(0,0,0,.3)" }}>
+          <div className="mem-card" style={{ marginTop: 16, background: "var(--surface)", border: "1px solid var(--line)", borderRadius: 18, overflow: "hidden", boxShadow: "var(--shadow-card)" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 16px", borderBottom: "1px solid var(--line)", background: "var(--brand-soft)" }}>
               <span style={{ width: 28, height: 28, borderRadius: 8, background: "var(--surface)", border: "1px solid var(--brand-soft-border)", display: "grid", placeItems: "center", color: "var(--brand-deep)", flexShrink: 0 }}>
                 <Icon name="spark" size={15} />
@@ -753,7 +755,7 @@ function Homepage({ page, layout, value, setValue, onSubmit, onPick, onResume, l
                 <div style={{ fontSize: 10.5, color: "var(--ink-3)", fontWeight: 600 }}>你的备课教学助手</div>
               </div>
             </div>
-            <button onClick={newChat} aria-label="新对话" style={{ width: 40, height: 40, flexShrink: 0, borderRadius: 11, border: "none", background: "var(--brand)", color: "#fff", display: "grid", placeItems: "center", cursor: "pointer", boxShadow: "0 4px 14px -6px var(--brand-glow)" }}>
+            <button onClick={newChat} aria-label="新对话" style={{ width: 40, height: 40, flexShrink: 0, borderRadius: 11, border: "none", background: "var(--brand-grad)", backgroundColor: "var(--brand)", color: "#fff", display: "grid", placeItems: "center", cursor: "pointer", boxShadow: "0 4px 14px -6px var(--brand-glow)" }}>
               <Icon name="plus" size={20} sw={2.4} />
             </button>
           </div>
@@ -779,12 +781,13 @@ function Homepage({ page, layout, value, setValue, onSubmit, onPick, onResume, l
 }
 
 // ---------- Left navigation rail (always visible) ----------
-function LeftRail({ page, loggedIn, onNavigate, onNewChat, onResume, onLogout, onRequireLogin, mobile, mobileOpen, onCloseMobile, onOpenBasket, basketCount = 0 }) {
+function LeftRail({ page, loggedIn, onNavigate, onNewChat, onResume, onLogout, onRequireLogin, mobile, mobileOpen, onCloseMobile, onOpenBasket, basketCount = 0, forceOpen, onCollapse }) {
   const M = window.AIDATA.USER_MEMORY;
   const [openState, setOpen] = useState(() => localStorage.getItem("aida_rail_open") !== "0");
-  const open = mobile ? true : openState; // on mobile the drawer always shows full content
+  const open = mobile ? true : forceOpen ? true : openState; // on mobile the drawer always shows full content
   const [acctMenu, setAcctMenu] = useState(false);
   useEffect(() => { try { localStorage.setItem("aida_rail_open", openState ? "1" : "0"); } catch (e) {} }, [openState]);
+  const collapse = () => (mobile ? onCloseMobile() : onCollapse ? onCollapse() : setOpen(false));
 
   const go = (p) => (loggedIn ? onNavigate(p) : onRequireLogin());
 
@@ -820,20 +823,22 @@ function LeftRail({ page, loggedIn, onNavigate, onNewChat, onResume, onLogout, o
               <div style={{ fontWeight: 800, fontSize: 15.5, color: "var(--ink)" }}>AI 小博士</div>
               <div style={{ fontSize: 11, color: "var(--ink-3)", fontWeight: 600, marginTop: 1 }}>你的备课教学助手</div>
             </div>
-            <button onClick={() => (mobile ? onCloseMobile() : setOpen(false))} title={mobile ? "关闭菜单" : "收起侧栏"} style={{ width: 26, height: 26, borderRadius: 8, border: "1px solid var(--line)", background: "var(--surface)", color: "var(--ink-3)", display: "grid", placeItems: "center", cursor: "pointer", flexShrink: 0 }}>
-              <Icon name={mobile ? "close" : "sidebar"} size={15} sw={mobile ? 2.4 : 1.8} />
+            <button onClick={collapse} data-tip={mobile ? "关闭菜单" : "收起菜单"} aria-label={mobile ? "关闭菜单" : "收起菜单"} style={{ width: 26, height: 26, borderRadius: 8, border: "1px solid var(--line)", background: "var(--surface)", color: "var(--ink-3)", display: "grid", placeItems: "center", cursor: "pointer", flexShrink: 0 }}>
+              <Icon name={mobile ? "close" : "panelCollapse"} size={15} sw={mobile ? 2.4 : 1.8} />
             </button>
           </React.Fragment>
         ) : (
           <button
             onClick={() => setOpen(true)}
-            title="展开侧栏"
+            data-tip="展开菜单"
+            data-tip-pos="right"
+            aria-label="展开菜单"
             className="rail-brand-toggle"
             style={{ position: "relative", width: 44, height: 44, borderRadius: 12, border: "none", background: "transparent", padding: 0, cursor: "pointer", display: "grid", placeItems: "center" }}
           >
             <span className="rbt-avatar"><BotAvatar size={40} glow /></span>
             <span className="rbt-icon" style={{ position: "absolute", inset: 0, borderRadius: 12, background: "var(--brand-soft)", border: "1px solid var(--brand-soft-border)", color: "var(--brand-deep)", display: "grid", placeItems: "center" }}>
-              <Icon name="sidebar" size={19} />
+              <Icon name="panelExpand" size={19} />
             </span>
           </button>
         )}
@@ -844,7 +849,7 @@ function LeftRail({ page, loggedIn, onNavigate, onNewChat, onResume, onLogout, o
         <button
           onClick={onNewChat}
           title="新对话"
-          style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, padding: open ? "11px 14px" : "11px 0", borderRadius: 12, border: "none", background: "var(--brand)", color: "#fff", fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "var(--font-zh)", boxShadow: "0 4px 14px -6px var(--brand-glow)" }}
+          style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, padding: open ? "11px 14px" : "11px 0", borderRadius: 12, border: "none", background: "var(--brand-grad)", backgroundColor: "var(--brand)", color: "#fff", fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "var(--font-zh)", boxShadow: "0 4px 14px -6px var(--brand-glow)" }}
         >
           <Icon name="plus" size={17} sw={2.4} /> {open && "新对话"}
         </button>
@@ -955,7 +960,7 @@ function LeftRail({ page, loggedIn, onNavigate, onNewChat, onResume, onLogout, o
   );
 }
 
-Object.assign(window, { Homepage });
+Object.assign(window, { Homepage, LeftRail });
 
 // ---------- 记忆管理 (memory management page) ----------
 function MemSwitch({ on, onClick }) {
@@ -1120,7 +1125,7 @@ function WorksPage({ onResume, onNewChat }) {
             <h1 style={{ fontSize: 23, fontWeight: 800, color: "var(--ink)", margin: 0 }}>我的内容</h1>
             <div style={{ fontSize: 13, color: "var(--ink-3)", fontWeight: 600, marginTop: 2 }}>你的全部教学资料 · AI 生成、学科网下载与备课产品，共 {M.works.length} 份</div>
           </div>
-          <button onClick={onNewChat} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "10px 16px", borderRadius: 11, border: "none", background: "var(--brand)", color: "#fff", fontSize: 13.5, fontWeight: 700, cursor: "pointer", fontFamily: "var(--font-zh)", flexShrink: 0, boxShadow: "0 4px 14px -6px var(--brand-glow)" }}>
+          <button onClick={onNewChat} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "10px 16px", borderRadius: 11, border: "none", background: "var(--brand-grad)", backgroundColor: "var(--brand)", color: "#fff", fontSize: 13.5, fontWeight: 700, cursor: "pointer", fontFamily: "var(--font-zh)", flexShrink: 0, boxShadow: "0 4px 14px -6px var(--brand-glow)" }}>
             <Icon name="plus" size={16} sw={2.4} /> 新建
           </button>
         </div>
@@ -1180,7 +1185,7 @@ function HistoryPage({ onResume, onNewChat }) {
             <h1 style={{ fontSize: 23, fontWeight: 800, color: "var(--ink)", margin: 0 }}>历史对话</h1>
             <div style={{ fontSize: 13, color: "var(--ink-3)", fontWeight: 600, marginTop: 2 }}>你与小博士的每一次对话都已保存 · 点击任意一条继续</div>
           </div>
-          <button onClick={onNewChat} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "10px 16px", borderRadius: 11, border: "none", background: "var(--brand)", color: "#fff", fontSize: 13.5, fontWeight: 700, cursor: "pointer", fontFamily: "var(--font-zh)", flexShrink: 0, boxShadow: "0 4px 14px -6px var(--brand-glow)" }}>
+          <button onClick={onNewChat} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "10px 16px", borderRadius: 11, border: "none", background: "var(--brand-grad)", backgroundColor: "var(--brand)", color: "#fff", fontSize: 13.5, fontWeight: 700, cursor: "pointer", fontFamily: "var(--font-zh)", flexShrink: 0, boxShadow: "0 4px 14px -6px var(--brand-glow)" }}>
             <Icon name="plus" size={16} sw={2.4} /> 新对话
           </button>
         </div>
@@ -1247,7 +1252,7 @@ function LoginModal({ onClose, onLogin }) {
 
           <button
             onClick={onLogin}
-            style={{ width: "100%", padding: "13px", borderRadius: 12, border: "none", background: "var(--brand)", color: "#fff", fontSize: 15, fontWeight: 800, cursor: "pointer", fontFamily: "var(--font-zh)", boxShadow: "0 6px 18px -6px var(--brand-glow)" }}
+            style={{ width: "100%", padding: "13px", borderRadius: 12, border: "none", background: "var(--brand-grad)", backgroundColor: "var(--brand)", color: "#fff", fontSize: 15, fontWeight: 800, cursor: "pointer", fontFamily: "var(--font-zh)", boxShadow: "0 6px 18px -6px var(--brand-glow)" }}
           >
             登录 / 注册
           </button>

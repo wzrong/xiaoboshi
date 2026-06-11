@@ -8,7 +8,17 @@ const TB_BOOKS = ["必修1", "必修2", "上册", "下册", "选择性必修1"];
 const MIN_CITE_W = 268;
 const MIN_CENTER_W = 380;
 
-function TextbookWorkspace({ scenario, query, onHome, onSwitch, fromIntent, loggedIn }) {
+// chat column for 问教材 — fixed-width on desktop (resizable via the shell seam), full-bleed on mobile
+function TbChat({ width, header, mobile, children }) {
+  return (
+    <div style={{ width: mobile ? undefined : width || 400, flex: mobile ? 1 : "0 0 auto", minWidth: 0, display: "flex", flexDirection: "column", background: mobile ? "var(--canvas)" : "var(--surface)", borderRight: mobile ? "none" : "1px solid var(--line)" }}>
+      {header}
+      {children}
+    </div>
+  );
+}
+
+function TextbookWorkspace({ scenario, query, onHome, onSwitch, fromIntent, loggedIn, nav }) {
   const TREE = window.AIDATA.TEXTBOOK_TREE;
   const A = window.AIDATA.TEXTBOOK_ANSWER;
   const CMP = window.AIDATA.TEXTBOOK_COMPARE;
@@ -16,15 +26,19 @@ function TextbookWorkspace({ scenario, query, onHome, onSwitch, fromIntent, logg
   const mobile = useIsMobile();
   const isCompareQ = (q) => /哪些教材|哪些版本|各版本|各个版本|不同版本|不同教材|跨教材|对比.*教材|教材.*对比|几个版本|都出现|哪几本/.test(q || "");
   const startAnswered = !fromIntent && !!(query && /[?？]|区别|为什么|什么|怎么|原理|讲|解释/.test(query));
+  // a clicked artifact chip (from any scenario) reopens that answered round
+  const pendingA = window.ChatSession.pendingArtifact && window.ChatSession.pendingArtifact.scenario === "textbook" ? window.ChatSession.pendingArtifact : null;
+  if (pendingA) window.ChatSession.pendingArtifact = null;
+  const tbStored = window.ChatSession.scratch.textbook || {};
   const [activeCite, setActiveCite] = tS(null);
-  const [answered, setAnswered] = tS(startAnswered);
+  const [answered, setAnswered] = tS(pendingA ? (pendingA.kind === "compare" ? "compare" : true) : (startAnswered || tbStored.answered || false));
   const [thinking, setThinking] = tS(false);
 
   // ---- which textbook is open (cold-start) ----
   const demoBook = { edition: TREE.edition, subject: TREE.subject, name: "必修1", stage: "高中", section: "第5章 第4节 · 能量之源——光合作用" };
   const memBook = loggedIn && M.textbook ? { edition: M.textbook.edition, subject: M.textbook.subject || "生物", name: (M.textbook.book || "必修1").replace(/^.*·\s*/, ""), stage: M.textbook.stage, section: M.textbook.section, when: M.textbook.when } : null;
-  const [book, setBook] = tS(() => (query ? demoBook : memBook)); // null → show picker
-  const viaMemory = !query && !!memBook;
+  const [book, setBook] = tS(() => tbStored.book || (pendingA ? demoBook : (query ? demoBook : memBook))); // null → show picker
+  const viaMemory = !query && !tbStored.book && !pendingA && !!memBook;
 
   // ---- which chapter/section is open in the catalog (clickable TOC) ----
   const findActiveSec = () => { for (let ci = 0; ci < TREE.chapters.length; ci++) for (let si = 0; si < TREE.chapters[ci].sections.length; si++) if (TREE.chapters[ci].sections[si].active) return { ci, si }; return { ci: 0, si: 0 }; };
@@ -38,6 +52,8 @@ function TextbookWorkspace({ scenario, query, onHome, onSwitch, fromIntent, logg
   const isSingle = !!(book && !book.free && !book.multi);
   const bookLabel = !book ? "" : book.free ? "不限教材" : book.multi ? `${book.list.length} 本教材` : `${book.edition} ${book.subject} · ${book.name}`;
   const [citeOpen, setCiteOpen] = tS(false);
+  const [paneView, setPaneView] = tS("cite"); // 右侧窗格视图：教材依据 | 教材目录
+  tE(() => { if (answered || thinking) setPaneView("cite"); }, [answered, thinking]);
   const [citeW, setCiteW] = tS(() => { const s = parseInt(localStorage.getItem("aida_cite_w") || "", 10); return Number.isFinite(s) && s >= MIN_CITE_W ? s : 332; });
   const [citeDragging, setCiteDragging] = tS(false);
   const citeRef = tR(null);
@@ -75,26 +91,36 @@ function TextbookWorkspace({ scenario, query, onHome, onSwitch, fromIntent, logg
   });
 
   const [thread, setThread] = tS(() => {
-    if (!book) return [];
+    const hist = window.ChatSession.take();
+    if (pendingA) {
+      return [...hist, pendingA.kind === "compare" ? { role: "ai", compare: true } : { role: "ai", answer: true }];
+    }
+    if (!book) return hist;
     const greet = greetFor(book, viaMemory ? "memory" : "plain");
     if (fromIntent && query) {
       return [
-        { role: "user", text: query },
-        { role: "ai", wide: true, render: () => <InlineIntent query={query} onDone={() => { setThread((t) => [...t, greet]); setThinking(true); setTimeout(() => { setThinking(false); setThread((t) => [...t, { role: "ai", answer: true }]); setAnswered(true); }, 1100); }} /> },
+        ...hist,
+        ...(window.ChatSession.echoed(query) ? [] : [{ role: "user", text: query }]),
+        { role: "ai", wide: true, intent: query, render: () => <InlineIntent query={query} onDone={() => { setThread((t) => [...t, greet]); setThinking(true); setTimeout(() => { setThinking(false); setThread((t) => [...t, { role: "ai", answer: true }]); setAnswered(true); }, 1100); }} /> },
       ];
     }
     if (query && /[?？]|区别|为什么|什么|怎么|原理|讲|解释/.test(query)) {
-      return [greet, { role: "user", text: query }, { role: "ai", answer: true }];
+      return [...hist, greet, ...(window.ChatSession.echoed(query) ? [] : [{ role: "user", text: query }]), { role: "ai", answer: true }];
     }
-    return [greet];
+    if (hist.length) return window.enterThread(scenario);
+    return [...hist, greet];
   });
+  // persist the thread — one assistant conversation across scenario switches
+  tE(() => { window.ChatSession.save(window.freezeChat(thread)); }, [thread]);
+  // keep the opened book + answered state so switching scenarios doesn't reset this stage
+  tE(() => { window.ChatSession.scratch.textbook = { ...(window.ChatSession.scratch.textbook || {}), book, answered }; }, [book, answered]);
 
   // switching a textbook should NOT wipe the conversation — only a cold (first) open starts a fresh greeting.
   const hasConvo = (t) => t.some((m) => m.role === "user" || m.answer || m.compare);
   const switchNote = (bk) => ({ role: "sys", icon: "refresh", text: bk.free ? "已切换为「不限教材」· 后续提问不再锁定教材" : bk.multi ? `已切换为 ${bk.list.length} 本教材综合` : `已切换教材 · ${bk.edition} ${bk.subject} · ${bk.name}` });
   const applyBook = (bk, kind) => {
     if (book && hasConvo(thread)) { setBook(bk); setThread((t) => [...t, switchNote(bk)]); }
-    else { setBook(bk); setThread([greetFor(bk, kind)]); setAnswered(false); }
+    else { setBook(bk); setThread((t) => [...t.filter((m) => m.role === "user" || m.node || m.text || m.answer || m.compare), greetFor(bk, kind)]); setAnswered(false); }
   };
   // open / switch a textbook chosen from the picker
   const openBook = (bk) => applyBook(bk, "picked");
@@ -126,7 +152,8 @@ function TextbookWorkspace({ scenario, query, onHome, onSwitch, fromIntent, logg
     setAnswered(false);
     setTimeout(() => {
       setThinking(false);
-      setThread((t) => [...t, compare ? { role: "ai", compare: true } : { role: "ai", answer: true }]);
+      const art = { scenario: "textbook", icon: "book", kind: compare ? "compare" : "answer", title: q, meta: compare ? "跨教材对比" : "含教材出处" };
+      setThread((t) => [...t, compare ? { role: "ai", compare: true, artifact: art } : { role: "ai", answer: true, artifact: art }]);
       setAnswered(compare ? "compare" : true);
     }, compare ? 1600 : 1400);
   };
@@ -137,43 +164,82 @@ function TextbookWorkspace({ scenario, query, onHome, onSwitch, fromIntent, logg
   // ---- cold start: no textbook selected (logged out / no memory) → pick one first ----
   if (!book) {
     return (
-      <WorkspaceShell scenario={scenario} onHome={onHome} onSwitch={onSwitch} headerRecognizing={headerRecognizing}>
+      <WorkspaceShell scenario={scenario} onHome={onHome} onSwitch={onSwitch} nav={nav} headerRecognizing={headerRecognizing}>
         <TextbookPicker onOpen={openBook} onFree={openFree} onMulti={openMulti} demoBook={demoBook} />
       </WorkspaceShell>
     );
   }
 
-  // textbook + catalog controls live in the header, right beside the 「问教材」 title (via afterTitle slot)
-  const headerControls = (
-    <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
-      <div style={{ width: 1, height: 22, background: "var(--line)", flexShrink: 0 }} />
-      {/* primary: current textbook → switch */}
-      <button onClick={switchBook} title="切换 / 选择教材"
-        style={{ display: "inline-flex", alignItems: "center", gap: 7, minWidth: 0, maxWidth: 248, padding: "6px 11px", borderRadius: 11, border: "1px solid var(--brand-soft-border)", background: "var(--brand-soft)", color: "var(--brand-deep)", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "var(--font-zh)", flexShrink: 0, transition: "box-shadow .15s" }}
-        onMouseEnter={(e) => (e.currentTarget.style.boxShadow = "0 5px 16px -12px var(--brand-glow)")}
-        onMouseLeave={(e) => (e.currentTarget.style.boxShadow = "none")}>
-        <Icon name={book.multi ? "layers" : book.free ? "spark" : "book"} size={15} />
-        <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{bookLabel}</span>
-        <span style={{ color: "var(--ink-3)", fontWeight: 700, flexShrink: 0 }}>切换</span>
-        <Icon name="chevron" size={14} />
+  // —— right pane structure, first principles: the pane IS the textbook ——
+  // 1) book bar = which book is open (identity + where + switch)
+  // 2) view tabs = two ways to look at it: 依据（跟随回答） / 目录（翻书）
+  const bookBar = (
+    <div style={{ display: "flex", alignItems: "center", gap: 11, padding: "10px 14px", borderBottom: "1px solid var(--line)", background: "var(--surface)", flexShrink: 0 }}>
+      <span style={{ width: 36, height: 36, borderRadius: 10, background: "var(--brand-soft)", border: "1px solid var(--brand-soft-border)", color: "var(--brand-deep)", display: "grid", placeItems: "center", flexShrink: 0 }}>
+        <Icon name={book.multi ? "layers" : book.free ? "spark" : "book"} size={18} />
+      </span>
+      <div style={{ flex: 1, minWidth: 0, lineHeight: 1.3 }}>
+        <div style={{ fontSize: 13.5, fontWeight: 800, color: "var(--ink)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{bookLabel}</div>
+        <div style={{ fontSize: 11, color: "var(--ink-3)", fontWeight: 600, marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          {isSingle && curSection ? `${TREE.chapters[activeSec.ci].name} · ${curSection.name}` : book.free ? "不锁定教材，跨教材为你检索" : "多本教材综合作答"}
+        </div>
+      </div>
+      <button onClick={switchBook} data-tip="切换 / 选择教材"
+        style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "6px 11px", borderRadius: 10, border: "1px solid var(--line)", background: "var(--surface)", color: "var(--ink-2)", fontSize: 12.5, fontWeight: 700, cursor: "pointer", fontFamily: "var(--font-zh)", flexShrink: 0, transition: "border-color .15s, background .15s" }}
+        onMouseEnter={(e) => { e.currentTarget.style.borderColor = "var(--brand-soft-border)"; e.currentTarget.style.background = "var(--brand-soft)"; }}
+        onMouseLeave={(e) => { e.currentTarget.style.borderColor = "var(--line)"; e.currentTarget.style.background = "var(--surface)"; }}>
+        <Icon name="refresh" size={13} /> 切换教材
       </button>
-      {/* secondary: catalog — only once a single textbook is open */}
-      {isSingle && (
-        <button onClick={() => setNavOpen(true)} title="教材目录 · 切换章节"
-          style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "6px 11px", borderRadius: 11, border: "1px solid var(--line)", background: "var(--surface)", color: "var(--ink-2)", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "var(--font-zh)", flexShrink: 0, transition: "border-color .15s, background .15s" }}
-          onMouseEnter={(e) => { e.currentTarget.style.borderColor = "var(--brand-soft-border)"; e.currentTarget.style.background = "var(--brand-soft)"; }}
-          onMouseLeave={(e) => { e.currentTarget.style.borderColor = "var(--line)"; e.currentTarget.style.background = "var(--surface)"; }}>
-          <Icon name="menu" size={15} /> 目录
-        </button>
-      )}
     </div>
   );
 
+  const citeCount = answered === "compare" ? CMP.editions.length : answered ? A.citations.length : 0;
+  const paneTabs = isSingle ? (
+    <div style={{ display: "flex", gap: 4, padding: "8px 14px", borderBottom: "1px solid var(--line)", background: "var(--surface)", flexShrink: 0 }}>
+      {[
+        { k: "cite", label: "教材依据", icon: "shield", badge: citeCount || null },
+        { k: "toc", label: "教材目录", icon: "menu", badge: null },
+      ].map((tab) => {
+        const on = paneView === tab.k;
+        return (
+          <button key={tab.k} onClick={() => setPaneView(tab.k)}
+            style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "6px 12px", borderRadius: 9, border: "1px solid " + (on ? "var(--brand-soft-border)" : "transparent"), background: on ? "var(--brand-soft)" : "transparent", color: on ? "var(--brand-deep)" : "var(--ink-2)", fontSize: 12.5, fontWeight: on ? 800 : 600, cursor: on ? "default" : "pointer", fontFamily: "var(--font-zh)", transition: "background .15s, color .15s" }}
+            onMouseEnter={(e) => { if (!on) e.currentTarget.style.background = "var(--surface-2)"; }}
+            onMouseLeave={(e) => { if (!on) e.currentTarget.style.background = "transparent"; }}>
+            <Icon name={tab.icon} size={14} /> {tab.label}
+            {tab.badge != null && <span style={{ minWidth: 17, height: 17, padding: "0 5px", borderRadius: 999, background: on ? "var(--brand)" : "var(--surface-2)", color: on ? "#fff" : "var(--ink-3)", fontSize: 10.5, fontWeight: 800, display: "inline-grid", placeItems: "center", fontFamily: "var(--font-num)" }}>{tab.badge}</span>}
+          </button>
+        );
+      })}
+    </div>
+  ) : null;
+
+  // inline catalog — the 目录 view of the right pane (desktop)
+  const tocInline = isSingle ? (
+    <div>
+      {TREE.chapters.map((ch, ci) => (
+        <div key={ci} style={{ marginBottom: 6 }}>
+          <div style={{ fontSize: 12.5, fontWeight: 700, color: "var(--ink-2)", padding: "6px 8px" }}>{ch.name}</div>
+          {ch.sections.map((sec, si) => {
+            const on = activeSec.ci === ci && activeSec.si === si;
+            return (
+              <button key={si} onClick={() => pickSection(ci, si)} style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", textAlign: "left", fontFamily: "var(--font-zh)", fontSize: 12.5, padding: "8px 10px 8px 16px", borderRadius: 9, marginBottom: 2, cursor: "pointer", fontWeight: on ? 700 : 500, color: on ? "var(--brand-deep)" : "var(--ink-2)", background: on ? "var(--brand-soft)" : "transparent", border: "none", borderLeft: `2px solid ${on ? "var(--brand)" : "transparent"}`, transition: "background .15s, color .15s" }}
+                onMouseEnter={(e) => { if (!on) e.currentTarget.style.background = "var(--surface-2)"; }}
+                onMouseLeave={(e) => { if (!on) e.currentTarget.style.background = "transparent"; }}>
+                <span style={{ flex: 1, minWidth: 0 }}>{sec.name}</span>
+                {on && <span style={{ color: "var(--brand)", flexShrink: 0, display: "inline-flex" }}><Icon name="check" size={13} sw={2.6} /></span>}
+              </button>
+            );
+          })}
+        </div>
+      ))}
+    </div>
+  ) : null;
+
   return (
-    <WorkspaceShell scenario={scenario} onHome={onHome} onSwitch={onSwitch} headerRecognizing={headerRecognizing} afterTitle={!mobile ? headerControls : null}>
-      {/* catalog & switcher are overlay drawers (rendered after the panes) — no persistent left bar, so the base layout matches other scenarios */}
-      {/* center: Q&A */}
-      <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", background: "var(--canvas)" }}>
+    <WorkspaceShell scenario={scenario} onHome={onHome} onSwitch={onSwitch} nav={nav} headerRecognizing={headerRecognizing} chatLed={!mobile} mobilePanelLabel="教材依据" mobilePanelIcon="shield">
+      {/* left: the assistant's conversation · right: 问教材 stage (教材切换 + 目录 + 教材依据) */}
+      <TbChat mobile={mobile}>
         {mobile && (
           <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", borderBottom: "1px solid var(--line)", background: "var(--surface)", flexShrink: 0 }}>
             {/* textbook first, then catalog */}
@@ -193,7 +259,7 @@ function TextbookWorkspace({ scenario, query, onHome, onSwitch, fromIntent, logg
             </button>
           </div>
         )}
-        <div ref={scrollRef} style={{ flex: 1, overflowY: "auto", padding: mobile ? "18px 16px" : "24px clamp(20px, 5%, 60px)" }}>
+        <div ref={scrollRef} style={{ flex: 1, overflowY: "auto", padding: mobile ? "18px 16px" : "20px 16px" }}>
           <div style={{ maxWidth: 720, margin: "0 auto", display: "flex", flexDirection: "column", gap: 18 }}>
             {viaMemory && answered === false && thread.length <= 1 && (
               <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "11px 14px", borderRadius: 12, background: "var(--brand-soft)", border: "1px solid var(--brand-soft-border)" }}>
@@ -231,7 +297,7 @@ function TextbookWorkspace({ scenario, query, onHome, onSwitch, fromIntent, logg
           </div>
         </div>
         {/* sample questions + input */}
-        <div style={{ padding: mobile ? "0 16px" : "0 clamp(20px, 5%, 60px)", borderTop: "1px solid var(--line)", background: "var(--surface)" }}>
+        <div style={{ padding: "0 16px", borderTop: "1px solid var(--line)", background: "var(--surface)" }}>
           <div style={{ maxWidth: 720, margin: "0 auto", padding: "12px 0 14px" }}>
             {!answered && (
               <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 10 }}>
@@ -245,24 +311,16 @@ function TextbookWorkspace({ scenario, query, onHome, onSwitch, fromIntent, logg
             <TextbookInput onAsk={send} />
           </div>
         </div>
-      </div>
+      </TbChat>
 
-      {/* resizer: center ↔ citation panel */}
-      {!mobile && (
-      <div
-        className={"ws-resizer" + (citeDragging ? " dragging" : "")}
-        onPointerDown={startCiteDrag}
-        title="拖动调整教材依据宽度"
-        style={{ width: 12, margin: "0 -6px", flexShrink: 0, cursor: "col-resize", position: "relative", zIndex: 6, touchAction: "none" }}
-      >
-        <span className="ws-resizer-grip" />
-      </div>
-      )}
-
-      {/* right: citation / evidence panel (bottom sheet on mobile) */}
+      {/* right stage: 这本教材 — 身份栏 + 两个视图（依据 / 目录） */}
+      <div style={mobile ? { display: "contents" } : { flex: 1, minWidth: 0, display: "flex", flexDirection: "column", background: "var(--surface)" }}>
+      {!mobile && bookBar}
+      {!mobile && paneTabs}
       {mobile && <div onClick={() => setCiteOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 70, background: "rgba(20,16,10,.42)", backdropFilter: "blur(2px)", opacity: citeOpen ? 1 : 0, pointerEvents: citeOpen ? "auto" : "none", transition: "opacity .26s" }} />}
-      <div ref={citeRef} style={mobile ? { position: "fixed", left: 0, right: 0, bottom: 0, height: "82dvh", zIndex: 71, background: "var(--surface)", borderTop: "1px solid var(--line)", borderRadius: "18px 18px 0 0", display: "flex", flexDirection: "column", transform: citeOpen ? "translateY(0)" : "translateY(101%)", transition: "transform .3s cubic-bezier(.32,.72,0,1)", boxShadow: "0 -18px 50px -24px rgba(0,0,0,.5)", overflow: "hidden" } : { width: citeW, flexShrink: 0, background: "var(--surface)", borderLeft: "1px solid var(--line)", display: "flex", flexDirection: "column" }}>
+      <div ref={citeRef} style={mobile ? { position: "fixed", left: 0, right: 0, bottom: 0, height: "82dvh", zIndex: 71, background: "var(--surface)", borderTop: "1px solid var(--line)", borderRadius: "18px 18px 0 0", display: "flex", flexDirection: "column", transform: citeOpen ? "translateY(0)" : "translateY(101%)", transition: "transform .3s cubic-bezier(.32,.72,0,1)", boxShadow: "0 -18px 50px -24px rgba(0,0,0,.5)", overflow: "hidden" } : { flex: 1, minHeight: 0, background: "var(--surface)", display: "flex", flexDirection: "column" }}>
         {mobile && <div style={{ width: 40, height: 4, borderRadius: 999, background: "var(--line)", margin: "8px auto 0", flexShrink: 0 }} />}
+        {(mobile || !isSingle) && (
         <div style={{ padding: "14px 18px", borderBottom: "1px solid var(--line)", display: "flex", alignItems: "center", gap: 8 }}>
           <Icon name="shield" size={16} sw={2} />
           <span style={{ fontSize: 14, fontWeight: 800, color: "var(--ink)" }}>教材依据</span>
@@ -273,9 +331,9 @@ function TextbookWorkspace({ scenario, query, onHome, onSwitch, fromIntent, logg
             </button>
           )}
         </div>
+        )}
         <div style={{ flex: 1, overflowY: "auto", padding: 16 }}>
-          {!answered ? (
-            <div style={{ textAlign: "center", padding: "50px 16px", color: "var(--ink-3)" }}>
+          {!mobile && isSingle && paneView === "toc" ? tocInline : !answered ? (            <div style={{ textAlign: "center", padding: "50px 16px", color: "var(--ink-3)" }}>
               <div style={{ display: "inline-flex", marginBottom: 12, color: "var(--line)" }}>
                 <Icon name="quote" size={42} sw={1.4} />
               </div>
@@ -331,7 +389,7 @@ function TextbookWorkspace({ scenario, query, onHome, onSwitch, fromIntent, logg
                   }}
                 >
                   <div style={{ display: "flex", alignItems: "center", gap: 7, marginBottom: 8 }}>
-                    <span style={{ width: 20, height: 20, borderRadius: 6, background: "var(--brand)", color: "#fff", fontSize: 11, fontWeight: 800, display: "grid", placeItems: "center", fontFamily: "var(--font-num)" }}>{i + 1}</span>
+                    <span style={{ width: 20, height: 20, borderRadius: 6, background: "var(--brand-grad)", backgroundColor: "var(--brand)", color: "#fff", fontSize: 11, fontWeight: 800, display: "grid", placeItems: "center", fontFamily: "var(--font-num)" }}>{i + 1}</span>
                     <span style={{ fontSize: 12.5, fontWeight: 700, color: "var(--ink)" }}>{c.source}</span>
                   </div>
                   <div style={{ fontSize: 11.5, color: "var(--brand-deep)", fontWeight: 700, marginBottom: 7 }}>{c.loc}</div>
@@ -354,9 +412,10 @@ function TextbookWorkspace({ scenario, query, onHome, onSwitch, fromIntent, logg
           )}
         </div>
       </div>
+      </div>
 
-      {/* ===== catalog drawer (left overlay) — replaces the persistent left bar ===== */}
-      {isSingle && (
+      {/* ===== catalog drawer — mobile only (desktop has the 目录 view inline) ===== */}
+      {isSingle && mobile && (
         <React.Fragment>
           <div onClick={() => setNavOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 80, background: "rgba(20,16,10,.42)", backdropFilter: "blur(2px)", opacity: navOpen ? 1 : 0, pointerEvents: navOpen ? "auto" : "none", transition: "opacity .26s" }} />
           <div style={{ position: "fixed", top: 0, left: 0, bottom: 0, width: mobile ? "min(300px,84vw)" : 320, zIndex: 81, background: "var(--surface)", borderRight: "1px solid var(--line)", display: "flex", flexDirection: "column", overflow: "hidden", transform: navOpen ? "translateX(0)" : "translateX(-102%)", transition: "transform .3s cubic-bezier(.32,.72,0,1)", boxShadow: navOpen ? "0 20px 60px -20px rgba(0,0,0,.5)" : "none" }}>
@@ -460,7 +519,7 @@ function TextbookInput({ onAsk }) {
           style={{ flex: 1, border: "none", outline: "none", background: "transparent", resize: "none", fontSize: 13.5, fontFamily: "var(--font-zh)", color: "var(--ink)", lineHeight: 1.5, padding: "4px 4px", overflowY: "hidden", boxSizing: "border-box" }}
         />
         <ClipButton onFiles={(names) => setAtt((f) => [...f, ...names].slice(0, 6))} compact />
-        <button onClick={send} style={{ width: 36, height: 36, borderRadius: 10, border: "none", background: "var(--brand)", color: "#fff", display: "grid", placeItems: "center", cursor: "pointer", flexShrink: 0 }}>
+        <button onClick={send} style={{ width: 36, height: 36, borderRadius: 10, border: "none", background: "var(--brand-grad)", backgroundColor: "var(--brand)", color: "#fff", display: "grid", placeItems: "center", cursor: "pointer", flexShrink: 0 }}>
           <Icon name="send" size={16} />
         </button>
       </div>
@@ -630,7 +689,7 @@ function TextbookPicker({ onOpen, onFree, onMulti, demoBook, compact }) {
               </span>
             ))}
           </div>
-          <button onClick={enter} style={{ flexShrink: 0, display: "inline-flex", alignItems: "center", gap: 7, padding: "11px 20px", borderRadius: 12, border: "none", background: "var(--brand)", color: "#fff", fontSize: 14, fontWeight: 800, cursor: "pointer", fontFamily: "var(--font-zh)", boxShadow: "0 6px 18px -8px var(--brand-glow)" }}>
+          <button onClick={enter} style={{ flexShrink: 0, display: "inline-flex", alignItems: "center", gap: 7, padding: "11px 20px", borderRadius: 12, border: "none", background: "var(--brand-grad)", backgroundColor: "var(--brand)", color: "#fff", fontSize: 14, fontWeight: 800, cursor: "pointer", fontFamily: "var(--font-zh)", boxShadow: "0 6px 18px -8px var(--brand-glow)" }}>
             {sel.length === 1 ? "进入问答" : `综合问答（${sel.length} 本）`} <Icon name="arrow" size={16} />
           </button>
         </div>
@@ -655,7 +714,7 @@ function CompareBlock({ CMP, activeCite, setActiveCite, onAsk }) {
         </div>
 
         {/* edition cards */}
-        <div style={{ display: "grid", gridTemplateColumns: mobile ? "1fr" : "1fr 1fr", gap: 10 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(230px, 1fr))", gap: 10 }}>
           {CMP.editions.map((e, i) => {
             const dc = depthColor(e.depth);
             const on = activeCite === "e" + i;

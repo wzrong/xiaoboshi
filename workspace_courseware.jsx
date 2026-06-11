@@ -129,7 +129,7 @@ function CwSetupCard({ initForm, initTopic, initSubject, initGrade, onStart }) {
   );
 }
 
-function CoursewareWorkspace({ scenario, query, onHome, onSwitch, fromIntent, resume }) {
+function CoursewareWorkspace({ scenario, query, onHome, onSwitch, fromIntent, resume, nav }) {
   const wantsInteractive = /互动|游戏|拖拽|抢答|课堂活动|连线|闯关/.test(query || "");
   const topicGuess = (query && (query.match(/《(.+?)》/) || [])[1]) || "";
   const subjGuess = CW_SUBJECTS.find((s) => (query || "").includes(s)) || "";
@@ -146,12 +146,15 @@ function CoursewareWorkspace({ scenario, query, onHome, onSwitch, fromIntent, re
       }
     : null;
 
-  const [cfg, setCfg] = cwS(isResume ? resumeCfg : null); // null until confirmed
+  const cwStored = window.ChatSession.scratch.courseware || {};
+  const [cfg, setCfg] = cwS(isResume ? resumeCfg : (!query && cwStored.cfg ? cwStored.cfg : null)); // null until confirmed
   const mobile = useIsMobile();
   const [active, setActive] = cwS(0);
-  const [built, setBuilt] = cwS(isResume);
+  const [built, setBuilt] = cwS(isResume || (!query && !!cwStored.cfg));
   const [toast, setToast] = cwS(null);
   const showToast = (m) => { setToast(m); setTimeout(() => setToast(null), 2200); };
+  // keep this stage's progress so switching scenarios doesn't reset it
+  cwE(() => { window.ChatSession.scratch.courseware = { cfg }; }, [cfg]);
 
   const setupCard = (extra) => ({ role: "ai", wide: true, render: () => <CwSetupCard initForm={wantsInteractive ? "interactive" : "ppt"} initTopic={topicGuess} initSubject={subjGuess} initGrade={gradeGuess} onStart={startMaking} />, ...extra });
 
@@ -164,21 +167,29 @@ function CoursewareWorkspace({ scenario, query, onHome, onSwitch, fromIntent, re
     }
     if (fromIntent && query) {
       return [
-        { role: "user", text: query },
-        { role: "ai", wide: true, render: () => <InlineIntent query={query} onDone={() => setMessages((m) => [...m, setupCard()])} /> },
+        ...window.ChatSession.take(),
+        ...(window.ChatSession.echoed(query) ? [] : [{ role: "user", text: query }]),
+        { role: "ai", wide: true, intent: query, render: () => <InlineIntent query={query} onDone={() => setMessages((m) => [...m, setupCard()])} /> },
       ];
     }
-    if (query) return [{ role: "user", text: query }, setupCard()];
-    return [setupCard()];
+    if (query) return [...window.ChatSession.take(), ...(window.ChatSession.echoed(query) ? [] : [{ role: "user", text: query }]), setupCard()];
+    if (cwStored.cfg) return window.enterThread(scenario);
+    {
+      const hist = window.ChatSession.take();
+      if (hist.length) return [...window.enterThread(scenario), setupCard()];
+    }
+    return [...window.ChatSession.take(), setupCard()];
   });
-  const [sugs, setSugs] = cwS(isResume ? (resumeCfg.form === "ppt" ? ["突出情境导入", "加一页随堂练习", "改成互动课件"] : ["再加一个抢答环节", "把导入换成拖拽", "改成传统 PPT"]) : []);
+  const [sugs, setSugs] = cwS(isResume || (!query && cwStored.cfg) ? ((isResume ? resumeCfg : cwStored.cfg).form === "ppt" ? ["突出情境导入", "加一页随堂练习", "改成互动课件"] : ["再加一个抢答环节", "把导入换成拖拽", "改成传统 PPT"]) : []);
+  // persist the thread — one assistant conversation across scenario switches
+  cwE(() => { window.ChatSession.save(window.freezeChat(messages)); }, [messages]);
 
   function startMaking(c) {
     setCfg(c);
     setActive(0);
     setBuilt(true);
     const formName = c.form === "ppt" ? "传统 PPT 课件" : "互动课件（HTML）";
-    setMessages((m) => [...m, { role: "ai", node: <span>正在为你制作<b style={{ color: "var(--brand-deep)" }}>{c.topic}</b> 的{formName}，已对齐{c.subject}课标、参照权威教案。左侧大纲可逐{c.form === "ppt" ? "页" : "个互动"}调整，也可以直接告诉我修改。</span> }]);
+    setMessages((m) => [...m, { role: "ai", artifact: { scenario: "courseware", icon: c.form === "ppt" ? "slides" : "interactive", title: `《${c.topic}》${formName}`, meta: `${c.grade || ""}${c.subject || ""}` }, node: <span>正在为你制作<b style={{ color: "var(--brand-deep)" }}>{c.topic}</b> 的{formName}，已对齐{c.subject}课标、参照权威教案。左侧大纲可逐{c.form === "ppt" ? "页" : "个互动"}调整，也可以直接告诉我修改。</span> }]);
     setSugs(c.form === "ppt" ? ["突出情境导入", "加一页随堂练习", "改成互动课件"] : ["再加一个抢答环节", "把导入换成拖拽", "改成传统 PPT"]);
   }
 
@@ -218,13 +229,14 @@ function CoursewareWorkspace({ scenario, query, onHome, onSwitch, fromIntent, re
       scenario={scenario}
       onHome={onHome}
       onSwitch={onSwitch}
+      nav={nav}
       headerRecognizing={headerRecognizing}
       mobilePanelLabel="课件"
       mobilePanelIcon="slides"
       titleMeta={formBadge}
       subtitleOverride={cfg ? `${cfg.grade || ""}${cfg.subject || ""} · ${cfg.topic}` : "在对话中确认形式与课标，开始制作"}
       right={cfg &&
-        <button onClick={() => showToast(isInteractive ? "已导出可交互 HTML" : "已导出 PPTX")} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 13px", borderRadius: 10, border: "none", background: "var(--brand)", color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "var(--font-zh)", whiteSpace: "nowrap" }}>
+        <button onClick={() => showToast(isInteractive ? "已导出可交互 HTML" : "已导出 PPTX")} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 13px", borderRadius: 10, border: "none", background: "var(--brand-grad)", backgroundColor: "var(--brand)", color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "var(--font-zh)", whiteSpace: "nowrap" }}>
           <Icon name="download" size={15} /> 导出 {isInteractive ? "HTML" : "PPTX"}
         </button>
       }

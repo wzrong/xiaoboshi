@@ -15,7 +15,7 @@ function detectScenario(text) {
     { id: "courseware", kw: ["课件", "ppt", "幻灯", "演示", "互动", "拖拽", "课堂活动", "抢答", "互动课件"] },
     { id: "mindmap", kw: ["导图", "思维导图", "知识结构", "脑图"] },
     { id: "textbook", kw: ["区别", "为什么", "什么是", "原理", "讲讲", "怎么理解", "有什么不同", "怎么证明", "是什么意思"] },
-    { id: "find", kw: ["找", "搜索", "查找", "资源", "练习", "微课", "素材", "下载", "真题", "课件", "讲义", "知识清单"] },
+    { id: "find", kw: ["找", "搜索", "查找", "资源", "练习", "微课", "素材", "下载", "真题", "课件", "讲义", "知识清单", "视频", "专辑", "合集", "实验"] },
   ];
   for (const r of rules) {
     if (r.kw.some((k) => t.toLowerCase().includes(k.toLowerCase()))) return r.id;
@@ -268,16 +268,17 @@ function IntentFlow({ query, onDone }) {
 Object.assign(window, { IntentFlow, detectScenario, detectSwitchTarget, extractEntities });
 
 // ---- Inline intent recognition: lives inside a chat bubble ----
-function InlineIntent({ query, onDone }) {
+function InlineIntent({ query, onDone, instant }) {
   const S = window.AIDATA.SCENARIOS;
   const target = detectScenario(query);
   const isGeneral = target === "general";
   const scenario = S.find((s) => s.id === target) || window.AIDATA.GENERAL;
   const entities = extractEntities(query);
-  const [step, setStep] = React.useState(0);
+  const [step, setStep] = React.useState(instant ? 4 : 0);
   // 0 understand, 1 entities, 2 retrieve, 3 matched, 4 done
 
   React.useEffect(() => {
+    if (instant) return;
     const timers = [];
     timers.push(setTimeout(() => setStep(1), 650));
     timers.push(setTimeout(() => setStep(2), 1400));
@@ -305,7 +306,7 @@ function InlineIntent({ query, onDone }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12, minWidth: 240 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 12.5, fontWeight: 700, color: "var(--ink-2)" }}>
-        正在理解你的需求 {step < 4 && <Dots />}
+        {instant ? "已理解你的需求" : "正在理解你的需求"} {step < 4 && <Dots />}
       </div>
       <Row idx={0} icon="spark" label="理解需求" />
       <Row idx={1} icon="filter" label="提取关键信息">
@@ -333,9 +334,9 @@ function InlineIntent({ query, onDone }) {
           </div>
         )}
       </Row>
-      {step >= 4 && (
+      {step >= 4 && !instant && (
         <div className="enter-pop" style={{ fontSize: 12, color: "var(--ink-2)", fontWeight: 600 }}>
-          {isGeneral ? <span>正在为你解答…</span> : <span>已进入 <b style={{ color: "var(--brand-deep)" }}>{scenario.name}</b>，继续为你准备…</span>}
+          {isGeneral ? <span>正在为你解答…</span> : <span>已为你打开 <b style={{ color: "var(--brand-deep)" }}>{scenario.name}</b>，继续为你准备…</span>}
         </div>
       )}
     </div>

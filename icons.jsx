@@ -207,6 +207,20 @@ function Icon({ name, size = 24, sw = 1.8 }) {
         <line x1="9.5" y1="5" x2="9.5" y2="19" />
       </g>
     ),
+    panelCollapse: (
+      <g>
+        <rect x="3.5" y="5" width="17" height="14" rx="2.2" />
+        <line x1="9.5" y1="5" x2="9.5" y2="19" />
+        <path d="M16.8 9.6 14.4 12l2.4 2.4" />
+      </g>
+    ),
+    panelExpand: (
+      <g>
+        <rect x="3.5" y="5" width="17" height="14" rx="2.2" />
+        <line x1="9.5" y1="5" x2="9.5" y2="19" />
+        <path d="M14.2 9.6 16.6 12l-2.4 2.4" />
+      </g>
+    ),
     menu: (
       <g>
         <line x1="4" y1="7" x2="20" y2="7" />

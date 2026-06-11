@@ -46,11 +46,13 @@ const GENERIC_COLD = {
   interactive: ["勾股定理 互动探究动画（HTML）", "光合作用过程 拖拽分类活动", "单词消消乐 七下英语预习用", "平行四边形动态演示 固定一边和对角线", "古诗文名句 连线抢答"],
 };
 
-function GenericWorkspace({ scenario, query, onHome, onSwitch, fromIntent, resume }) {
+function GenericWorkspace({ scenario, query, onHome, onSwitch, fromIntent, resume, nav }) {
   const cfg = GENERIC_CONFIG[scenario.id] || GENERIC_CONFIG.paper;
   const colds = GENERIC_COLD[scenario.id] || GENERIC_COLD.paper;
   const isResume = !!resume;
-  const [started, setStarted] = gS((!!query && !fromIntent) || isResume);
+  const gStored = window.ChatSession.scratch[scenario.id] || {};
+  const [qShown, setQShown] = gS(query || gStored.query || "");
+  const [started, setStarted] = gS((!!query && !fromIntent) || isResume || !!gStored.started);
 
   const restoreNote = () => (
     <span>
@@ -66,15 +68,20 @@ function GenericWorkspace({ scenario, query, onHome, onSwitch, fromIntent, resum
     }
     if (fromIntent && query) {
       return [
-        { role: "user", text: query },
-        { role: "ai", wide: true, render: () => <InlineIntent query={query} onDone={() => { setStarted(true); setMessages((m) => [...m, { role: "ai", node: cfg.greet(query) }]); }} /> },
+        ...window.ChatSession.take(),
+        ...(window.ChatSession.echoed(query) ? [] : [{ role: "user", text: query }]),
+        { role: "ai", wide: true, intent: query, render: () => <InlineIntent query={query} onDone={() => { setStarted(true); setMessages((m) => [...m, { role: "ai", node: cfg.greet(query) }]); }} /> },
       ];
     }
-    if (query) return [{ role: "user", text: query }, { role: "ai", node: cfg.greet(query) }];
-    return [{ role: "ai", node: cfg.greet(query) }];
+    if (query) return [...window.ChatSession.take(), ...(window.ChatSession.echoed(query) ? [] : [{ role: "user", text: query }]), { role: "ai", node: cfg.greet(query) }];
+    return window.enterThread(scenario, cfg.greet(query));
   });
-  const [sugs, setSugs] = gS((query && !fromIntent) || isResume ? cfg.sugs : []);
-  const [built, setBuilt] = gS((!!query && !fromIntent) || isResume);
+  const [sugs, setSugs] = gS((query && !fromIntent) || isResume || gStored.started ? cfg.sugs : []);
+  const [built, setBuilt] = gS((!!query && !fromIntent) || isResume || !!gStored.started);
+  // persist the thread — one assistant conversation across scenario switches
+  React.useEffect(() => { window.ChatSession.save(window.freezeChat(messages)); }, [messages]);
+  // keep this stage's progress so switching scenarios doesn't reset it
+  React.useEffect(() => { window.ChatSession.scratch[scenario.id] = { started, query: qShown }; }, [started, qShown]);
 
   const MEM_NOTE = {
     paper: "已按你的记忆默认 人教版 · 七年级 · 数学，难度梯度参考你常出的中等偏上。",
@@ -87,21 +94,22 @@ function GenericWorkspace({ scenario, query, onHome, onSwitch, fromIntent, resum
   const handleSend = (text, files) => {
     setMessages((m) => [...m, { role: "user", text, files }, { role: "ai", typing: true }]);
     const wasStarted = started;
-    if (!started) { setStarted(true); setSugs(cfg.sugs); }
+    if (!started) { setStarted(true); setSugs(cfg.sugs); setQShown(text); }
     setTimeout(() => {
+      const art = !wasStarted ? { scenario: scenario.id, icon: scenario.icon, title: text, meta: cfg.canvasTitle } : undefined;
       const note = !wasStarted
         ? <span>好的，正在为你生成「{text}」，内容以学科网<b style={{ color: "var(--auth-ink)" }}>权威资源</b>为底座，稍后即可见到框架。</span>
         : files && files.length
         ? <span>已结合你上传的材料更新。所有内容以学科网<b style={{ color: "var(--auth-ink)" }}>三审三校</b>权威资源为底座。</span>
         : <span>已根据「{text}」更新。所有内容均以学科网<b style={{ color: "var(--auth-ink)" }}>三审三校</b>权威资源为底座。</span>;
-      setMessages((m) => [...m.slice(0, -1), { role: "ai", node: note }]);
+      setMessages((m) => [...m.slice(0, -1), { role: "ai", node: note, artifact: art }]);
       setBuilt(true);
     }, 700);
   };
   const { headerRecognizing, send } = useSmartSend({ scenarioId: scenario.id, onSwitch, setMessages, localSend: handleSend });
 
   return (
-    <WorkspaceShell scenario={scenario} onHome={onHome} onSwitch={onSwitch} headerRecognizing={headerRecognizing} mobilePanelLabel={cfg.canvasTitle} mobilePanelIcon={scenario.icon}>
+    <WorkspaceShell scenario={scenario} onHome={onHome} onSwitch={onSwitch} nav={nav} headerRecognizing={headerRecognizing} mobilePanelLabel={cfg.canvasTitle} mobilePanelIcon={scenario.icon}>
       <ChatPanel messages={messages} onSend={send} suggestions={sugs} />
       <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", background: "var(--canvas)" }}>
         <div style={{ padding: "13px 22px", borderBottom: "1px solid var(--line)", background: "var(--surface)", display: "flex", alignItems: "center", gap: 10 }}>
@@ -134,7 +142,7 @@ function GenericWorkspace({ scenario, query, onHome, onSwitch, fromIntent, resum
           <div style={{ maxWidth: 720, margin: "0 auto" }}>
           <div style={{ marginBottom: 18, display: "flex", alignItems: "center", gap: 9, flexWrap: "wrap" }}>
             <div style={{ display: "inline-flex", alignItems: "center", gap: 7, padding: "6px 12px", borderRadius: 999, background: "var(--brand-soft)", border: "1px solid var(--brand-soft-border)", fontSize: 12, fontWeight: 700, color: "var(--brand-deep)" }}>
-              <ScenarioGlyph icon={scenario.icon} hue={scenario.hue} size={20} /> {scenario.name} · {query || scenario.sample}
+              <ScenarioGlyph icon={scenario.icon} hue={scenario.hue} size={20} /> {scenario.name} · {qShown || query || scenario.sample}
             </div>
             {isResume && (
               <span style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "5px 11px", borderRadius: 999, background: "var(--surface-2)", border: "1px solid var(--line)", fontSize: 11.5, fontWeight: 700, color: "var(--ink-3)" }}>

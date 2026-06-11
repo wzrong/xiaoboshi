@@ -16,8 +16,8 @@ function BotAvatar({ size = 40, glow = false }) {
         fontSize: size * 0.42,
         fontFamily: "var(--font-zh)",
         boxShadow: glow
-          ? "0 6px 22px -6px var(--brand-glow), inset 0 1px 0 rgba(255,255,255,.35)"
-          : "inset 0 1px 0 rgba(255,255,255,.35)",
+          ? "0 10px 26px -8px var(--brand-glow), 0 0 0 5px color-mix(in oklab, var(--brand), transparent 92%), inset 0 1px 0 rgba(255,255,255,.38)"
+          : "inset 0 1px 0 rgba(255,255,255,.38)",
         position: "relative",
         flexShrink: 0,
         letterSpacing: "-1px",
@@ -61,10 +61,10 @@ function Btn({ children, kind = "primary", size = "md", icon, iconRight, onClick
   }[size];
   const kinds = {
     primary: {
-      background: "var(--brand)",
+      background: "var(--brand-grad)",
       color: "#fff",
       border: "1px solid transparent",
-      boxShadow: "0 4px 14px -5px var(--brand-glow)",
+      boxShadow: "inset 0 1px 0 rgba(255,255,255,.22), 0 4px 14px -5px var(--brand-glow)",
     },
     soft: {
       background: "var(--brand-soft)",
@@ -123,11 +123,13 @@ function ScenarioGlyph({ icon, hue, size = 46, active }) {
         borderRadius: size * 0.3,
         display: "grid",
         placeItems: "center",
-        background: `oklch(0.94 0.045 ${hue} / 1)`,
-        color: `oklch(0.5 0.13 ${hue})`,
+        background: `linear-gradient(160deg, oklch(0.96 0.032 ${hue}), oklch(0.915 0.058 ${hue}))`,
+        color: `oklch(0.48 0.135 ${hue})`,
         flexShrink: 0,
         transition: "transform .2s ease, box-shadow .2s ease",
-        boxShadow: active ? `0 8px 20px -8px oklch(0.6 0.15 ${hue} / .6)` : "none",
+        boxShadow: active
+          ? `inset 0 0 0 1px oklch(0.87 0.06 ${hue} / .7), 0 8px 20px -8px oklch(0.6 0.15 ${hue} / .6)`
+          : `inset 0 0 0 1px oklch(0.87 0.06 ${hue} / .55), inset 0 1px 0 rgba(255,255,255,.55)`,
         transform: active ? "translateY(-2px)" : "none",
       }}
     >
@@ -343,3 +345,55 @@ function MemoryNote({ text, actionLabel = "调整", onAction, style }) {
 }
 
 Object.assign(window, { useSmartSend, MemoryNote });
+
+// ── Chat session: ONE assistant conversation that survives scenario switches ──
+// The assistant never "changes sides": when the teacher moves between scenarios
+// (找资源 → 出卷子 → …) the left chat keeps the whole thread. Only 新对话 /
+// returning home starts a fresh session (cleared by app.jsx).
+const ChatSession = {
+  log: [],
+  scratch: {},           // per-scenario live state (rounds, configs…) that survives switches
+  pendingArtifact: null, // set when the teacher clicks an artifact chip from another scenario
+  take() { return this.log.slice(); },
+  save(msgs) { this.log = msgs || []; },
+  clear() { this.log = []; this.scratch = {}; this.pendingArtifact = null; },
+  echoed(q) {
+    const v = (q || "").trim();
+    return !!v && this.log.some((m) => m.role === "user" && (m.text || "").trim() === v);
+  },
+};
+
+// Convert live workspace messages into a frozen, carry-anywhere form:
+// drop typing indicators, replace live widgets (intent animation, setup cards)
+// with static recaps, and strip per-workspace handles like roundId.
+function freezeChat(msgs) {
+  return (msgs || [])
+    .filter((m) => m && !m.typing)
+    .map((m) => {
+      if (m.render) {
+        if (m.intent) return { role: "ai", wide: true, node: <InlineIntent query={m.intent} instant /> };
+        return null; // live setup widgets don't carry across scenarios
+      }
+      if (m.answer || m.compare) {
+        return { role: "ai", artifact: m.artifact, node: <span>已依据教材原文作答（出处标注见「问教材」场景）。</span> };
+      }
+      const { roundId, ...rest } = m;
+      return rest;
+    })
+    .filter(Boolean);
+}
+
+Object.assign(window, { ChatSession, freezeChat });
+
+// ── Entering a scenario mid-session: a slim divider, not another chat bubble ──
+// First entry of a session keeps the assistant's greeting (it orients the user);
+// after that, tab switches only leave a quiet "已切换" marker — and rapid tab
+// hopping collapses to a single marker instead of stacking noise.
+function enterThread(scenario, greet) {
+  const log = ChatSession.take();
+  // drop trailing markers (and nothing else) so A→B→C leaves one marker, not three
+  while (log.length && log[log.length - 1].role === "sys") log.pop();
+  if (!log.length) return greet ? [{ role: "ai", node: greet }] : [];
+  return [...log, { role: "sys", text: `已切换到「${scenario.name}」`, icon: scenario.icon }];
+}
+Object.assign(window, { enterThread });
