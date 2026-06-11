@@ -51,6 +51,12 @@ npm start
 https://你的用户名.github.io/仓库名/
 ```
 
+产品设计文档地址：
+
+```text
+https://你的用户名.github.io/仓库名/docs/产品设计文档.html
+```
+
 ## 更新线上站点
 
 修改代码后，在项目目录执行：

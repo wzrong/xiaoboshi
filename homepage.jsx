@@ -1,5 +1,6 @@
 // homepage.jsx — unified entry, 3 switchable directions
 const { useState, useRef, useEffect } = React;
+const PRODUCT_DOC_URL = "docs/产品设计文档.html";
 
 function MenuRow({ icon, label, accent, onClick }) {
   return (
@@ -790,6 +791,10 @@ function LeftRail({ page, loggedIn, onNavigate, onNewChat, onResume, onLogout, o
   const collapse = () => (mobile ? onCloseMobile() : onCollapse ? onCollapse() : setOpen(false));
 
   const go = (p) => (loggedIn ? onNavigate(p) : onRequireLogin());
+  const openProductDoc = () => {
+    window.open(PRODUCT_DOC_URL, "_blank", "noopener,noreferrer");
+    if (mobile && onCloseMobile) onCloseMobile();
+  };
 
   const NavItem = ({ icon, label, active, onClick, accent }) => (
     <button
@@ -859,6 +864,7 @@ function LeftRail({ page, loggedIn, onNavigate, onNewChat, onResume, onLogout, o
       <div style={{ padding: open ? "8px 12px" : "8px 12px", display: "flex", flexDirection: "column", gap: 3 }}>
         <NavItem icon="spark" label="我的记忆" accent active={page === "memory"} onClick={() => go("memory")} />
         <NavItem icon="grid" label="我的内容" active={page === "works"} onClick={() => go("works")} />
+        <NavItem icon="file" label="产品文档" onClick={openProductDoc} />
         <NavItem icon="basket" label={basketCount > 0 ? `资源篮 · ${basketCount}` : "资源篮"} onClick={() => (loggedIn ? onOpenBasket && onOpenBasket() : onRequireLogin())} />
         {!open && (
           <NavItem icon="chat" label="历史对话" active={page === "history"} onClick={() => (loggedIn ? onNavigate("history") : onRequireLogin())} />
@@ -939,6 +945,7 @@ function LeftRail({ page, loggedIn, onNavigate, onNewChat, onResume, onLogout, o
                   <MenuRow icon="spark" label="我的记忆" onClick={() => { setAcctMenu(false); onNavigate("memory"); }} />
                   <MenuRow icon="grid" label="我的内容" onClick={() => { setAcctMenu(false); onNavigate("works"); }} />
                   <MenuRow icon="chat" label="历史对话" onClick={() => { setAcctMenu(false); onNavigate("history"); }} />
+                  <MenuRow icon="file" label="产品文档" onClick={() => { setAcctMenu(false); openProductDoc(); }} />
                   <div style={{ height: 1, background: "var(--line)", margin: "5px 4px" }} />
                   <MenuRow icon="back" label="退出登录" onClick={() => { setAcctMenu(false); onLogout && onLogout(); }} />
                 </div>
