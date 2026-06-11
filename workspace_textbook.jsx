@@ -33,6 +33,12 @@ function TextbookWorkspace({ scenario, query, onHome, onSwitch, fromIntent, logg
   const [activeCite, setActiveCite] = tS(null);
   const [answered, setAnswered] = tS(pendingA ? (pendingA.kind === "compare" ? "compare" : true) : (startAnswered || tbStored.answered || false));
   const [thinking, setThinking] = tS(false);
+  const mkAns = (q) => window.buildTbAnswer(q, book);
+  const [curAns, setCurAns] = tS(() => {
+    if (pendingA && pendingA.kind !== "compare") return window.buildTbAnswer(pendingA.title || query || A.question);
+    if (startAnswered && query) return window.buildTbAnswer(query);
+    return null;
+  });
 
   // ---- which textbook is open (cold-start) ----
   const demoBook = { edition: TREE.edition, subject: TREE.subject, name: "必修1", stage: "高中", section: "第5章 第4节 · 能量之源——光合作用" };
@@ -93,7 +99,7 @@ function TextbookWorkspace({ scenario, query, onHome, onSwitch, fromIntent, logg
   const [thread, setThread] = tS(() => {
     const hist = window.ChatSession.take();
     if (pendingA) {
-      return [...hist, pendingA.kind === "compare" ? { role: "ai", compare: true } : { role: "ai", answer: true }];
+      return [...hist, pendingA.kind === "compare" ? { role: "ai", compare: true } : { role: "ai", answer: true, ans: curAns }];
     }
     if (!book) return hist;
     const greet = greetFor(book, viaMemory ? "memory" : "plain");
@@ -101,11 +107,11 @@ function TextbookWorkspace({ scenario, query, onHome, onSwitch, fromIntent, logg
       return [
         ...hist,
         ...(window.ChatSession.echoed(query) ? [] : [{ role: "user", text: query }]),
-        { role: "ai", wide: true, intent: query, render: () => <InlineIntent query={query} onDone={() => { setThread((t) => [...t, greet]); setThinking(true); setTimeout(() => { setThinking(false); setThread((t) => [...t, { role: "ai", answer: true }]); setAnswered(true); }, 1100); }} /> },
+        { role: "ai", wide: true, intent: query, render: () => <InlineIntent query={query} onDone={() => { const a = mkAns(query); setCurAns(a); setThread((t) => [...t, greet]); setThinking(true); setTimeout(() => { setThinking(false); setThread((t) => [...t, { role: "ai", answer: true, ans: a }]); setAnswered(true); }, 1100); }} /> },
       ];
     }
     if (query && /[?？]|区别|为什么|什么|怎么|原理|讲|解释/.test(query)) {
-      return [...hist, greet, ...(window.ChatSession.echoed(query) ? [] : [{ role: "user", text: query }]), { role: "ai", answer: true }];
+      return [...hist, greet, ...(window.ChatSession.echoed(query) ? [] : [{ role: "user", text: query }]), { role: "ai", answer: true, ans: curAns }];
     }
     if (hist.length) return window.enterThread(scenario);
     return [...hist, greet];
@@ -153,9 +159,23 @@ function TextbookWorkspace({ scenario, query, onHome, onSwitch, fromIntent, logg
     setTimeout(() => {
       setThinking(false);
       const art = { scenario: "textbook", icon: "book", kind: compare ? "compare" : "answer", title: q, meta: compare ? "跨教材对比" : "含教材出处" };
-      setThread((t) => [...t, compare ? { role: "ai", compare: true, artifact: art } : { role: "ai", answer: true, artifact: art }]);
-      setAnswered(compare ? "compare" : true);
+      if (compare) {
+        setThread((t) => [...t, { role: "ai", compare: true, artifact: art }]);
+        setAnswered("compare");
+      } else {
+        const a = mkAns(q);
+        setCurAns(a);
+        setThread((t) => [...t, { role: "ai", answer: true, ans: a, artifact: art }]);
+        setAnswered(true);
+      }
     }, compare ? 1600 : 1400);
+  };
+  // 后续动作：展开/举例留在问教材；生成导图/练习题交给对应场景（同一个助手）
+  const lastUserQ = () => { for (let i = thread.length - 1; i >= 0; i--) if (thread[i].role === "user") return thread[i].text; return ""; };
+  const onFollow = (f) => {
+    if (/导图/.test(f)) return onSwitch && onSwitch("mindmap", lastUserQ());
+    if (/练习|题/.test(f)) return onSwitch && onSwitch("paper", lastUserQ());
+    ask(f + "（紧接上一个问题）");
   };
 
   const sampleQs = ["光反应和暗反应有什么区别？", "「光合作用」在哪些教材里出现过？", "本节的重点概念有哪些？", "这部分知识中考/高考怎么考？"];
@@ -193,7 +213,8 @@ function TextbookWorkspace({ scenario, query, onHome, onSwitch, fromIntent, logg
     </div>
   );
 
-  const citeCount = answered === "compare" ? CMP.editions.length : answered ? A.citations.length : 0;
+  const paneCites = curAns ? curAns.citations : A.citations;
+  const citeCount = answered === "compare" ? CMP.editions.length : answered ? paneCites.length : 0;
   const paneTabs = isSingle ? (
     <div style={{ display: "flex", gap: 4, padding: "8px 14px", borderBottom: "1px solid var(--line)", background: "var(--surface)", flexShrink: 0 }}>
       {[
@@ -255,7 +276,7 @@ function TextbookWorkspace({ scenario, query, onHome, onSwitch, fromIntent, logg
             )}
             <div style={{ flex: 1 }} />
             <button onClick={() => setCiteOpen(true)} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "7px 11px", borderRadius: 10, border: "1px solid var(--line)", background: "var(--surface)", color: "var(--ink-2)", fontSize: 12.5, fontWeight: 700, cursor: "pointer", fontFamily: "var(--font-zh)", flexShrink: 0 }}>
-              <Icon name="shield" size={15} /> 依据{answered === "compare" ? ` · ${CMP.editions.length}` : answered ? ` · ${A.citations.length}` : ""}
+              <Icon name="shield" size={15} /> 依据{answered === "compare" ? ` · ${CMP.editions.length}` : answered ? ` · ${paneCites.length}` : ""}
             </button>
           </div>
         )}
@@ -269,7 +290,7 @@ function TextbookWorkspace({ scenario, query, onHome, onSwitch, fromIntent, logg
             )}
             {thread.map((m, i) =>
               m.answer ? (
-                <AnswerBlock key={i} A={A} activeCite={activeCite} setActiveCite={setActiveCite} />
+                <DynamicAnswer key={i} ans={m.ans || curAns} activeCite={activeCite} setActiveCite={setActiveCite} onFollow={onFollow} />
               ) : m.compare ? (
                 <CompareBlock key={i} CMP={CMP} activeCite={activeCite} setActiveCite={setActiveCite} onAsk={ask} />
               ) : m.role === "sys" ? (
@@ -324,7 +345,7 @@ function TextbookWorkspace({ scenario, query, onHome, onSwitch, fromIntent, logg
         <div style={{ padding: "14px 18px", borderBottom: "1px solid var(--line)", display: "flex", alignItems: "center", gap: 8 }}>
           <Icon name="shield" size={16} sw={2} />
           <span style={{ fontSize: 14, fontWeight: 800, color: "var(--ink)" }}>教材依据</span>
-          <span style={{ fontSize: 11, color: "var(--ink-3)", marginLeft: "auto" }}>{answered === "compare" ? `${CMP.editions.length} 个版本` : answered ? `${A.citations.length} 处引用` : "等待提问"}</span>
+          <span style={{ fontSize: 11, color: "var(--ink-3)", marginLeft: "auto" }}>{answered === "compare" ? `${CMP.editions.length} 个版本` : answered ? `${paneCites.length} 处引用` : "等待提问"}</span>
           {mobile && (
             <button onClick={() => setCiteOpen(false)} aria-label="关闭" style={{ width: 30, height: 30, marginLeft: 8, borderRadius: 9, border: "1px solid var(--line)", background: "var(--surface)", color: "var(--ink-2)", display: "grid", placeItems: "center", cursor: "pointer", flexShrink: 0 }}>
               <Icon name="close" size={15} sw={2.4} />
@@ -371,7 +392,7 @@ function TextbookWorkspace({ scenario, query, onHome, onSwitch, fromIntent, logg
             </div>
           ) : (
             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-              {A.citations.map((c, i) => (
+              {paneCites.map((c, i) => (
                 <div
                   key={c.id}
                   onMouseEnter={() => setActiveCite(c.id)}

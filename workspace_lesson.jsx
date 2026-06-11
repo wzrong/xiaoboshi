@@ -6,7 +6,7 @@ const { useState: lS, useEffect: lE, useRef: lR } = React;
 function parseLessonQuery(q) {
   const text = q || "";
   const edition = (text.match(/(人教版|北师大版|部编版|苏教版|外研社|湘教版|沪科版|译林版|统编版)/) || [])[1] || null;
-  const gradeRaw = (text.match(/(七|八|九|高一|高二|高三|[一二三四五六])(年级)?(上|下)?(册)?/) || [])[0] || null;
+  const gradeRaw = (text.match(/(高[一二三]|[一二三四五六七八九]年级(上|下)?册?|[七八九][上下]册?)/) || [])[0] || null;
   const subject = (text.match(/(数学|语文|英语|物理|化学|生物|历史|地理|政治|道德与法治|音乐|美术|体育|科学|信息技术)/) || [])[1] || null;
   // 课题：优先书名号，其次去掉修饰词后的主体
   let topic = (text.match(/《([^》]+)》/) || [])[1];
@@ -14,7 +14,7 @@ function parseLessonQuery(q) {
     topic = text
       .replace(/(帮我|请|给我|来一?份|写个?|做个?|生成|出个?)/g, "")
       .replace(/(人教版|北师大版|部编版|苏教版|外研社|湘教版|沪科版|译林版|统编版)/g, "")
-      .replace(/(七|八|九|高一|高二|高三|[一二三四五六])(年级)?(上|下)?(册)?/g, "")
+      .replace(/(高[一二三]|[一二三四五六七八九]年级(上|下)?册?|[七八九][上下]册?)/g, "")
       .replace(/(数学|语文|英语|物理|化学|生物|历史|地理|政治|道德与法治|音乐|美术|体育|科学|信息技术)/g, "")
       .replace(/(的)?(教学设计|教案|详案|学案|导学案|学习任务单|说课稿?|教学方案)/g, "")
       .replace(/第\d+课/g, (m) => m)
@@ -25,14 +25,39 @@ function parseLessonQuery(q) {
   return { topic, edition, grade: gradeRaw, subject };
 }
 
-// ---- 教案文档生成器：按课题产出一份完整教学设计 ----
-function buildLessonDoc(q, mem) {
+// ---- 教案大纲（可增删改）----
+const LESSON_OUTLINE = [
+  { key: "analysis", name: "教材分析", hint: "本节在教材/知识体系中的地位与作用" },
+  { key: "students", name: "学情分析", hint: "学生已有基础、认知特点与困难" },
+  { key: "objectives", name: "教学目标", hint: "知识技能 / 过程方法 / 情感态度 三维目标" },
+  { key: "keypoints", name: "教学重难点", hint: "重点、难点与突破策略" },
+  { key: "prep", name: "教学准备", hint: "课件、教具、学具与分组" },
+  { key: "process", name: "教学过程", hint: "导入→探究→精讲→巩固→小结 五环节" },
+  { key: "board", name: "板书设计", hint: "核心板书结构" },
+  { key: "homework", name: "作业布置", hint: "必做 / 选做 分层作业" },
+];
+function buildOutline() {
+  return LESSON_OUTLINE.map((o, i) => ({ id: "o" + i, key: o.key, name: o.name, hint: o.hint }));
+}
+function lessonMeta(q, mem) {
+  const p = parseLessonQuery(q);
+  return {
+    topic: p.topic,
+    edition: p.edition || (mem && mem.edition) || "人教版",
+    grade: p.grade || (mem && mem.grade) || "七年级",
+    subject: p.subject || (mem && mem.subject) || "数学",
+    periods: "1 课时", type: "新授课",
+  };
+}
+
+// ---- 教案文档生成器：按课题产出一份完整教学设计（可按 outline 重排/筛选）----
+function buildLessonDoc(q, mem, outline) {
   const p = parseLessonQuery(q);
   const topic = p.topic;
   const edition = p.edition || (mem && mem.edition) || "人教版";
   const grade = p.grade || (mem && mem.grade) || "七年级";
   const subject = p.subject || (mem && mem.subject) || "数学";
-  return {
+  const doc = {
     topic, edition, grade, subject,
     periods: "1 课时",
     type: "新授课",
@@ -94,6 +119,18 @@ function buildLessonDoc(q, mem) {
       },
     ],
   };
+  if (!outline) return doc;
+  const byKey = {};
+  doc.sections.forEach((s) => { byKey[s.id] = s; });
+  const sections = outline.map((o) => {
+    if (byKey[o.key]) return { ...byKey[o.key], name: o.name };
+    if (o.key === "reflect") return { id: "reflect", name: o.name, paras: [
+      "本课以学生活动为主线，探究环节学生参与度较高；但部分小组归纳结论时表述不够严谨，下次可提前给出表述支架。",
+      "练习反馈显示变式题正确率偏低，难点突破还需加强——可在精讲环节增加一组对比辨析，并布置针对性补偿练习。",
+    ] };
+    return { id: o.id || o.key, name: o.name, paras: [`（${o.name}）这一部分先留好位置——告诉我具体要求，我来帮你补充内容；也可以直接在此点击撰写。`] };
+  });
+  return { ...doc, sections };
 }
 
 // ---- 对话指令 → 文档修改 ----
@@ -226,6 +263,72 @@ function LsSection({ sec, idx, animate }) {
   );
 }
 
+function LessonOutlinePanel({ meta, outline, setOutline, onConfirm, mobile }) {
+  const rename = (id, name) => setOutline((o) => o.map((x) => (x.id === id ? { ...x, name } : x)));
+  const remove = (id) => setOutline((o) => (o.length <= 2 ? o : o.filter((x) => x.id !== id)));
+  const move = (id, dir) => setOutline((o) => {
+    const i = o.findIndex((x) => x.id === id);
+    const j = i + dir;
+    if (i < 0 || j < 0 || j >= o.length) return o;
+    const n = o.slice();
+    [n[i], n[j]] = [n[j], n[i]];
+    return n;
+  });
+  const add = () => setOutline((o) => [...o, { id: "c" + Date.now().toString(36), key: "custom" + Date.now(), name: "新部分", hint: "自定义部分，点标题改名" }]);
+
+  return (
+    <div style={{ maxWidth: 720, margin: "0 auto" }}>
+      <div style={{ display: "flex", alignItems: "flex-start", gap: 12, marginBottom: 18 }}>
+        <span style={{ width: 40, height: 40, borderRadius: 12, background: "var(--brand-soft)", border: "1px solid var(--brand-soft-border)", color: "var(--brand-deep)", display: "grid", placeItems: "center", flexShrink: 0 }}><Icon name="list" size={20} /></span>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <h2 style={{ margin: "0 0 4px", fontSize: 18, fontWeight: 800, color: "var(--ink)" }}>《{meta.topic}》教案大纲</h2>
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+            {[meta.edition, meta.subject, meta.grade, meta.periods].map((c, i) => (
+              <span key={i} style={{ padding: "2px 9px", borderRadius: 999, background: "var(--surface-2)", border: "1px solid var(--line)", fontSize: 11, fontWeight: 700, color: "var(--ink-2)" }}>{c}</span>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12, fontSize: 12.5, color: "var(--ink-3)", fontWeight: 600 }}>
+        <Icon name="spark" size={14} /> 先确认教案结构 —— 增删条目、调整顺序或改名，满意后再展开成完整内容。
+      </div>
+
+      <div style={{ display: "flex", flexDirection: "column", gap: 9 }}>
+        {outline.map((o, i) => (
+          <div key={o.id} className="block-pop" style={{ animationDelay: `${i * 0.05}s`, display: "flex", alignItems: "center", gap: 12, background: "var(--surface)", border: "1px solid var(--line)", borderRadius: 13, padding: "12px 14px" }}>
+            <span style={{ width: 24, height: 24, borderRadius: 7, background: "var(--brand-grad)", backgroundColor: "var(--brand)", color: "#fff", fontSize: 12, fontWeight: 800, display: "grid", placeItems: "center", fontFamily: "var(--font-num)", flexShrink: 0 }}>{i + 1}</span>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <input value={o.name} onChange={(e) => rename(o.id, e.target.value)} spellCheck={false}
+                style={{ width: "100%", border: "none", outline: "none", background: "transparent", fontSize: 14.5, fontWeight: 700, color: "var(--ink)", fontFamily: "var(--font-zh)", padding: 0 }} />
+              <div style={{ fontSize: 11.5, color: "var(--ink-3)", marginTop: 2 }}>{o.hint}</div>
+            </div>
+            <div style={{ display: "flex", gap: 2, flexShrink: 0 }}>
+              <button onClick={() => move(o.id, -1)} disabled={i === 0} aria-label="上移" style={{ width: 28, height: 28, borderRadius: 8, border: "1px solid var(--line)", background: "var(--surface)", color: i === 0 ? "var(--line)" : "var(--ink-3)", display: "grid", placeItems: "center", cursor: i === 0 ? "default" : "pointer" }}><span style={{ display: "inline-flex", transform: "rotate(180deg)" }}><Icon name="chevron" size={14} /></span></button>
+              <button onClick={() => move(o.id, 1)} disabled={i === outline.length - 1} aria-label="下移" style={{ width: 28, height: 28, borderRadius: 8, border: "1px solid var(--line)", background: "var(--surface)", color: i === outline.length - 1 ? "var(--line)" : "var(--ink-3)", display: "grid", placeItems: "center", cursor: i === outline.length - 1 ? "default" : "pointer" }}><Icon name="chevron" size={14} /></button>
+              <button onClick={() => remove(o.id)} aria-label="删除" data-tip="删除" style={{ width: 28, height: 28, borderRadius: 8, border: "1px solid var(--line)", background: "var(--surface)", color: "var(--ink-3)", display: "grid", placeItems: "center", cursor: "pointer" }}
+                onMouseEnter={(e) => { e.currentTarget.style.color = "oklch(0.55 0.18 25)"; e.currentTarget.style.borderColor = "oklch(0.8 0.1 25)"; }}
+                onMouseLeave={(e) => { e.currentTarget.style.color = "var(--ink-3)"; e.currentTarget.style.borderColor = "var(--line)"; }}><Icon name="trash" size={14} /></button>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <button onClick={add} style={{ width: "100%", marginTop: 10, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 7, padding: "11px", borderRadius: 12, border: "1px dashed var(--line)", background: "transparent", color: "var(--ink-3)", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "var(--font-zh)", transition: "all .15s" }}
+        onMouseEnter={(e) => { e.currentTarget.style.borderColor = "var(--brand)"; e.currentTarget.style.color = "var(--brand-deep)"; }}
+        onMouseLeave={(e) => { e.currentTarget.style.borderColor = "var(--line)"; e.currentTarget.style.color = "var(--ink-3)"; }}>
+        <Icon name="plus" size={15} sw={2.2} /> 添加一个部分
+      </button>
+
+      <div style={{ position: "sticky", bottom: 0, marginTop: 20, paddingTop: 14, display: "flex", justifyContent: "center" }}>
+        <button onClick={onConfirm} style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "13px 26px", borderRadius: 13, border: "none", background: "var(--brand-grad)", backgroundColor: "var(--brand)", color: "#fff", fontSize: 14.5, fontWeight: 800, cursor: "pointer", fontFamily: "var(--font-zh)", boxShadow: "0 10px 26px -12px var(--brand-glow)" }}>
+          <Icon name="check" size={16} sw={2.6} /> 确认大纲，开始生成
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function LessonWorkspace({ scenario, query, onHome, onSwitch, fromIntent, resume, loggedIn, nav }) {
   const mobile = useIsMobile();
   const M = window.AIDATA.USER_MEMORY;
@@ -233,42 +336,61 @@ function LessonWorkspace({ scenario, query, onHome, onSwitch, fromIntent, resume
   const stored = window.ChatSession.scratch.lesson || {};
   const isResume = !!resume;
   const initialQ = query || (isResume ? resume.title : "") || stored.q || "";
-  const [doc, setDoc] = lS(() => stored.doc || (initialQ && (!fromIntent || stored.doc) ? buildLessonDoc(initialQ, mem) : null));
+  const buildResumeDoc = isResume && !stored.doc;
+  const [doc, setDoc] = lS(() => stored.doc || (buildResumeDoc ? buildLessonDoc(initialQ, mem) : null));
+  const freshQuery = !isResume && !stored.doc && !!initialQ; // a brand-new lesson request → outline first
+  const [meta, setMeta] = lS(() => (freshQuery ? lessonMeta(initialQ, mem) : null));
+  const [outline, setOutline] = lS(() => (freshQuery && !fromIntent ? buildOutline() : null));
+  const [rawQ, setRawQ] = lS(freshQuery ? initialQ : "");
   const [generating, setGenerating] = lS(false);
   const [toast, setToast] = lS(null);
   const docRef = lR(null);
 
   const greet = <span>我来帮你写<b style={{ color: "var(--brand-deep)" }}>教案</b>。告诉我课题（最好带上版本和年级），我会生成一份包含教材分析、三维目标、教学过程、板书设计的完整教学设计，每一段都可以直接点击修改。</span>;
 
-  const genDoc = (q, after) => {
+  const genDoc = (q, ol, after) => {
     setGenerating(true);
+    setOutline(null);
     setTimeout(() => {
-      const d = buildLessonDoc(q, mem);
+      const d = buildLessonDoc(q, mem, ol);
       setDoc(d);
       setGenerating(false);
       after && after(d);
     }, 1300);
+  };
+  const outlineNote = (m) => (
+    <span>我先把《<b>{m.topic}</b>》这节课的教案<b>大纲</b>列在右侧了——你可以增删条目、调整顺序或改名字。满意后点 <b style={{ color: "var(--brand-deep)" }}>「确认大纲，开始生成」</b>，我再把每一部分展开成完整内容。</span>
+  );
+  const proposeOutline = (q) => {
+    const m = lessonMeta(q, mem);
+    setMeta(m); setRawQ(q); setDoc(null); setOutline(buildOutline());
+    setMessages((ms) => [...ms.filter((x) => !x.typing), { role: "ai", node: outlineNote(m) }]);
+  };
+  const confirmOutline = () => {
+    const m = meta;
+    setMessages((ms) => [...ms, { role: "ai", node: <span>好的，正在按确认后的大纲展开《{m.topic}》的完整教学设计…</span> }]);
+    genDoc(rawQ || m.topic, outline, (d) => { setMessages((ms) => [...ms, { role: "ai", node: doneNote(d), artifact: artFor(d) }]); setSugs(LESSON_SUGS); });
   };
 
   const [messages, setMessages] = lS(() => {
     if (isResume) {
       return [{ role: "ai", node: <span>已为你恢复 <b>{resume.when}</b> 写的《{(resume.title || "").replace(/[《》]/g, "")}》教学设计，右侧就是当时的成稿，接着改就行。</span> }];
     }
+    if (stored.doc) return window.enterThread(scenario);
     if (fromIntent && query) {
       return [
         ...window.ChatSession.take(),
         ...(window.ChatSession.echoed(query) ? [] : [{ role: "user", text: query }]),
-        { role: "ai", wide: true, intent: query, render: () => <InlineIntent query={query} onDone={() => { genDoc(query, (d) => { setMessages((m) => [...m, { role: "ai", node: doneNote(d), artifact: artFor(d, query) }]); setSugs(LESSON_SUGS); }); }} /> },
+        { role: "ai", wide: true, intent: query, render: () => <InlineIntent query={query} onDone={() => { const m = lessonMeta(query, mem); setMeta(m); setRawQ(query); setOutline(buildOutline()); setMessages((ms) => [...ms, { role: "ai", node: outlineNote(m) }]); }} /> },
       ];
     }
-    if (query) return [...window.ChatSession.take(), ...(window.ChatSession.echoed(query) ? [] : [{ role: "user", text: query }]), { role: "ai", node: doneNote(buildLessonDoc(query, mem)), artifact: artFor(buildLessonDoc(query, mem), query) }];
-    if (stored.doc) return window.enterThread(scenario);
+    if (freshQuery) return [...window.ChatSession.take(), ...(window.ChatSession.echoed(query) ? [] : [{ role: "user", text: query }]), { role: "ai", node: outlineNote(lessonMeta(initialQ, mem)) }];
     return window.enterThread(scenario, greet);
   });
   const LESSON_SUGS = ["补充教学反思", "作业改成分层", "重难点再细化", "导入换成情境式"];
   const [sugs, setSugs] = lS(doc ? LESSON_SUGS : []);
 
-  const artFor = (d, q) => ({ scenario: "lesson", icon: "lesson", title: `《${d.topic}》教学设计`, meta: `${d.edition} · ${d.grade} · ${d.subject}` });
+  const artFor = (d) => ({ scenario: "lesson", icon: "lesson", title: `《${d.topic}》教学设计`, meta: `${d.edition} · ${d.grade} · ${d.subject}` });
   const doneNote = (d) => (
     <span>《<b>{d.topic}</b>》的教学设计已经成稿——按{d.edition}{d.grade}{d.subject}写的，包含教材分析、三维目标、五环节教学过程和板书设计，全部内容对齐<b style={{ color: "var(--auth-ink)" }}>课程标准与权威范例</b>。右侧任何一段都可以直接点击修改，也可以继续吩咐我调整。</span>
   );
@@ -280,7 +402,7 @@ function LessonWorkspace({ scenario, query, onHome, onSwitch, fromIntent, resume
   const handleSend = (text, files) => {
     setMessages((m) => [...m, { role: "user", text, files }, { role: "ai", typing: true }]);
     setTimeout(() => {
-      // 已有文档 → 先看是不是修改指令
+      // 已成稿 → 先看是不是修改指令
       if (doc) {
         const r = applyLessonCommand(text, doc);
         if (r) {
@@ -288,14 +410,24 @@ function LessonWorkspace({ scenario, query, onHome, onSwitch, fromIntent, resume
           setMessages((m) => [...m.slice(0, -1), { role: "ai", node: <span>{r.reply}</span> }]);
           return;
         }
-      }
-      // 像一个新课题 → 重新生成
-      if ((text || "").length >= 4) {
-        setMessages((m) => [...m.slice(0, -1), { role: "ai", node: <span>好的，正在为你生成《{parseLessonQuery(text).topic}》的教学设计…</span> }]);
-        genDoc(text, (d) => { setMessages((m) => [...m, { role: "ai", node: doneNote(d), artifact: artFor(d, text) }]); setSugs(LESSON_SUGS); });
+        if ((text || "").length >= 4) { setMessages((m) => m.slice(0, -1)); proposeOutline(text); return; }
+        setMessages((m) => [...m.slice(0, -1), { role: "ai", node: <span>可以告诉我具体改哪里——比如「补充教学反思」「作业改成分层」，或者直接给我一个新课题。</span> }]);
         return;
       }
-      setMessages((m) => [...m.slice(0, -1), { role: "ai", node: <span>可以告诉我具体改哪里——比如「补充教学反思」「作业改成分层」，或者直接给我一个新课题。</span> }]);
+      // 大纲阶段 → 可用对话调整大纲，或重新列
+      if (outline) {
+        if (/反思/.test(text) && !outline.some((o) => o.key === "reflect")) {
+          setOutline((o) => [...o, { id: "reflect", key: "reflect", name: "教学反思", hint: "课后反思与改进方向" }]);
+          setMessages((m) => [...m.slice(0, -1), { role: "ai", node: <span>已在大纲末尾加上「教学反思」，确认后会一并展开。</span> }]);
+          return;
+        }
+        if ((text || "").length >= 4) { setMessages((m) => m.slice(0, -1)); proposeOutline(text); return; }
+        setMessages((m) => [...m.slice(0, -1), { role: "ai", node: <span>可以在右侧直接调整大纲；或者告诉我新的课题，我重新列。确认后我才开始展开。</span> }]);
+        return;
+      }
+      // 还没有大纲/文档（问候态）→ 当作课题，先列大纲
+      if ((text || "").length >= 2) { setMessages((m) => m.slice(0, -1)); proposeOutline(text); return; }
+      setMessages((m) => [...m.slice(0, -1), { role: "ai", node: <span>告诉我课题（最好带上版本和年级），我先列个大纲给你过目。</span> }]);
     }, 600);
   };
   const { headerRecognizing, send } = useSmartSend({ scenarioId: scenario.id, onSwitch, setMessages, localSend: handleSend });
@@ -308,8 +440,9 @@ function LessonWorkspace({ scenario, query, onHome, onSwitch, fromIntent, resume
       <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", background: "var(--canvas)" }}>
         {/* 文档工具栏 */}
         <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 16px", borderBottom: "1px solid var(--line)", background: "var(--surface)", flexShrink: 0 }}>
-          <span style={{ fontSize: 13.5, fontWeight: 800, color: "var(--ink)" }}>教学设计</span>
+          <span style={{ fontSize: 13.5, fontWeight: 800, color: "var(--ink)" }}>{outline ? "教案大纲" : "教学设计"}</span>
           {doc && <span style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 11.5, color: "var(--auth-ink)", fontWeight: 700 }}><Icon name="shield" size={13} /> 对齐课标 · 权威底座</span>}
+          {outline && <span style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 11.5, color: "var(--ink-3)", fontWeight: 700 }}><Icon name="list" size={13} /> 确认后展开成文</span>}
           <div style={{ flex: 1 }} />
           {doc && <span style={{ fontSize: 11.5, color: "var(--ink-3)", fontWeight: 600 }}>正文可直接点击编辑</span>}
           {doc && <Btn size="sm" kind="soft" icon="download" onClick={exportDoc}>导出 Word</Btn>}
@@ -324,6 +457,8 @@ function LessonWorkspace({ scenario, query, onHome, onSwitch, fromIntent, resume
                 <div key={i} className="ph-stripe" style={{ height: i === 0 ? 30 : 70, borderRadius: 12, maxWidth: i === 0 ? w + 200 : "100%" }} />
               ))}
             </div>
+          ) : outline ? (
+            <LessonOutlinePanel meta={meta} outline={outline} setOutline={setOutline} onConfirm={confirmOutline} mobile={mobile} />
           ) : !doc ? (
             <div style={{ height: "100%", display: "grid", placeItems: "center" }}>
               <div className="home-fade" style={{ width: "min(540px,100%)", textAlign: "center" }}>

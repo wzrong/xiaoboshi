@@ -149,6 +149,8 @@ function App() {
     else if (scenarioId === "find") view = <FindWorkspace key={wsKey} {...common} />;
     else if (scenarioId === "textbook") view = <TextbookWorkspace key={wsKey} {...common} />;
     else if (scenarioId === "courseware") view = <CoursewareWorkspace key={wsKey} {...common} />;
+    else if (scenarioId === "lesson") view = <LessonWorkspace key={wsKey} {...common} />;
+    else if (scenarioId === "mindmap") view = <MindmapWorkspace key={wsKey} {...common} />;
     else view = <GenericWorkspace key={wsKey} {...common} />;
   }
 
