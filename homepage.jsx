@@ -860,6 +860,23 @@ function LeftRail({ page, loggedIn, onNavigate, onNewChat, onResume, onLogout, o
         <NavItem icon="spark" label="我的记忆" accent active={page === "memory"} onClick={() => go("memory")} />
         <NavItem icon="grid" label="我的内容" active={page === "works"} onClick={() => go("works")} />
         <NavItem icon="basket" label={basketCount > 0 ? `资源篮 · ${basketCount}` : "资源篮"} onClick={() => (loggedIn ? onOpenBasket && onOpenBasket() : onRequireLogin())} />
+        <a
+          href="https://wzrong.me/xiaoboshi/docs/产品设计文档.html"
+          target="_blank"
+          rel="noopener noreferrer"
+          title="产品文档"
+          style={{ width: "100%", boxSizing: "border-box", display: "flex", alignItems: "center", gap: 11, padding: open ? "10px 12px" : "10px 0", justifyContent: open ? "flex-start" : "center", borderRadius: 11, border: "none", cursor: "pointer", fontFamily: "var(--font-zh)", fontSize: 14, fontWeight: 600, background: "transparent", color: "var(--ink-2)", textDecoration: "none", transition: "background .15s" }}
+          onMouseEnter={(e) => (e.currentTarget.style.background = "var(--surface-2)")}
+          onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+        >
+          <span style={{ flexShrink: 0, width: 20, height: 20, display: "grid", placeItems: "center" }}><Icon name="file" size={18} /></span>
+          {open && (
+            <span style={{ whiteSpace: "nowrap", lineHeight: 1, flex: 1, display: "inline-flex", alignItems: "center", gap: 6 }}>
+              产品文档
+              <Icon name="external" size={13} />
+            </span>
+          )}
+        </a>
         {!open && (
           <NavItem icon="chat" label="历史对话" active={page === "history"} onClick={() => (loggedIn ? onNavigate("history") : onRequireLogin())} />
         )}
