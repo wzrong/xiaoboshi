@@ -1,6 +1,14 @@
 // components.jsx — shared UI atoms
 
-// AI 小博士 avatar — friendly, built from simple shapes (graduation circle + "博")
+// AI 小博士 brand mark — uses the finalized graduation-cap asset (white knockout on transparent).
+// variant: "white" (for colored backgrounds) | "blue" (for light backgrounds).
+function GradCapMark({ size = 40, variant = "white" }) {
+  const src = variant === "blue" ? "assets/logo-cap-blue.png" : "assets/logo-cap-white.png";
+  return (
+    <img src={src} alt="" aria-hidden="true" style={{ width: size, height: "auto", display: "block", flexShrink: 0, pointerEvents: "none" }} />
+  );
+}
+
 function BotAvatar({ size = 40, glow = false }) {
   return (
     <div
@@ -11,19 +19,15 @@ function BotAvatar({ size = 40, glow = false }) {
         background: "linear-gradient(160deg, var(--brand), var(--brand-deep))",
         display: "grid",
         placeItems: "center",
-        color: "#fff",
-        fontWeight: 800,
-        fontSize: size * 0.42,
-        fontFamily: "var(--font-zh)",
         boxShadow: glow
           ? "0 10px 26px -8px var(--brand-glow), 0 0 0 5px color-mix(in oklab, var(--brand), transparent 92%), inset 0 1px 0 rgba(255,255,255,.38)"
           : "inset 0 1px 0 rgba(255,255,255,.38)",
         position: "relative",
         flexShrink: 0,
-        letterSpacing: "-1px",
+        overflow: "hidden",
       }}
     >
-      <span style={{ marginTop: size * 0.02 }}>博</span>
+      <GradCapMark size={size * 0.62} variant="white" />
     </div>
   );
 }
@@ -191,7 +195,7 @@ function Chip({ children, active, onClick, icon, removable, onRemove }) {
   );
 }
 
-Object.assign(window, { BotAvatar, AuthorityBadge, Btn, ScenarioGlyph, Dots, Chip });
+Object.assign(window, { BotAvatar, GradCapMark, AuthorityBadge, Btn, ScenarioGlyph, Dots, Chip });
 
 // ---- Attachment / reference-material atoms ----
 function ClipButton({ onFiles, label = "参考资料", compact = false }) {
