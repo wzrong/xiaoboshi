@@ -283,15 +283,15 @@ function SecLabel({ icon, children }) {
 }
 
 // 完整回答气泡（替代旧的写死 AnswerBlock）
-function DynamicAnswer({ ans, activeCite, setActiveCite, onFollow }) {
+function DynamicAnswer({ ans, activeCite, setActiveCite, onFollow, grouped }) {
   const meta = TYPE_META[ans.type] || TYPE_META.concept;
   const CiteMark = ({ id, n }) => (
     <sup onMouseEnter={() => setActiveCite(id)} onMouseLeave={() => setActiveCite(null)}
       style={{ cursor: "pointer", fontSize: 10, fontWeight: 800, color: "#fff", background: activeCite === id ? "var(--accent)" : "var(--brand)", borderRadius: 5, padding: "1px 5px", margin: "0 2px", fontFamily: "var(--font-num)", transition: "background .15s", verticalAlign: "super" }}>{n}</sup>
   );
   return (
-    <div className="ans-pop" style={{ display: "flex", gap: 11, alignItems: "flex-start" }}>
-      <BotAvatar size={30} glow />
+    <div className="ans-pop" style={{ display: "flex", gap: 11, alignItems: "flex-start", marginTop: grouped ? -8 : 0 }}>
+      {grouped ? <div style={{ width: 30, flexShrink: 0 }} /> : <BotAvatar size={30} glow />}
       <div style={{ flex: 1, minWidth: 0, background: "var(--surface)", border: "1px solid var(--line)", borderRadius: "4px 16px 16px 16px", padding: "16px 18px", boxShadow: "0 8px 26px -20px rgba(0,0,0,.3)" }}>
         {/* 回答类型标识 — 让用户看到"系统理解了这是哪类问题" */}
         <div style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "3px 9px", borderRadius: 999, background: `oklch(0.96 0.03 ${meta.hue})`, border: `1px solid oklch(0.88 0.06 ${meta.hue})`, color: `oklch(0.45 0.12 ${meta.hue})`, fontSize: 11, fontWeight: 800, marginBottom: 12 }}>

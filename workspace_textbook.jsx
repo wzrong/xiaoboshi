@@ -43,8 +43,9 @@ function TextbookWorkspace({ scenario, query, onHome, onSwitch, fromIntent, logg
   // ---- which textbook is open (cold-start) ----
   const demoBook = { edition: TREE.edition, subject: TREE.subject, name: "必修1", stage: "高中", section: "第5章 第4节 · 能量之源——光合作用" };
   const memBook = loggedIn && M.textbook ? { edition: M.textbook.edition, subject: M.textbook.subject || "生物", name: (M.textbook.book || "必修1").replace(/^.*·\s*/, ""), stage: M.textbook.stage, section: M.textbook.section, when: M.textbook.when } : null;
-  const [book, setBook] = tS(() => tbStored.book || (pendingA ? demoBook : (query ? demoBook : memBook))); // null → show picker
-  const viaMemory = !query && !tbStored.book && !pendingA && !!memBook;
+  const [book, setBook] = tS(() => tbStored.book || (pendingA ? demoBook : (query ? demoBook : null))); // null → show guide/picker
+  // memory is no longer auto-opened into an empty pane; it's offered as a 「继续上次」 resume card on the guide page
+  const viaMemory = false;
 
   // ---- which chapter/section is open in the catalog (clickable TOC) ----
   const findActiveSec = () => { for (let ci = 0; ci < TREE.chapters.length; ci++) for (let si = 0; si < TREE.chapters[ci].sections.length; si++) if (TREE.chapters[ci].sections[si].active) return { ci, si }; return { ci: 0, si: 0 }; };
@@ -101,7 +102,13 @@ function TextbookWorkspace({ scenario, query, onHome, onSwitch, fromIntent, logg
     if (pendingA) {
       return [...hist, pendingA.kind === "compare" ? { role: "ai", compare: true } : { role: "ai", answer: true, ans: curAns }];
     }
-    if (!book) return hist;
+    if (!book) {
+      // cold start (no textbook yet): greet on a fresh session; on a mid-session
+      // switch just leave the standard 「已切换」 divider — the right-stage picker guides.
+      return window.enterThread(scenario, (
+        <span>你好！我是你的<b>教材助手</b>。在{mobile ? "下方" : "右侧"}选择一本教材开始，或直接提问——我的回答都会标注<b style={{ color: "var(--auth-ink)" }}>教材原文出处</b>。</span>
+      ));
+    }
     const greet = greetFor(book, viaMemory ? "memory" : "plain");
     if (fromIntent && query) {
       return [
@@ -181,11 +188,56 @@ function TextbookWorkspace({ scenario, query, onHome, onSwitch, fromIntent, logg
   const sampleQs = ["光反应和暗反应有什么区别？", "「光合作用」在哪些教材里出现过？", "本节的重点概念有哪些？", "这部分知识中考/高考怎么考？"];
   const { headerRecognizing, send } = useSmartSend({ scenarioId: scenario.id, onSwitch, setMessages: setThread, localSend: ask });
 
-  // ---- cold start: no textbook selected (logged out / no memory) → pick one first ----
+  // ---- cold start: no textbook selected (switched in / logged out / no memory) ----
+  // keep the assistant (left chat) visible; show the guide/picker as the right stage.
   if (!book) {
+    const coldSend = (q) => { openFree(); ask(q); };
+    const picker = <TextbookPicker onOpen={openBook} onFree={openFree} onMulti={openMulti} onResume={memBook ? () => applyBook(memBook, "memory") : null} memBook={memBook} demoBook={demoBook} />;
     return (
-      <WorkspaceShell scenario={scenario} onHome={onHome} onSwitch={onSwitch} nav={nav} headerRecognizing={headerRecognizing}>
-        <TextbookPicker onOpen={openBook} onFree={openFree} onMulti={openMulti} demoBook={demoBook} />
+      <WorkspaceShell scenario={scenario} onHome={onHome} onSwitch={onSwitch} nav={nav} headerRecognizing={headerRecognizing} chatLed={!mobile} mobilePanelLabel="选择教材" mobilePanelIcon="book">
+        <TbChat mobile={mobile}>
+          <div ref={scrollRef} style={{ flex: 1, overflowY: "auto", padding: mobile ? "18px 16px" : "20px 16px" }}>
+            <div style={{ maxWidth: 720, margin: "0 auto", display: "flex", flexDirection: "column", gap: 18 }}>
+              {thread.map((m, i) => {
+                const prev = thread[i - 1];
+                const grouped = m.role !== "user" && m.role !== "sys" && !!prev && prev.role !== "user" && prev.role !== "sys";
+                return <Bubble key={i} m={m} grouped={grouped} />;
+              })}
+              {thinking && (
+                <div style={{ display: "flex", gap: 9, alignItems: "center" }}>
+                  <BotAvatar size={28} />
+                  <div style={{ display: "flex", flexDirection: "column", gap: 5, background: "var(--surface)", border: "1px solid var(--line)", padding: "10px 14px", borderRadius: 12 }}>
+                    <span style={{ fontSize: 12.5, color: "var(--ink-3)", fontWeight: 600, display: "inline-flex", gap: 7, alignItems: "center" }}>
+                      <Icon name="book" size={13} /> 正在比对教材原文 <Dots />
+                    </span>
+                  </div>
+                </div>
+              )}
+              {/* on mobile the picker lives inline under the greeting */}
+              {mobile && (
+                <div style={{ border: "1px solid var(--line)", borderRadius: 16, overflow: "hidden", background: "var(--surface)" }}>{picker}</div>
+              )}
+            </div>
+          </div>
+          <div style={{ padding: "0 16px", borderTop: "1px solid var(--line)", background: "var(--surface)" }}>
+            <div style={{ maxWidth: 720, margin: "0 auto", padding: "12px 0 14px" }}>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 10 }}>
+                {sampleQs.map((q, i) => (
+                  <button key={i} onClick={() => coldSend(q)} className="sug-pop" style={{ animationDelay: `${i * 0.05}s`, display: "inline-flex", alignItems: "center", gap: 6, padding: "7px 12px", borderRadius: 999, border: "1px dashed var(--brand-soft-border)", background: "var(--brand-soft)", color: "var(--brand-deep)", fontSize: 12.5, fontWeight: 600, cursor: "pointer", fontFamily: "var(--font-zh)" }}>
+                    <Icon name="chat" size={13} /> {q}
+                  </button>
+                ))}
+              </div>
+              <TextbookInput onAsk={coldSend} />
+            </div>
+          </div>
+        </TbChat>
+        {/* right stage: the guide / textbook picker (desktop only; mobile shows it inline above) */}
+        {!mobile && (
+          <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", background: "var(--surface)" }}>
+            {picker}
+          </div>
+        )}
       </WorkspaceShell>
     );
   }
@@ -288,11 +340,13 @@ function TextbookWorkspace({ scenario, query, onHome, onSwitch, fromIntent, logg
                 <span style={{ fontSize: 12.5, color: "var(--brand-deep)", fontWeight: 600, lineHeight: 1.5 }}>已根据「记忆」自动打开你常看的教材——若要换一本，点顶部「切换」即可。</span>
               </div>
             )}
-            {thread.map((m, i) =>
-              m.answer ? (
-                <DynamicAnswer key={i} ans={m.ans || curAns} activeCite={activeCite} setActiveCite={setActiveCite} onFollow={onFollow} />
+            {thread.map((m, i) => {
+              const prev = thread[i - 1];
+              const grouped = m.role !== "user" && m.role !== "sys" && !!prev && prev.role !== "user" && prev.role !== "sys";
+              return m.answer ? (
+                <DynamicAnswer key={i} ans={m.ans || curAns} activeCite={activeCite} setActiveCite={setActiveCite} onFollow={onFollow} grouped={grouped} />
               ) : m.compare ? (
-                <CompareBlock key={i} CMP={CMP} activeCite={activeCite} setActiveCite={setActiveCite} onAsk={ask} />
+                <CompareBlock key={i} CMP={CMP} activeCite={activeCite} setActiveCite={setActiveCite} onAsk={ask} grouped={grouped} />
               ) : m.role === "sys" ? (
                 <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, padding: "2px 0" }}>
                   <span style={{ flex: 1, height: 1, background: "var(--line)" }} />
@@ -302,9 +356,9 @@ function TextbookWorkspace({ scenario, query, onHome, onSwitch, fromIntent, logg
                   <span style={{ flex: 1, height: 1, background: "var(--line)" }} />
                 </div>
               ) : (
-                <Bubble key={i} m={m} />
-              )
-            )}
+                <Bubble key={i} m={m} grouped={grouped} />
+              );
+            })}
             {thinking && (
               <div style={{ display: "flex", gap: 9, alignItems: "center" }}>
                 <BotAvatar size={28} />
@@ -607,8 +661,8 @@ function AnswerBlock({ A, activeCite, setActiveCite }) {
   );
 }
 
-// ---- cold-start textbook picker (shown when no memory / not logged in) ----
-function TextbookPicker({ onOpen, onFree, onMulti, demoBook, compact }) {
+// ---- cold-start textbook picker (the 问教材 guide page) ----
+function TextbookPicker({ onOpen, onFree, onMulti, onResume, memBook, demoBook, compact }) {
   const mobile = useIsMobile();
   const [stage, setStage] = tS("");
   const [subject, setSubject] = tS("");
@@ -651,6 +705,22 @@ function TextbookPicker({ onOpen, onFree, onMulti, demoBook, compact }) {
           <h2 style={{ fontSize: 21, fontWeight: 800, color: "var(--ink)", margin: "0 0 7px" }}>问教材，答案有据可依</h2>
           <p style={{ fontSize: 13.5, color: "var(--ink-2)", margin: 0, lineHeight: 1.6 }}>每条回答都会<b style={{ color: "var(--brand-deep)" }}>标注教材原文出处</b>。可指定一本、勾选多本做<b>综合复习</b>，也可以不限教材直接问。</p>
         </div>
+
+        {/* continue last — surfaced from 「记忆」 when logged in */}
+        {!compact && onResume && memBook && (
+          <button onClick={onResume} style={{ width: "100%", display: "flex", alignItems: "center", gap: 12, padding: "14px 16px", borderRadius: 14, border: "1px solid var(--brand)", background: "var(--brand-soft)", cursor: "pointer", fontFamily: "var(--font-zh)", marginBottom: 12, textAlign: "left", position: "relative" }}
+            onMouseEnter={(e) => (e.currentTarget.style.boxShadow = "0 10px 26px -16px var(--brand)")}
+            onMouseLeave={(e) => (e.currentTarget.style.boxShadow = "none")}>
+            <span style={{ position: "absolute", top: 11, right: 12, display: "inline-flex", alignItems: "center", gap: 4, fontSize: 10.5, fontWeight: 800, color: "var(--brand-deep)" }}><Icon name="spark" size={11} /> 来自记忆</span>
+            <span style={{ width: 40, height: 40, borderRadius: 11, background: "var(--surface)", border: "1px solid var(--brand-soft-border)", display: "grid", placeItems: "center", color: "var(--brand-deep)", flexShrink: 0 }}><Icon name="book" size={20} /></span>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: "var(--ink-3)", marginBottom: 2 }}>继续上次</div>
+              <div style={{ fontSize: 14.5, fontWeight: 800, color: "var(--ink)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{memBook.edition} {memBook.subject} · {memBook.name}</div>
+              {memBook.section && <div style={{ fontSize: 11.5, color: "var(--ink-3)", fontWeight: 600, marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>上次看到 {memBook.section}</div>}
+            </div>
+            <Icon name="arrow" size={18} />
+          </button>
+        )}
 
         {/* free ask — no textbook needed */}
         <button onClick={onFree} style={{ width: "100%", display: "flex", alignItems: "center", gap: 12, padding: "13px 16px", borderRadius: 14, border: "1px dashed var(--brand-soft-border)", background: "var(--brand-soft)", cursor: "pointer", fontFamily: "var(--font-zh)", marginBottom: 20, textAlign: "left" }}
@@ -719,12 +789,12 @@ function TextbookPicker({ onOpen, onFree, onMulti, demoBook, compact }) {
   );
 }
 
-function CompareBlock({ CMP, activeCite, setActiveCite, onAsk }) {
+function CompareBlock({ CMP, activeCite, setActiveCite, onAsk, grouped }) {
   const mobile = useIsMobile();
   const depthColor = (d) => (d.includes("深入") ? { c: "var(--brand-deep)", bg: "var(--brand-soft)", bd: "var(--brand-soft-border)" } : { c: "oklch(0.45 0.11 175)", bg: "oklch(0.95 0.04 175)", bd: "oklch(0.86 0.06 175)" });
   return (
-    <div className="cite-pop" style={{ display: "flex", gap: 11 }}>
-      <BotAvatar size={28} />
+    <div className="cite-pop" style={{ display: "flex", gap: 11, marginTop: grouped ? -8 : 0 }}>
+      {grouped ? <div style={{ width: 28, flexShrink: 0 }} /> : <BotAvatar size={28} />}
       <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 13 }}>
         {/* summary */}
         <div style={{ background: "var(--surface)", border: "1px solid var(--line)", borderRadius: "4px 14px 14px 14px", padding: "14px 16px" }}>

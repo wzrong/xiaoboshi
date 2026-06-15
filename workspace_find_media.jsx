@@ -48,7 +48,7 @@ function VideoCard({ v, onPlay, onDownload, source }) {
 }
 
 // ---- VIDEO PLAYER (modal) ----
-function VideoPlayer({ v, onClose, onDownload, onAsk, onAddBasket }) {
+function VideoPlayer({ v, onClose, onDownload, onAsk, onAddBasket, loggedIn }) {
   const mobile = useIsMobile();
   const total = parseDur(v.duration);
   const [playing, setPlaying] = mS(true);
@@ -64,7 +64,6 @@ function VideoPlayer({ v, onClose, onDownload, onAsk, onAddBasket }) {
     setCur(Math.round(((e.clientX - r.left) / r.width) * total));
   };
   const activeChapter = [...v.chapters].reverse().find((c) => parseDur(c.t) <= cur);
-  const asks = ["总结这个视频讲了什么", "适合课堂哪个环节用", "提取关键知识点", "找配套的练习"];
 
   return (
     <div className="drawer-pop" style={{ position: "absolute", inset: 0, zIndex: 25, background: "var(--surface)", display: "flex", flexDirection: "column" }}>
@@ -141,18 +140,7 @@ function VideoPlayer({ v, onClose, onDownload, onAsk, onAddBasket }) {
       </div>
       {/* bottom: keep-collaborating asks (sticky) + actions */}
       <div style={{ flexShrink: 0, borderTop: "1px solid var(--line)", background: "var(--surface)" }}>
-        {onAsk && (
-          <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 16px", borderBottom: "1px solid var(--line)", background: "var(--brand-soft)" }}>
-            <span style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 12, fontWeight: 700, color: "var(--brand-deep)", flexShrink: 0 }}>
-              <Icon name="spark" size={14} /> 问小博士
-            </span>
-            <div style={{ flex: 1, minWidth: 0, display: "flex", gap: 7, overflowX: "auto", paddingBottom: 2, scrollbarWidth: "none" }}>
-              {asks.map((q, i) => (
-                <button key={i} onClick={() => onAsk(q, v)} style={{ whiteSpace: "nowrap", flexShrink: 0, padding: "6px 12px", borderRadius: 999, border: "1px solid var(--brand-soft-border)", background: "var(--surface)", color: "var(--brand-deep)", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "var(--font-zh)" }}>{q}</button>
-              ))}
-            </div>
-          </div>
-        )}
+        <AskBar item={v} loggedIn={loggedIn} onAsk={onAsk} />
         <div style={{ padding: 14, display: "flex", gap: 10, alignItems: "center", justifyContent: "flex-end", flexWrap: "wrap", rowGap: 10 }}>
           <Btn kind="soft" icon="basket" onClick={() => onAddBasket && onAddBasket({ id: v.id, title: v.title, type: v.cat || "教学视频", meta: [v.grade, v.subject, v.duration].filter(Boolean).join(" · ") })}>加入资源篮</Btn>
           <Btn kind="primary" icon="download" onClick={onDownload}>下载视频</Btn>
@@ -206,7 +194,7 @@ function AlbumCard({ a, onOpen, source }) {
 }
 
 // ---- ALBUM PAGE (overlay) ----
-function AlbumPage({ a, onClose, onPreviewItem, onPlayItem, onDownload, onAddBasket }) {
+function AlbumPage({ a, onClose, onPreviewItem, onPlayItem, onDownload, onAddBasket, onAsk, loggedIn }) {
   const mobile = useIsMobile();
   const total = a.composition.reduce((s, c) => s + c.n, 0);
   return (
@@ -255,6 +243,8 @@ function AlbumPage({ a, onClose, onPreviewItem, onPlayItem, onDownload, onAddBas
           </div>
         </div>
       </div>
+      {/* album-level 问小博士 (only collection-level questions; sub-resources keep their own) */}
+      <AskBar item={a} loggedIn={loggedIn} onAsk={onAsk} />
       {/* item list */}
       <div style={{ flex: 1, overflowY: "auto", padding: "16px 24px 28px" }}>
         <div style={{ fontSize: 13, fontWeight: 700, color: "var(--ink-2)", marginBottom: 12 }}>专辑内资料（{a.items.length} / {a.total}）</div>

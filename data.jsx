@@ -64,6 +64,17 @@ const SCENARIOS = [
     sample: "七下数学 第七章 相交线 思维导图",
     samples: ["七下数学 第七章 相交线 思维导图", "九年级 二次函数 思维导图", "高中政治部编版 选必二 第一课 思维导图", "中考一轮复习 分式 考点思维导图"],
   },
+  {
+    id: "grade",
+    name: "改作业",
+    tagline: "作业批改与讲评",
+    desc: "上传作业，AI 逐题批改、分析错因，并生成评语与班级统计",
+    icon: "grade",
+    hue: 8,
+    sample: "批改这份七年级数学《有理数》随堂练习",
+    samples: ["批改这份七年级数学《有理数》随堂练习", "整班批改八上英语 Unit2 单元卷，给质量分析", "这份作文按中考标准评分并写评语", "批改这份物理实验报告，标出问题"],
+    badge: "拍照可批",
+  },
 ];
 
 // 通用助手 — fallback scenario when intent doesn't match a specific tool.
@@ -87,6 +98,7 @@ const HOME_EXAMPLES = [
   { t: "北师大版八下 平行四边形的判定 教学设计", to: "lesson" },
   { t: "九年级 二次函数 思维导图", to: "mindmap" },
   { t: "光反应和暗反应有什么区别？", to: "textbook" },
+  { t: "批改这份七年级数学《有理数》随堂练习", to: "grade" },
 ];
 
 
@@ -486,4 +498,43 @@ const TEXTBOOK_COMPARE = {
   ],
 };
 
-window.AIDATA = { SCENARIOS, GENERAL, HOME_EXAMPLES, RESOURCES, TEXTBOOK_TREE, TEXTBOOK_ANSWER, TEXTBOOK_COMPARE, VIDEOS, ALBUMS, USER_MEMORY };
+// ---- 改作业 mock data：单份精批 + 整班批改 ----
+const GRADE_DATA = {
+  single: {
+    student: "王梓涵",
+    title: "《有理数》随堂练习",
+    subject: "数学", grade: "七年级", edition: "人教版",
+    total: 100, score: 86, correctRate: 82, used: "约 12 秒",
+    questions: [
+      { n: 1, type: "选择", status: "right", stu: "B", ans: "B", got: 4, full: 4, point: "相反数的概念" },
+      { n: 2, type: "选择", status: "wrong", stu: "C", ans: "D", got: 0, full: 4, point: "有理数大小比较", reason: "两个负数比较大小时，绝对值大的反而小——把 −3 当成比 −1 大了。" },
+      { n: 3, type: "填空", status: "right", stu: "−7", ans: "−7", got: 4, full: 4, point: "绝对值" },
+      { n: 4, type: "填空", status: "wrong", stu: "8", ans: "−8", got: 0, full: 4, point: "去括号法则", reason: "去括号时括号前是负号，括号内各项都要变号，漏变了符号。" },
+      { n: 5, type: "计算", status: "right", stu: "−1", ans: "−1", got: 8, full: 8, point: "有理数混合运算" },
+      { n: 6, type: "计算", status: "half", stu: "过程见卷", ans: "−5/6", got: 6, full: 10, point: "分数四则运算", reason: "运算顺序正确，但通分时最小公倍数取错，最后结果未化为最简分数。" },
+      { n: 7, type: "解答", status: "half", stu: "过程见卷", ans: "见解析", got: 8, full: 12, point: "数轴与绝对值应用", reason: "建模思路清晰，分类讨论时漏掉了点在原点左侧的情形，丢了一种解。" },
+    ],
+    comment: "整体掌握良好，基本运算法则清晰、书写规范。失分集中在两类：① 负数的大小比较与符号处理（第 2、4 题）；② 解答题分类讨论不全面（第 7 题）。建议本周针对「负号与绝对值」再做一组专项练习，并在解答题中养成「先列举所有情形」的习惯。",
+  },
+  classMode: {
+    title: "八（3）班 ·《有理数》随堂练习",
+    count: 42, graded: 42, avg: 78.5, max: 98, min: 41, passRate: 88, excellentRate: 26,
+    perQuestion: [
+      { n: 1, rate: 95 }, { n: 2, rate: 62 }, { n: 3, rate: 90 }, { n: 4, rate: 55 },
+      { n: 5, rate: 83 }, { n: 6, rate: 67 }, { n: 7, rate: 48 },
+    ],
+    commonErrors: [
+      { q: "第 2 题", point: "有理数大小比较", rate: 38, note: "两个负数比较，误以为绝对值大的更大" },
+      { q: "第 4 题", point: "去括号法则", rate: 45, note: "括号前为负号时漏变内部各项符号" },
+      { q: "第 7 题", point: "分类讨论", rate: 52, note: "数轴应用题中遗漏点在原点左侧的情形" },
+    ],
+    weakPoints: ["负数的大小比较与符号处理", "去括号法则的符号变化", "解答题的分类讨论意识"],
+    watch: [
+      { name: "陈一鸣", score: 41, note: "多道基础题失分，符号概念需个别辅导" },
+      { name: "刘思远", score: 53, note: "运算法则薄弱，建议补充基础训练" },
+      { name: "周子萱", score: 58, note: "会做但书写不规范，过程分丢失较多" },
+    ],
+  },
+};
+
+window.AIDATA = { SCENARIOS, GENERAL, HOME_EXAMPLES, RESOURCES, TEXTBOOK_TREE, TEXTBOOK_ANSWER, TEXTBOOK_COMPARE, VIDEOS, ALBUMS, USER_MEMORY, GRADE_DATA };

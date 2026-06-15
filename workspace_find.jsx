@@ -272,7 +272,7 @@ function RecognizingPanel() {
 }
 
 // ---- Chat panel (left) ----
-function ChatPanel({ messages, onSend, suggestions, placeholder, width = 380, pinnedCard, roundsById, shownId, onOpenRound, retrieving, header }) {
+function ChatPanel({ messages, onSend, suggestions, placeholder, width = 380, pinnedCard, roundsById, shownId, onOpenRound, retrieving, header, onOpenRef, clarify, onResolveClarify, onSkipClarify }) {
   const [draft, setDraft] = uS("");
   const [att, setAtt] = uS([]);
   const scrollRef = uR(null);
@@ -292,11 +292,13 @@ function ChatPanel({ messages, onSend, suggestions, placeholder, width = 380, pi
       <div ref={scrollRef} style={{ flex: 1, overflowY: "auto", padding: "20px 18px", display: "flex", flexDirection: "column", gap: 16 }}>
         {messages.map((m, i) => {
           const round = roundsById && m.roundId != null ? roundsById[m.roundId] : null;
-          return <Bubble key={i} m={m} round={round} active={round && round.id === shownId && !retrieving} onOpenRound={onOpenRound} />;
+          const prev = messages[i - 1];
+          const grouped = m.role !== "user" && m.role !== "sys" && !!prev && prev.role !== "user" && prev.role !== "sys";
+          return <Bubble key={i} m={m} round={round} active={round && round.id === shownId && !retrieving} onOpenRound={onOpenRound} grouped={grouped} onOpenRef={onOpenRef} />;
         })}
         {pinnedCard}
       </div>
-      {suggestions && suggestions.length > 0 && (
+      {suggestions && suggestions.length > 0 && !clarify && (
         <div style={{ padding: "10px 16px 4px", display: "flex", flexWrap: "wrap", gap: 8 }}>
           {suggestions.map((s, i) => (
             <button
@@ -324,6 +326,7 @@ function ChatPanel({ messages, onSend, suggestions, placeholder, width = 380, pi
           ))}
         </div>
       )}
+      {clarify && <ClarifyPopover onResolve={onResolveClarify} onSkip={onSkipClarify} />}
       <div style={{ padding: 14, borderTop: "1px solid var(--line)" }}>
         <FileChips files={att} onRemove={(i) => setAtt((f) => f.filter((_, j) => j !== i))} style={{ marginBottom: 8 }} />
         <div style={{ display: "flex", gap: 8, alignItems: "flex-end", background: "var(--surface-2)", border: "1px solid var(--line)", borderRadius: 14, padding: 8 }}>
@@ -337,7 +340,7 @@ function ChatPanel({ messages, onSend, suggestions, placeholder, width = 380, pi
               }
             }}
             rows={1}
-            placeholder={placeholder || "继续告诉我你的调整…"}
+            placeholder={clarify ? "选上方，或直接在这里描述你要找的资源…" : (placeholder || "继续告诉我你的调整…")}
             style={{ flex: 1, border: "none", outline: "none", background: "transparent", resize: "none", fontSize: 13.5, fontFamily: "var(--font-zh)", color: "var(--ink)", lineHeight: 1.5, padding: "4px 2px" }}
           />
           <ClipButton onFiles={(names) => setAtt((f) => [...f, ...names].slice(0, 6))} compact />
@@ -374,7 +377,7 @@ function ArtifactChip({ a }) {
   );
 }
 
-function Bubble({ m, round, active, onOpenRound }) {
+function Bubble({ m, round, active, onOpenRound, grouped, onOpenRef }) {
   // slim system marker — scenario switches etc. A divider, not a chat bubble.
   if (m.role === "sys") {
     return (
@@ -391,6 +394,20 @@ function Bubble({ m, round, active, onOpenRound }) {
   if (m.role === "user") {
     return (
       <div style={{ alignSelf: "flex-end", maxWidth: "85%", display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6 }}>
+        {/* resource reference card — shown ABOVE the bubble when the question came from a resource detail */}
+        {m.ref && (
+          <button
+            onClick={() => onOpenRef && m.refItem && onOpenRef(m.refItem)}
+            title={m.refItem ? "查看这份资源" : ""}
+            style={{ display: "flex", alignItems: "center", gap: 8, maxWidth: 260, padding: "7px 11px", borderRadius: 11, border: "1px solid var(--brand-soft-border)", background: "var(--brand-soft)", cursor: m.refItem ? "pointer" : "default", textAlign: "left", fontFamily: "var(--font-zh)" }}
+          >
+            <span style={{ width: 24, height: 24, borderRadius: 7, background: "var(--surface)", border: "1px solid var(--brand-soft-border)", display: "grid", placeItems: "center", color: "var(--brand-deep)", flexShrink: 0 }}><Icon name="quote" size={12} /></span>
+            <span style={{ minWidth: 0 }}>
+              <span style={{ display: "block", fontSize: 11.5, fontWeight: 800, color: "var(--ink)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 210 }}>{m.ref.title}</span>
+              <span style={{ display: "block", fontSize: 10, color: "var(--brand-deep)", fontWeight: 700, marginTop: 1 }}>引用·{m.ref.type}{m.refItem ? " · 点此查看" : ""}</span>
+            </span>
+          </button>
+        )}
         {m.files && m.files.length > 0 && (
           <div style={{ display: "flex", flexWrap: "wrap", gap: 6, justifyContent: "flex-end" }}>
             {m.files.map((name, i) => (
@@ -410,12 +427,21 @@ function Bubble({ m, round, active, onOpenRound }) {
     );
   }
   return (
-    <div style={{ display: "flex", gap: 9, alignItems: "flex-start", maxWidth: m.wide ? "98%" : "92%", width: m.wide ? "100%" : "auto" }}>
-      <BotAvatar size={28} />
+    <div style={{ display: "flex", gap: 9, alignItems: "flex-start", maxWidth: m.wide ? "98%" : "92%", width: m.wide ? "100%" : "auto", marginTop: grouped ? -8 : 0 }}>
+      {/* one avatar per assistant turn — consecutive AI blocks share the first one */}
+      {grouped ? <div style={{ width: 28, flexShrink: 0 }} /> : <BotAvatar size={28} />}
       <div style={{ flex: m.wide ? 1 : "0 1 auto", minWidth: 0, display: "flex", flexDirection: "column", gap: 8 }}>
-        <div style={{ background: "var(--surface-2)", border: "1px solid var(--line)", padding: "10px 13px", borderRadius: "4px 14px 14px 14px", fontSize: 13.5, lineHeight: 1.65, color: "var(--ink)" }}>
-          {m.typing ? <Dots /> : m.render ? m.render() : (m.node || m.text)}
-        </div>
+        {m.answered ? (
+          /* resolved 追问 — a compact summary card inside the AI turn (question + chosen value) */
+          <div style={{ border: "1px solid var(--line)", borderRadius: 13, background: "var(--surface)", padding: "11px 14px" }}>
+            <div style={{ fontSize: 13, fontWeight: 800, color: "var(--ink)", lineHeight: 1.45 }}>{m.answered.q}</div>
+            <div style={{ fontSize: 13, color: "var(--ink-3)", fontWeight: 600, marginTop: 3, display: "inline-flex", alignItems: "center", gap: 6 }}><Icon name="check" size={13} sw={2.4} />{m.answered.value}</div>
+          </div>
+        ) : (
+          <div style={{ background: "var(--surface-2)", border: "1px solid var(--line)", padding: "10px 13px", borderRadius: "4px 14px 14px 14px", fontSize: 13.5, lineHeight: 1.65, color: "var(--ink)" }}>
+            {m.typing ? <Dots /> : m.render ? m.render() : (m.node || m.text)}
+          </div>
+        )}
         {/* per-round result pill — a sibling BELOW the bubble, not nested inside it */}
         {!m.typing && round && (
           <ResultPill count={round.count} active={active} onOpen={() => onOpenRound && onOpenRound(round.id)} />
@@ -431,7 +457,7 @@ function Bubble({ m, round, active, onOpenRound }) {
 
 // ---- 找资源 workspace ----
 const MORE_FILTERS = [
-  { key: "grade", label: "学段", opts: ["七年级", "八年级", "九年级"] },
+  { key: "grade", label: "年级", opts: ["七年级", "八年级", "九年级"] },
   { key: "subject", label: "学科", opts: ["数学", "物理", "英语"] },
   { key: "edition", label: "版本", opts: ["人教版", "北师大版", "通用"] },
   { key: "type", label: "类型", opts: ["同步练习", "单元测试", "微课·学案", "专项突破", "教学课件"] },
@@ -454,12 +480,34 @@ const SUBJ_LIST = ["语文", "数学", "英语", "物理", "化学", "生物", "
 const GRADE_LIST = ["七年级", "八年级", "九年级", "高一", "高二", "高三", "六年级", "五年级", "四年级", "三年级"];
 function pickSubject(q) { return q ? SUBJ_LIST.find((s) => q.includes(s)) : null; }
 function pickGrade(q) { return q ? GRADE_LIST.find((g) => q.includes(g)) : null; }
+// does this message look like a resource-find request (vs. a vague follow-up / chit-chat)?
+function isFindLike(q) {
+  if (!q) return false;
+  if (detectKind(q) !== "all") return true;
+  return /找|搜|有没有|有无|资源|试卷|卷子|课件|教案|讲义|学案|练习|习题|真题|素材|课时|下载|来一?[份点个]|帮我找|推荐|有什么/.test(q);
+}
 // content-aware, self-consistent replies grounded in a resource/video's REAL fields
 function replyForResource(q, item) {
   const isVideo = item && (item.kind === "video" || item.cat || item.chapters);
   const t = (item && item.title) || "这份资料";
   const tags = (item && item.tags) || [];
   const tagStr = tags.length ? tags.join("、") : "本节核心知识点";
+
+  // album-level questions (专辑只回答合集级问题)
+  if (item && (item.composition || item._kind === "album")) {
+    const comp = (item.composition || []).map((c) => `${c.type}${c.n}`).join("、");
+    if (/主题|涵盖|知识|范围|考点|重点/.test(q)) return <span>《{t}》是一套 <b>{item.total || ""} 份</b>的成套合集，含 {comp}，覆盖 <b style={{ color: "var(--brand-deep)" }}>{tagStr}</b> 等主题。可整套打包，也可只取其中的试卷或课件单独使用 —— 你想先看哪一类我都能帮你拆出来。</span>;
+  }
+  // 讲题（A 类，基于原卷定位）
+  if (/这道题|怎么讲|讲一下|讲题|讲解这/.test(q)) {
+    return <span>好的，我从《{t}》里挑一道<b>典型题</b>来讲：先帮学生厘清 <b style={{ color: "var(--brand-deep)" }}>{tags[0] || "核心知识点"}</b> 的解题入口，再分步推导、标注易错点。你也可以指定第几题，我据原卷逐题讲解。</span>;
+  }
+  // 考点 / 教学重点 / 教学目标 / 学习目标 / 教学流程（A 类内容总结）
+  if (/考点|教学重点|教学目标|学习目标|学习重点|要点|教学设计思路|教学流程|学习流程/.test(q)) {
+    if (isVideo) return <span>《{t}》的核心要点：依次覆盖 {(item.chapters || []).slice(0, 3).map((c) => c.name).join("、") || tagStr}。我可整理成<b>逐条要点清单</b>，或据此<b style={{ color: "var(--brand-deep)" }}>配套出题</b>巩固。</span>;
+    const lead = /流程/.test(q) ? "教学流程" : /设计思路/.test(q) ? "教学设计思路" : /学习目标|学习重点/.test(q) ? "学习目标与重点" : /目标/.test(q) ? "教学目标" : /考点/.test(q) ? "考点" : "教学重点";
+    return <span>已通读《{t}》，为你梳理其<b>{lead}</b>：围绕 <b style={{ color: "var(--brand-deep)" }}>{tagStr}</b> 展开{item && item.qcount ? `，配 ${item.qcount} 道题逐层巩固` : ""}{item && item.pages ? `，共 ${item.pages} 页` : ""}。需要我整理成可直接用的清单，或据此<b>生成教案 / 出题</b>都行。</span>;
+  }
 
   if (/出卷|出题|组卷|生成|做一份|出一份|出份/.test(q)) {
     if (isVideo) return <span>《{t}》是<b>{item.cat || "教学视频"}</b>，我可以按它讲解的知识点，<b style={{ color: "var(--brand-deep)" }}>配一套同步练习</b>。对我说「出卷子」即可带着这些知识点过去。</span>;
@@ -594,22 +642,170 @@ function RetrievingPanel() {
   );
 }
 
+// ---- resource-detail question list (资源详情页「问小博士」) ------------------
+// Per《资源详情页-问题列表交互设计》：题组按资源类别生成，纯前端，2 固定 + 1~2 动态，
+// 上限 4。固定的「适合我的班级」依赖记忆系统，未登录（记忆未就绪）时隐藏。
+function resourceCategory(item) {
+  if (!item) return "paper";
+  if (item._kind === "video" || item.kind === "video" || item.cat || item.chapters) return "video";
+  if (item._kind === "album" || item.composition) return "album";
+  const t = (item.type || "") + "";
+  if (/课件|PPT|幻灯/.test(t)) return "courseware";
+  if (/学案|导学案/.test(t)) return "studyguide";   // 含「微课·学案」优先归学案
+  if (/教案|教学设计|说课/.test(t)) return "lesson";
+  if (/微课/.test(t)) return "video";
+  if (/假期|寒假|暑假|作业/.test(t)) return "homework";
+  if (/素材|图片|图集/.test(t)) return "material";
+  if (/备课|综合/.test(t)) return "comprehensive";
+  return "paper"; // 同步练习/单元测试/专项突破/试卷/试题/习题/真题…
+}
+
+// short category label shown on the chat reference card
+function refLabel(item) {
+  if (!item) return "资料";
+  if (item.composition || item._kind === "album") return "专辑合集 · " + (item.total || (item.composition || []).reduce((s, c) => s + c.n, 0)) + " 份";
+  return item.type || item.cat || "资料";
+}
+
+// build the ordered question list for one resource (cls: A 内容RAG / B 画像对比 / C 生成handoff)
+function buildResourceAsks(item, loggedIn) {
+  const cat = resourceCategory(item);
+  const summary = {
+    paper: "总结这份资料的考点", homework: "总结这份作业的考点",
+    courseware: "总结这份课件的教学重点", lesson: "总结这份教案的教学重点",
+    studyguide: "总结这份学案的教学重点", comprehensive: "总结这份资料的教学重点",
+    video: "总结这个视频的要点", album: "总结这个合集的主题范围", material: null,
+  }[cat];
+  const dynamic = {
+    paper: [{ text: "这道题怎么讲", cls: "A" }, { text: "据此出一份同类卷子", cls: "C", to: "paper" }],
+    homework: [{ text: "据此出一份同类练习", cls: "C", to: "paper" }],
+    courseware: [{ text: "提取这份课件的教学目标", cls: "A" }, { text: "据此生成一份教案", cls: "C", to: "lesson" }],
+    lesson: [{ text: "整理一下这份教案的教学流程", cls: "A" }],
+    studyguide: [{ text: "提取学生学习目标和重点", cls: "A" }],
+    comprehensive: [{ text: "提取这份资料的教学设计思路", cls: "A" }],
+    video: [{ text: "这个视频适合课堂哪个环节", cls: "A" }],
+    album: [{ text: "这个合集涵盖哪些知识主题", cls: "A" }],
+    material: [],
+  }[cat] || [];
+  const list = [];
+  if (summary) list.push({ text: summary, cls: "A" });
+  if (loggedIn) list.push({ text: cat === "album" ? "这个合集适合我的班级吗？" : "这份适合我的班级吗？", cls: "B" });
+  list.push(...dynamic);
+  return list.slice(0, 4);
+}
+
+// shared 问小博士 bar at the bottom of every resource-detail surface (preview / player / album)
+function AskBar({ item, loggedIn, onAsk }) {
+  if (!onAsk) return null;
+  const asks = buildResourceAsks(item, loggedIn);
+  if (!asks.length) return null;
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 16px", borderBottom: "1px solid var(--line)", background: "var(--brand-soft)" }}>
+      <span style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 12, fontWeight: 700, color: "var(--brand-deep)", flexShrink: 0 }}>
+        <Icon name="spark" size={14} /> 问小博士
+      </span>
+      <div style={{ flex: 1, minWidth: 0, display: "flex", gap: 7, overflowX: "auto", paddingBottom: 2, scrollbarWidth: "none" }}>
+        {asks.map((q, i) => (
+          <button key={i} onClick={() => onAsk(q, item)} style={{ whiteSpace: "nowrap", flexShrink: 0, padding: "6px 12px", borderRadius: 999, border: "1px solid var(--brand-soft-border)", background: "var(--surface)", color: "var(--brand-deep)", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "var(--font-zh)", display: "inline-flex", alignItems: "center", gap: 5 }}>
+            {q.text}{q.cls === "C" && <Icon name="sparkArrow" size={13} />}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ---- 追问 / 澄清弹框（找资源参数不足时，一轮补齐学科 + 学段/年级）------------------
+// 触发见 handleSend：消息是「找资源意图」但学科未知且无已确认上下文时，从输入框
+// 上方上拉浮现（Claude AskUserQuestion 式）。最多一轮；学科必选、学段+年级选填；
+// 支持键盘 1–9 选学科、回车确认、Esc 跳过；也可直接在下方输入框自己描述。
+const CLARIFY_SUBJECTS = ["语文", "数学", "英语", "物理", "化学", "生物", "历史", "地理", "政治"];
+const CLARIFY_STAGES = ["小学", "初中", "高中"];
+const CLARIFY_GRADES_BY_STAGE = {
+  小学: ["一年级", "二年级", "三年级", "四年级", "五年级", "六年级"],
+  初中: ["七年级", "八年级", "九年级"],
+  高中: ["高一", "高二", "高三"],
+};
+function ClarifyPopover({ onResolve, onSkip }) {
+  const [sj, setSj] = uS(null);
+  const [stage, setStage] = uS(null);
+  const [gr, setGr] = uS(null);
+  const sjRef = uR(sj); sjRef.current = sj;
+  const grRef = uR(gr); grRef.current = gr;
+  const stageRef = uR(stage); stageRef.current = stage;
+  uE(() => {
+    const onKey = (e) => {
+      const typing = /^(input|textarea)$/i.test((e.target && e.target.tagName) || "");
+      if (e.key === "Escape") { onSkip && onSkip(); return; }
+      if (typing) return; // don't hijack keys while the user is typing a free answer
+      if (e.key === "Enter" && sjRef.current) { e.preventDefault(); onResolve(sjRef.current, grRef.current, stageRef.current); return; }
+      const n = parseInt(e.key, 10);
+      if (n >= 1 && n <= CLARIFY_SUBJECTS.length) { e.preventDefault(); setSj(CLARIFY_SUBJECTS[n - 1]); }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+  const pickStage = (s) => { if (stage === s) { setStage(null); setGr(null); } else { setStage(s); setGr(null); } };
+  const lbl = { fontSize: 11, fontWeight: 800, color: "var(--ink-3)", marginBottom: 8, letterSpacing: ".3px" };
+  const wrap = { display: "flex", flexWrap: "wrap", gap: 7 };
+  const chip = (active) => ({ display: "inline-flex", alignItems: "center", gap: 6, padding: "6px 12px", borderRadius: 999, border: `1px solid ${active ? "var(--brand)" : "var(--line)"}`, background: active ? "var(--brand-soft)" : "var(--surface)", color: active ? "var(--brand-deep)" : "var(--ink-2)", fontSize: 12.5, fontWeight: 700, cursor: "pointer", fontFamily: "var(--font-zh)", transition: "all .12s" });
+  const kbd = (active) => ({ display: "grid", placeItems: "center", width: 15, height: 15, borderRadius: 4, fontSize: 9.5, fontWeight: 800, fontFamily: "var(--font-num, inherit)", background: active ? "var(--brand)" : "var(--surface-2)", color: active ? "#fff" : "var(--ink-4)", border: active ? "none" : "1px solid var(--line)" });
+  const valLabel = gr || stage || "";
+  return (
+    <div className="clarify-pop" style={{ margin: "0 14px 10px", borderRadius: 16, border: "1px solid var(--line)", background: "var(--surface)", boxShadow: "0 16px 40px -16px rgba(20,30,50,0.28), 0 2px 8px -4px rgba(20,30,50,0.12)", overflow: "hidden" }}>
+      <div style={{ display: "flex", alignItems: "flex-start", gap: 10, padding: "13px 14px 10px" }}>
+        <span style={{ width: 26, height: 26, borderRadius: 8, background: "var(--brand-soft)", border: "1px solid var(--brand-soft-border)", display: "grid", placeItems: "center", color: "var(--brand-deep)", flexShrink: 0, marginTop: 1 }}><Icon name="spark" size={14} /></span>
+        <div style={{ flex: 1, minWidth: 0, fontSize: 13.5, fontWeight: 700, color: "var(--ink)", lineHeight: 1.5 }}>想帮你筛得更准 —— 找<b style={{ color: "var(--brand-deep)" }}>哪个学科、学段</b>的资源？</div>
+        <button onClick={() => onSkip && onSkip()} title="跳过（Esc）" style={{ width: 24, height: 24, borderRadius: 7, border: "none", background: "transparent", color: "var(--ink-4)", cursor: "pointer", display: "grid", placeItems: "center", flexShrink: 0 }}><Icon name="close" size={15} /></button>
+      </div>
+      <div style={{ padding: "2px 14px 12px", display: "flex", flexDirection: "column", gap: 13 }}>
+        <div>
+          <div style={lbl}>学科（必选）</div>
+          <div style={wrap}>{CLARIFY_SUBJECTS.map((s, i) => <button key={s} style={chip(sj === s)} onClick={() => setSj(s)}><span style={kbd(sj === s)}>{i + 1}</span>{s}</button>)}</div>
+        </div>
+        <div>
+          <div style={lbl}>学段（选填）</div>
+          <div style={wrap}>{CLARIFY_STAGES.map((s) => <button key={s} style={chip(stage === s)} onClick={() => pickStage(s)}>{s}</button>)}</div>
+        </div>
+        {stage && (
+          <div>
+            <div style={lbl}>年级（选填）</div>
+            <div style={wrap}>{CLARIFY_GRADES_BY_STAGE[stage].map((g) => <button key={g} style={chip(gr === g)} onClick={() => setGr(gr === g ? null : g)}>{g}</button>)}</div>
+          </div>
+        )}
+      </div>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, padding: "10px 14px", borderTop: "1px solid var(--line-2)", background: "var(--surface-2)" }}>
+        <button onClick={() => onSkip && onSkip()} style={{ border: "none", background: "transparent", color: "var(--ink-3)", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "var(--font-zh)" }}>跳过，先给我看大致结果</button>
+        <button
+          disabled={!sj}
+          onClick={() => onResolve(sj, gr, stage)}
+          style={{ padding: "8px 16px", borderRadius: 10, border: "none", background: sj ? "var(--brand)" : "var(--line)", color: sj ? "#fff" : "var(--ink-4)", fontSize: 13, fontWeight: 700, cursor: sj ? "pointer" : "default", fontFamily: "var(--font-zh)", display: "inline-flex", alignItems: "center", gap: 6 }}
+        >
+          <Icon name="search" size={14} /> {sj ? `检索 ${valLabel ? valLabel + " · " : ""}${sj}` : "请先选学科"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function FindWorkspace({ scenario, query, onHome, onSwitch, fromIntent, resume, loggedIn, nav, onAddBasket, onOpenBasket, onOpenContent, basketCount = 0, basketItems }) {
   const ALL = window.AIDATA.RESOURCES;
   const isResume = !!resume;
   const initKind = detectKind(query);
   const topicMatch = query && (query.match(/《(.+?)》/) || [])[1];
-  const initSubject = pickSubject(query) || (initKind === "all" ? "数学" : null);
-  const initGrade = pickGrade(query) || (initKind === "all" ? "七年级" : null);
+  const initSubject = pickSubject(query) || ((loggedIn && initKind === "all") ? "数学" : null);
+  const initGrade = pickGrade(query) || ((loggedIn && initKind === "all") ? "七年级" : null);
 
   const [preview, setPreview] = uS(null);
   const [player, setPlayer] = uS(null);
   const [album, setAlbum] = uS(null);
   const [toast, setToast] = uS(null);
+  const [clarify, setClarify] = uS(null); // {forText} when the slide-up 追问 popover is open
   const mobile = useIsMobile();
 
-  // accumulated understanding (subject/grade) so vague follow-ups still resolve
-  const ctxRef = uR({ subject: initSubject, grade: initGrade });
+  // accumulated understanding (subject/grade) so vague follow-ups still resolve.
+  // subjectConfirmed = 学科已由记忆画像 / 用户输入 / 追问确认（非软默认）；决定是否还需追问。
+  const ctxRef = uR({ subject: initSubject, grade: initGrade, subjectConfirmed: !!pickSubject(query) || !!(loggedIn && initSubject) });
   const findStored = window.ChatSession.scratch.find || {};
   const idRef = uR(findStored.nextId || 0);
   const sheetSeqRef = uR(0);
@@ -684,17 +880,12 @@ function FindWorkspace({ scenario, query, onHome, onSwitch, fromIntent, resume, 
 
   const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(null), 2200); };
 
-  // open a (frozen) round in the result pane; on mobile also slide the sheet up
-  const openRound = (id) => { setRetrieving(false); setActiveRound(id); setSheetAnchor("r" + id + "#" + (sheetSeqRef.current++)); };
+  // open a (frozen) round in the result pane; also close any open resource detail
+  // (preview / player / album) so the chat's result entries stay clickable on top of a drawer
+  const openRound = (id) => { setPreview(null); setPlayer(null); setAlbum(null); setRetrieving(false); setActiveRound(id); setSheetAnchor("r" + id + "#" + (sheetSeqRef.current++)); };
 
-  const handleSend = (text, files) => {
-    setMessages((m) => [...m, { role: "user", text, files }]);
-    // keep an open item if the message is about it; otherwise the pane follows the chat
-    const aboutCurrent = /这个|这份|这节|这道|这段|这本|它|当前|上面|本视频|本资料|本节|刚才/.test(text || "");
-    if (!aboutCurrent && (preview || player || album)) { setPreview(null); setPlayer(null); setAlbum(null); }
-    // explicit generation request → hand off to the 出卷子 scenario
-    if (text.includes("出卷") && !aboutCurrent) { onSwitch && onSwitch("paper", text); return; }
-    // retrieval: reply appears FIRST, results only after a brief search (no fake-instant pane)
+  // commit a retrieval round (shared by typed sends and 追问 resolution)
+  const doRetrieve = (text) => {
     setMessages((m) => [...m, { role: "ai", typing: true }]);
     setRetrieving(true);
     setActiveRound(null);
@@ -711,14 +902,86 @@ function FindWorkspace({ scenario, query, onHome, onSwitch, fromIntent, resume, 
     }, 850);
   };
 
+  const handleSend = (text, files) => {
+    setMessages((m) => [...m, { role: "user", text, files }]);
+    // keep an open item if the message is about it; otherwise the pane follows the chat
+    const aboutCurrent = /这个|这份|这节|这道|这段|这本|它|当前|上面|本视频|本资料|本节|刚才/.test(text || "");
+    if (!aboutCurrent && (preview || player || album)) { setPreview(null); setPlayer(null); setAlbum(null); }
+    // explicit generation request → hand off to the 出卷子 scenario
+    if (text.includes("出卷") && !aboutCurrent) { onSwitch && onSwitch("paper", text); return; }
+    // 追问弹框开着时，用户在输入框打字 = 直接作答（自己填）→ 关框、吸收学科学段、检索
+    if (clarify) {
+      setClarify(null);
+      if (pickSubject(text)) { ctxRef.current.subject = pickSubject(text); ctxRef.current.subjectConfirmed = true; }
+      if (pickGrade(text)) ctxRef.current.grade = pickGrade(text);
+      doRetrieve(text);
+      return;
+    }
+    // 参数不足判断：是找资源意图、但学科未知且没有已确认的上下文 → 先回一句「已识别但信息不全」的铺垫，再上拉追问弹框（最多一轮）
+    const subjKnown = pickSubject(text) || (ctxRef.current.subjectConfirmed ? ctxRef.current.subject : null);
+    if (!aboutCurrent && isFindLike(text) && !subjKnown) {
+      const wantWord = (text.match(/试卷|卷子|课件|教案|讲义|学案|练习|习题|真题|素材|视频|专辑|资源/) || ["资源"])[0];
+      setMessages((m) => [...m, { role: "ai", typing: true }]);
+      setTimeout(() => {
+        setMessages((m) => [...m.slice(0, -1), { role: "ai", node: (<span>好的，帮你找{wantWord}没问题 —— 只是你还没说是<b style={{ color: "var(--brand-deep)" }}>哪个学科、哪个学段</b>的，我先确认一下，免得给你一堆不相关的。下方选一下就行，也可以直接打字告诉我。</span>) }]);
+        setClarify({ forText: text });
+      }, 600);
+      return;
+    }
+    // 用户明确说出学科 → 记为已确认，后续模糊跟进不再追问
+    if (pickSubject(text)) { ctxRef.current.subject = pickSubject(text); ctxRef.current.subjectConfirmed = true; }
+    if (pickGrade(text)) ctxRef.current.grade = pickGrade(text);
+    doRetrieve(text);
+  };
+
+  // 追问弹框选定后：写入上下文（标记已确认）→ 在 AI 回复里补一张紧凑的「已答」摘要卡 → 继续检索
+  const resolveClarify = (sj, gr, stage) => {
+    ctxRef.current.subject = sj; ctxRef.current.subjectConfirmed = true;
+    if (gr) ctxRef.current.grade = gr;
+    const forText = clarify ? clarify.forText : "";
+    setClarify(null);
+    const gradePart = gr || stage;
+    const value = `${gradePart ? gradePart + " · " : ""}${sj}`;
+    setMessages((m) => [...m, { role: "ai", answered: { q: "想找哪个学科、学段的资源？", value } }]);
+    doRetrieve(forText || `${gr || stage || ""}${sj}`);
+  };
+
+  // 追问弹框跳过 / 关闭：不带学科，先给一批混合结果（不空手）
+  const skipClarify = () => {
+    const forText = clarify ? clarify.forText : "";
+    setClarify(null);
+    doRetrieve(forText);
+  };
+
   const { headerRecognizing, send } = useSmartSend({ scenarioId: scenario.id, onSwitch, setMessages, localSend: handleSend });
 
-  // ask the AI about a specific open item; replies stay grounded in its real fields
+  // ask the AI about a specific open item. The question is sent to the SAME left
+  // conversation (no new session); a resource reference card is pinned above the
+  // user bubble. Replies stay grounded in the item's real fields. C-class questions
+  // (出同类卷子 / 生成教案) hand off to the matching generation scenario — right pane
+  // switches, the left conversation continues.
   const askAbout = (q, item) => {
-    setMessages((m) => [...m, { role: "user", text: q }, { role: "ai", typing: true }]);
+    const text = typeof q === "string" ? q : q.text;
+    const cls = (typeof q === "object" && q.cls) || "A";
+    const ref = { title: item.title, type: refLabel(item) };
+    if (cls === "C") {
+      const to = (typeof q === "object" && q.to) || "paper";
+      setMessages((m) => [...m, { role: "user", text, ref, refItem: item }]);
+      onSwitch && onSwitch(to, `据《${(item.title || "").slice(0, 16)}》${to === "lesson" ? "生成配套教案" : "出一份同类卷子"}`);
+      return;
+    }
+    setMessages((m) => [...m, { role: "user", text, ref, refItem: item }, { role: "ai", typing: true }]);
     setTimeout(() => {
-      setMessages((m) => [...m.slice(0, -1), { role: "ai", node: replyForResource(q, item) }]);
+      setMessages((m) => [...m.slice(0, -1), { role: "ai", node: replyForResource(text, item) }]);
     }, 750);
+  };
+
+  // reopen a resource referenced from a chat message (reference card click)
+  const openRef = (item) => {
+    if (!item) return;
+    if (item._kind === "video" || item.kind === "video" || item.cat || item.chapters) { setAlbum(null); setPreview(null); setPlayer(item); }
+    else if (item._kind === "album" || item.composition) { setPlayer(null); setPreview(null); setAlbum(item); }
+    else { setPlayer(null); setAlbum(null); setPreview(item); }
   };
 
   // album item helpers
@@ -755,7 +1018,7 @@ function FindWorkspace({ scenario, query, onHome, onSwitch, fromIntent, resume, 
 
   return (
     <WorkspaceShell scenario={scenario} onHome={onHome} onSwitch={onSwitch} nav={nav} headerRecognizing={headerRecognizing} mobilePanelLabel="资源" mobilePanelIcon="search" openSheetKey={sheetKey}>
-      <ChatPanel messages={messages} onSend={send} suggestions={suggestions} placeholder="例如：只看实验视频 / 整套打包下载" roundsById={roundsById} shownId={shownId} retrieving={retrieving} onOpenRound={openRound} />
+      <ChatPanel messages={messages} onSend={send} suggestions={suggestions} placeholder="例如：只看实验视频 / 整套打包下载" roundsById={roundsById} shownId={shownId} retrieving={retrieving} onOpenRound={openRound} onOpenRef={openRef} clarify={clarify} onResolveClarify={resolveClarify} onSkipClarify={skipClarify} />
       {/* results */}
       <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", position: "relative" }}>
         {!rounds.length && !retrieving && <FindColdStart loggedIn={!resume && loggedIn} onPick={(q) => handleSend(q)} />}
@@ -779,9 +1042,9 @@ function FindWorkspace({ scenario, query, onHome, onSwitch, fromIntent, resume, 
           </React.Fragment>
         )}
 
-        {album && <AlbumPage a={album} onClose={() => setAlbum(null)} onPreviewItem={previewItem} onPlayItem={playItem} onDownload={(msg) => showToast(msg)} onAddBasket={addBasket} />}
-        {preview && <PreviewDrawer r={preview} onClose={() => setPreview(null)} onAsk={askAbout} onAddBasket={addBasket} onDownload={() => showToast("已开始下载，可在「资源篮」查看")} />}
-        {player && <VideoPlayer v={player} onClose={() => setPlayer(null)} onAsk={askAbout} onAddBasket={addBasket} onDownload={() => showToast(`已开始下载视频《${player.title.slice(0, 12)}…》`)} />}
+        {album && <AlbumPage a={album} loggedIn={loggedIn} onAsk={askAbout} onClose={() => setAlbum(null)} onPreviewItem={previewItem} onPlayItem={playItem} onDownload={(msg) => showToast(msg)} onAddBasket={addBasket} />}
+        {preview && <PreviewDrawer r={preview} loggedIn={loggedIn} onClose={() => setPreview(null)} onAsk={askAbout} onAddBasket={addBasket} onDownload={() => showToast("已开始下载，可在「资源篮」查看")} />}
+        {player && <VideoPlayer v={player} loggedIn={loggedIn} onClose={() => setPlayer(null)} onAsk={askAbout} onAddBasket={addBasket} onDownload={() => showToast(`已开始下载视频《${player.title.slice(0, 12)}…》`)} />}
         {toast && (
           <div className="enter-pop" style={{ position: "absolute", bottom: 22, left: "50%", transform: "translateX(-50%)", background: "var(--ink)", color: "var(--surface)", padding: "11px 18px", borderRadius: 12, fontSize: 13.5, fontWeight: 600, boxShadow: "0 12px 30px -12px rgba(0,0,0,.5)", display: "inline-flex", alignItems: "center", gap: 8, zIndex: 60 }}>
             <Icon name="check" size={16} sw={2.6} /> {toast}
@@ -953,8 +1216,7 @@ function ResourceCard({ r, onPreview, onDownload, source }) {
   );
 }
 
-function PreviewDrawer({ r, onClose, onDownload, onAsk, onAddBasket }) {
-  const asks = ["总结这份资料的内容", "这份适合我的班级吗", "提取讲解重点", "据此出一份同类卷子"];
+function PreviewDrawer({ r, onClose, onDownload, onAsk, onAddBasket, loggedIn }) {
   return (
     <div className="drawer-pop" style={{ position: "absolute", inset: 0, zIndex: 25, background: "var(--canvas)", display: "flex", flexDirection: "column" }}>
       {/* header */}
@@ -988,18 +1250,7 @@ function PreviewDrawer({ r, onClose, onDownload, onAsk, onAddBasket }) {
       </div>
       {/* bottom: keep-collaborating asks (sticky, thumb-reachable) + actions */}
       <div style={{ flexShrink: 0, borderTop: "1px solid var(--line)", background: "var(--surface)" }}>
-        {onAsk && (
-          <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 16px", borderBottom: "1px solid var(--line)", background: "var(--brand-soft)" }}>
-            <span style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 12, fontWeight: 700, color: "var(--brand-deep)", flexShrink: 0 }}>
-              <Icon name="spark" size={14} /> 问小博士
-            </span>
-            <div style={{ flex: 1, minWidth: 0, display: "flex", gap: 7, overflowX: "auto", paddingBottom: 2, scrollbarWidth: "none" }}>
-              {asks.map((q, i) => (
-                <button key={i} onClick={() => onAsk(q, r)} style={{ whiteSpace: "nowrap", flexShrink: 0, padding: "6px 12px", borderRadius: 999, border: "1px solid var(--brand-soft-border)", background: "var(--surface)", color: "var(--brand-deep)", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "var(--font-zh)" }}>{q}</button>
-              ))}
-            </div>
-          </div>
-        )}
+        <AskBar item={r} loggedIn={loggedIn} onAsk={onAsk} />
         <div style={{ padding: 14, display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap", rowGap: 10, justifyContent: "flex-end" }}>
           <Btn kind="soft" icon="basket" onClick={() => onAddBasket && onAddBasket(r)}>加入资源篮</Btn>
           <Btn kind="primary" icon="download" onClick={onDownload}>下载文档</Btn>

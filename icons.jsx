@@ -83,6 +83,12 @@ function Icon({ name, size = 24, sw = 1.8 }) {
         <path d="M5 12.5l4 4 10-10" />
       </g>
     ),
+    grade: (
+      <g>
+        <rect x="4" y="4" width="16" height="16" rx="3.2" />
+        <path d="M8.2 12.4l2.6 2.6 5-5.6" />
+      </g>
+    ),
     download: (
       <g>
         <line x1="12" y1="4" x2="12" y2="15" />

@@ -4,12 +4,16 @@ const { useState: useStateIF, useEffect: useEffectIF } = React;
 // crude keyword-based intent detection over the 7 scenarios
 function detectScenario(text) {
   const t = text || "";
+  // grading is checked first — it must win over data-analysis & paper when a
+  // teacher says 批改/改作业 (even if the query also mentions 卷 or 质量分析).
+  if (/(批改|改作业|阅卷|批一批|批一下|批这|帮我批|打个分|评分并|写评语)/.test(t)) return "grade";
   // route teaching-consult / planning / data-analysis / translation to the
   // general assistant FIRST — these shouldn't be pulled into a making-tool.
   if (/(公开课|有什么建议|有何建议|教学建议|怎么(上|讲|教|引入)|如何(上|讲|教|提升|引入|设计)|教学计划|复习计划|备考方案|教学规划|教学反思|心得体会)/.test(t)) return "general";
   if (/(平均分|及格率|优秀率|质量分析|成绩分析|学情分析)/.test(t) && /\d/.test(t)) return "general";
   if (/(翻译|translate)/.test(t)) return "general";
   const rules = [
+    { id: "grade", kw: ["批改", "批批", "改作业", "改一下", "打分", "评分", "阅卷", "给这份", "这份作业", "学生作业", "错因", "写评语", "批一下"] },
     { id: "paper", kw: ["卷", "试卷", "组卷", "测试卷", "考试", "练习卷", "测验", "出题", "出一道", "出一套", "命题", "变式题", "每日一练"] },
     { id: "lesson", kw: ["教案", "教学设计", "详案", "学案", "导学案", "学习任务单", "说课"] },
     { id: "courseware", kw: ["课件", "ppt", "幻灯", "演示", "互动", "拖拽", "课堂活动", "抢答", "互动课件"] },
@@ -29,6 +33,7 @@ function detectScenario(text) {
 function detectSwitchTarget(text) {
   const t = (text || "").toLowerCase();
   const strong = [
+    { id: "grade", kw: ["批改作业", "批一批", "改作业", "批改这", "整班批改", "帮我批改", "打个分", "评分并", "阅卷", "生成质量分析"] },
     { id: "paper", kw: ["出卷", "出一份卷", "出张卷", "组卷", "出试卷", "出一套", "出份卷", "生成试卷", "出测试卷", "出练习卷", "来份卷子", "出个卷子", "出份卷子", "做份卷子", "做一份卷子", "出道卷子"] },
     { id: "lesson", kw: ["写教案", "出教案", "做教案", "生成教案", "教学设计", "写个教案", "来份教案"] },
     { id: "courseware", kw: ["做课件", "做个课件", "做ppt", "做个ppt", "生成课件", "做互动课件", "来个课件", "做张ppt", "做幻灯", "做演示文稿"] },
