@@ -252,19 +252,31 @@
       <div class="part-divider"></div>
 
       <h3 class="sec" id="s1"><span class="idx">1</span>场景定位与边界</h3>
-      <p>找资源与问教材是「三分法」里的两端：一端要<b>已有成品资源</b>，一端要<b>对知识点的直接理解</b>。两者前后衔接、不互斥。</p>
+      <p>找资源是小博士的<b>已有成品资源检索</b>场景：用户已经知道自己要一份现成的东西，系统的职责是从学科网资源库（及用户自己的内容、资源篮）里把贴合学情的成品<b>找出来并整理呈现</b>，而不是新建、也不是讲解知识。一句话定位——<b>「要现成的，来找资源」</b>。</p>
+      <h4 class="sub">纳入与不纳入</h4>
       <div class="tbl-wrap">
         <table>
-          <thead><tr><th>维度</th><th><span class="pill find">找资源</span></th><th><span class="pill tb">问教材</span></th></tr></thead>
+          <thead><tr><th>维度</th><th><span class="pill find">找资源负责</span></th><th>不在本场景</th></tr></thead>
           <tbody>
-            <tr><td><b>用户当前要什么</b></td><td>已有成品资源</td><td>对知识点的直接理解</td></tr>
-            <tr><td><b>典型输入</b></td><td>「找一份三角函数试卷」「下载光合作用课件」</td><td>「三角函数是什么」「这页怎么讲」</td></tr>
-            <tr><td><b>系统产出</b></td><td>检索整理出的资源列表</td><td>结构化知识回答</td></tr>
-            <tr><td><b>与对方的关系</b></td><td>回答底部「查看相关资源」可从问教材流入</td><td>资源不合适时「直接生成」可流出到生成场景</td></tr>
+            <tr><td><b>用户当前要什么</b></td><td>已有成品资源（文档 / 视频 / 成套专辑）</td><td>新建一份资源 · 对知识点的理解</td></tr>
+            <tr><td><b>典型输入</b></td><td>「找一份三角函数试卷」「下载光合作用课件」</td><td>「出一份三角函数卷子」「三角函数是什么」</td></tr>
+            <tr><td><b>系统产出</b></td><td>检索整理出的资源列表（冻结为可回看轮次）</td><td>AI 生成的新产物 · 结构化知识回答</td></tr>
+            <tr><td><b>不做什么</b></td><td colspan="2">不原创内容、不做知识讲解、不替用户决定排序之外的取舍——只检索、整理、呈现已有资源。</td></tr>
           </tbody>
         </table>
       </div>
-      <p class="sec-note"><b>覆盖范围：</b>从全局路由命中找资源（或用户主动进入）开始，到一次检索结果呈现并提供资源操作与跨场景流转为止，包含正常链路与异常分支。</p>
+      <h4 class="sub">与相邻场景的边界</h4>
+      <p>找资源真正要划清的是「<b>要现成的</b>」与「<b>要新生成的 / 要知识解答的</b>」之间的界：</p>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr><th>相邻场景</th><th>区别（它要什么）</th><th>衔接关系</th></tr></thead>
+          <tbody>
+            <tr><td><span class="pill tb">问教材</span></td><td>要对知识点的直接理解，而非成品文件</td><td>问教材回答底部「查看相关资源」可<b>流入</b>找资源</td></tr>
+            <tr><td><span class="pill paper">出卷子</span> <span class="pill lesson">写教案</span> <span class="pill cw">做课件</span></td><td>要 AI <b>新生成</b>一份资源，而非检索已有</td><td>已有资源不合适时，「直接生成」可<b>流出</b>到这些场景（见 <a class="xref" href="#s6">§6</a>）</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="sec-note">边界是<b>衔接而非互斥</b>：用户常先找现成的、不满意再让 AI 生成，或先问懂知识点再去找配套资源。全局意图路由负责在这几端之间分发（见 <a class="xref" href="#s4">§4</a>）。<br><b>覆盖范围：</b>从全局路由命中找资源（或用户主动进入）开始，到一次检索结果呈现并提供资源操作与跨场景流转为止，包含正常链路与异常分支。</p>
 
       <h3 class="sec" id="s2"><span class="idx">2</span>端到端流程总览</h3>
       <p>一次完整交互由<b>前台交互层、意图路由层、内部处理层</b>三段组成。主线如下：</p>
