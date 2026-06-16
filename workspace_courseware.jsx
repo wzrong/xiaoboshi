@@ -233,6 +233,7 @@ function CoursewareWorkspace({ scenario, query, onHome, onSwitch, fromIntent, re
       headerRecognizing={headerRecognizing}
       mobilePanelLabel="课件"
       mobilePanelIcon="slides"
+      openSheetKey={built ? "cw" + active : null}
       titleMeta={formBadge}
       subtitleOverride={cfg ? `${cfg.grade || ""}${cfg.subject || ""} · ${cfg.topic}` : "在对话中确认形式与课标，开始制作"}
       right={cfg &&

@@ -251,6 +251,22 @@ function Icon({ name, size = 24, sw = 1.8 }) {
         <path d="M14.2 9.6 16.6 12l-2.4 2.4" />
       </g>
     ),
+    enterFull: (
+      <g>
+        <path d="M4 9V5a1 1 0 0 1 1-1h4" />
+        <path d="M20 9V5a1 1 0 0 0-1-1h-4" />
+        <path d="M4 15v4a1 1 0 0 0 1 1h4" />
+        <path d="M20 15v4a1 1 0 0 1-1 1h-4" />
+      </g>
+    ),
+    exitFull: (
+      <g>
+        <path d="M9 4v3a2 2 0 0 1-2 2H4" />
+        <path d="M15 4v3a2 2 0 0 0 2 2h3" />
+        <path d="M9 20v-3a2 2 0 0 0-2-2H4" />
+        <path d="M15 20v-3a2 2 0 0 1 2-2h3" />
+      </g>
+    ),
     menu: (
       <g>
         <line x1="4" y1="7" x2="20" y2="7" />

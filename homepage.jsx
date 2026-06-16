@@ -218,7 +218,7 @@ function HomeConversation({ value, setValue, onSubmit, onPick, onResume, loggedI
           >
             <ScenarioGlyph icon={s.icon} hue={s.hue} size={26} />
             <span style={{ fontSize: 13.5, fontWeight: 700, color: "var(--ink)" }}>{s.name}</span>
-            {s.badge && (
+            {s.id === "courseware" && (
               <span style={{ fontSize: 9.5, fontWeight: 700, color: "oklch(0.5 0.13 45)", background: "oklch(0.95 0.05 45)", padding: "1px 6px", borderRadius: 999, marginLeft: -2 }}>互动</span>
             )}
           </button>

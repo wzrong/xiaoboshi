@@ -116,6 +116,10 @@ function WorkspaceShell({ scenario, onHome, onSwitch, children, right, afterTitl
   // desktop rail: collapsed = fully hidden, just an expand button in the header (Claude/豆包 style)
   const [railOpen, setRailOpenState] = React.useState(() => localStorage.getItem("aida_rail_open") !== "0");
   const setRailOpen = (v) => { setRailOpenState(v); try { localStorage.setItem("aida_rail_open", v ? "1" : "0"); } catch (e) {} };
+  // right stage pane: collapse-to-edge (give the conversation full width) and fullscreen (focus the output)
+  const [stageCollapsed, setStageCollapsedState] = React.useState(() => localStorage.getItem("aida_stage_collapsed") === "1");
+  const setStageCollapsed = (v) => { setStageCollapsedState(v); try { localStorage.setItem("aida_stage_collapsed", v ? "1" : "0"); } catch (e) {} };
+  const [stageFull, setStageFull] = React.useState(false);
   const kids = React.Children.toArray(children);
   const isChatLed = chatLed || (kids.length >= 2 && kids[0] && kids[0].type === ChatPanel);
   // mobile: auto-slide the content sheet up when the result pane becomes ready
@@ -123,8 +127,11 @@ function WorkspaceShell({ scenario, onHome, onSwitch, children, right, afterTitl
   // the same state, so it stays out of the way once dismissed.
   const lastKey = React.useRef(undefined);
   React.useEffect(() => {
-    if (!mobile || !isChatLed) { lastKey.current = openSheetKey; return; }
-    if (openSheetKey && openSheetKey !== lastKey.current) setSheetOpen(true);
+    if (!isChatLed) { lastKey.current = openSheetKey; return; }
+    if (openSheetKey && openSheetKey !== lastKey.current) {
+      if (mobile) setSheetOpen(true);
+      else { setStageCollapsed(false); setStageFull(false); } // new content arrived → reveal collapsed stage AND drop fullscreen so the conversation is visible
+    }
     lastKey.current = openSheetKey;
   }, [openSheetKey, mobile, isChatLed]);
 
@@ -167,8 +174,30 @@ function WorkspaceShell({ scenario, onHome, onSwitch, children, right, afterTitl
     </span>
   ) : null;
 
-  // slim chat-column header: status only — the avatar lives in the rail, not here
-  const chatHeader = (
+  // collapse / fullscreen controls for the RIGHT stage pane (desktop, chat-led only)
+  const stageCtrlBtn = { width: 30, height: 30, borderRadius: 8, border: "1px solid var(--line)", background: "var(--surface)", color: "var(--ink-2)", display: "grid", placeItems: "center", cursor: "pointer", flexShrink: 0 };
+  const stageControls = (!mobile && isChatLed) ? (
+    <span style={{ display: "inline-flex", gap: 6, marginLeft: 8 }}>
+      {stageFull ? (
+        <button onClick={() => setStageFull(false)} data-tip="退出全屏" data-tip-pos="bottom-right" aria-label="退出全屏" style={stageCtrlBtn} {...hoverFx}>
+          <Icon name="exitFull" size={16} />
+        </button>
+      ) : (
+        <React.Fragment>
+          <button onClick={() => setStageFull(true)} data-tip="全屏" data-tip-pos="bottom-right" aria-label="进入全屏" style={stageCtrlBtn} {...hoverFx}>
+            <Icon name="enterFull" size={16} />
+          </button>
+          <button onClick={() => setStageCollapsed(true)} data-tip="收起面板" data-tip-pos="bottom-right" aria-label="收起面板" style={stageCtrlBtn} {...hoverFx}>
+            <Icon name="panelExpand" size={17} />
+          </button>
+        </React.Fragment>
+      )}
+    </span>
+  ) : null;
+
+  // slim chat-column header: status only — the avatar lives in the rail, not here.
+  // rightSlot lets the collapsed state drop an "expand panel" button at the top-right.
+  const makeChatHeader = (rightSlot) => (
     <div style={{ display: "flex", alignItems: "center", gap: 9, padding: "0 12px", borderBottom: "1px solid var(--line)", background: "var(--surface)", flexShrink: 0, height: 51 }}>
       {expandBtn}
       {showRec ? (
@@ -182,7 +211,16 @@ function WorkspaceShell({ scenario, onHome, onSwitch, children, right, afterTitl
         </span>
       )}
       {titleMeta}
+      {rightSlot && <React.Fragment><div style={{ flex: 1 }} />{rightSlot}</React.Fragment>}
     </div>
+  );
+  const chatHeader = makeChatHeader(null);
+  // when the stage is collapsed, the conversation goes full-width and this button (top-right of the
+  // chat header, same spot the collapse button lived) brings the panel back — no weird full-height rail.
+  const expandStageBtn = (
+    <button onClick={() => setStageCollapsed(false)} data-tip={`展开${mobilePanelLabel}面板`} data-tip-pos="bottom-right" aria-label="展开面板" style={stageCtrlBtn} {...hoverFx}>
+      <Icon name="panelCollapse" size={17} />
+    </button>
   );
 
   // stage header — scenario tabs + per-scenario controls + actions, top of the RIGHT pane
@@ -198,11 +236,12 @@ function WorkspaceShell({ scenario, onHome, onSwitch, children, right, afterTitl
       {!showRec && afterTitle}
       <div style={{ flex: 1 }} />
       {!mobile && right}
+      {stageControls}
     </div>
   );
 
   const stage = (content) => (
-    <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", background: "var(--canvas)" }}>
+    <div style={{ flex: 1, minWidth: 0, minHeight: 0, display: "flex", flexDirection: "column", background: "var(--canvas)" }}>
       {stageHeader}
       <div style={{ flex: 1, minHeight: 0, display: "flex", position: "relative" }}>{content}</div>
     </div>
@@ -241,10 +280,24 @@ function WorkspaceShell({ scenario, onHome, onSwitch, children, right, afterTitl
               </MobileSheet>
             </React.Fragment>
           ) : isChatLed ? (
-            <ChatResizer>
-              {React.cloneElement(kids[0], { header: chatHeader })}
-              {stage(kids.slice(1))}
-            </ChatResizer>
+            stageFull ? (
+              <React.Fragment>
+                {/* fullscreen: stage covers the ENTIRE viewport (incl. left rail) via a fixed overlay;
+                    chat stays mounted (hidden) so its state survives */}
+                <div style={{ display: "none" }}>{React.cloneElement(kids[0], { header: null })}</div>
+                <div style={{ position: "fixed", inset: 0, zIndex: 200, background: "var(--canvas)", display: "flex", flexDirection: "column" }}>
+                  {stage(kids.slice(1))}
+                </div>
+              </React.Fragment>
+            ) : stageCollapsed ? (
+              // only the conversation remains — full-width chrome, content centered in a readable column (WorkBuddy-style)
+              React.cloneElement(kids[0], { header: makeChatHeader(expandStageBtn), width: "100%", centered: true })
+            ) : (
+              <ChatResizer>
+                {React.cloneElement(kids[0], { header: chatHeader })}
+                {stage(kids.slice(1))}
+              </ChatResizer>
+            )
           ) : (
             stage(children)
           )}
@@ -323,7 +376,7 @@ function SessionTaskBar({ task, onOpen }) {
 }
 
 // ---- Chat panel (left) ----
-function ChatPanel({ messages, onSend, suggestions, placeholder, width = 380, pinnedCard, roundsById, shownId, onOpenRound, retrieving, header, onOpenRef, clarify, onResolveClarify, onSkipClarify, taskBar }) {
+function ChatPanel({ messages, onSend, suggestions, placeholder, width = 380, pinnedCard, roundsById, shownId, onOpenRound, retrieving, header, onOpenRef, clarify, onResolveClarify, onSkipClarify, taskBar, centered }) {
   const [draft, setDraft] = uS("");
   const [att, setAtt] = uS([]);          // { id, name, status: uploading|parsing|ready }
   const [viewFile, setViewFile] = uS(null);
@@ -395,10 +448,13 @@ function ChatPanel({ messages, onSend, suggestions, placeholder, width = 380, pi
   };
 
   const sugs = (suggestions || []).slice(0, 3); // default show 3 follow-up questions
+  const CW = 760; // readable column width when the stage is collapsed (content centers, chrome stays full-width)
+  const colWrap = centered ? { maxWidth: CW, marginLeft: "auto", marginRight: "auto", width: "100%" } : null;
   return (
-    <div style={{ width, flexShrink: 0, display: "flex", flexDirection: "column", background: "var(--surface)", borderRight: "1px solid var(--line)" }}>
+    <div style={{ width, flexShrink: 0, display: "flex", flexDirection: "column", background: "var(--surface)", borderRight: centered ? "none" : "1px solid var(--line)" }}>
       {header}
-      <div ref={scrollRef} onScroll={recomputeBottom} style={{ flex: 1, overflowY: "auto", padding: "20px 18px", display: "flex", flexDirection: "column", gap: 16 }}>
+      <div ref={scrollRef} onScroll={recomputeBottom} style={{ flex: 1, overflowY: "auto", padding: "20px 18px" }}>
+        <div style={{ ...colWrap, display: "flex", flexDirection: "column", gap: 16 }}>
         {messages.map((m, i) => {
           const round = roundsById && m.roundId != null ? roundsById[m.roundId] : null;
           const prev = messages[i - 1];
@@ -406,9 +462,11 @@ function ChatPanel({ messages, onSend, suggestions, placeholder, width = 380, pi
           return <Bubble key={i} m={m} round={round} active={round && round.id === shownId && !retrieving} onOpenRound={handleOpenRound} grouped={grouped} onOpenRef={onOpenRef} onViewFile={setViewFile} />;
         })}
         {pinnedCard}
+        </div>
       </div>
       {sugs.length > 0 && !clarify && (
-        <div style={{ padding: "10px 16px 4px", display: "flex", flexWrap: "wrap", gap: 8 }}>
+        <div style={{ padding: "10px 16px 4px" }}>
+          <div style={{ ...colWrap, display: "flex", flexWrap: "wrap", gap: 8 }}>
           {sugs.map((s, i) => (
             <button
               key={i}
@@ -433,11 +491,12 @@ function ChatPanel({ messages, onSend, suggestions, placeholder, width = 380, pi
               <Icon name="spark" size={12} /> {s}
             </button>
           ))}
+          </div>
         </div>
       )}
       {clarify && <ClarifyPopover onResolve={onResolveClarify} onSkip={onSkipClarify} />}
       {!clarify && taskBar}
-      <div style={{ padding: 14, borderTop: "1px solid var(--line)", position: "relative" }}>
+      <div style={{ padding: "8px 14px 12px", position: "relative" }}>
         {/* scroll-to-bottom — appears when scrolled up; heartbeats while 小博士 is outputting */}
         {!atBottom && (
           <button onClick={scrollToBottom} title={aiBusy ? "小博士正在输出…" : "回到最新"} className={aiBusy ? "heartbeat" : ""} style={{ position: "absolute", top: -44, left: "50%", transform: "translateX(-50%)", width: 34, height: 34, borderRadius: "50%", border: "1px solid var(--line)", background: "var(--surface)", boxShadow: "0 8px 20px -8px rgba(20,30,50,.3)", color: "var(--brand-deep)", display: "grid", placeItems: "center", cursor: "pointer", zIndex: 6 }}>
@@ -448,7 +507,7 @@ function ChatPanel({ messages, onSend, suggestions, placeholder, width = 380, pi
         <div
           onFocusCapture={(e) => { e.currentTarget.style.borderColor = "var(--brand)"; e.currentTarget.style.boxShadow = "var(--ring), var(--input-shadow)"; }}
           onBlurCapture={(e) => { e.currentTarget.style.borderColor = "var(--input-border)"; e.currentTarget.style.boxShadow = "none"; }}
-          style={{ background: "var(--surface)", border: "1.5px solid var(--input-border)", borderRadius: 16, padding: "10px 12px 8px", transition: "border-color .2s, box-shadow .25s" }}
+          style={{ ...colWrap, background: "var(--surface)", border: "1.5px solid var(--input-border)", borderRadius: 16, padding: "10px 12px 8px", transition: "border-color .2s, box-shadow .25s" }}
         >
           <FileChips files={att} onRemove={(i) => setAtt((f) => f.filter((_, j) => j !== i))} onView={(n) => setViewFile(n)} style={{ marginBottom: att.length ? 8 : 0 }} />
           <textarea
@@ -477,6 +536,7 @@ function ChatPanel({ messages, onSend, suggestions, placeholder, width = 380, pi
             </button>
           </div>
         </div>
+        <div style={{ ...colWrap, textAlign: "center", fontSize: 10.5, color: "var(--ink-4)", marginTop: 5, lineHeight: 1.2 }}>AI 内容仅供教研参考</div>
       </div>
       {viewFile && <FileViewer name={viewFile} onClose={() => setViewFile(null)} />}
     </div>
@@ -1130,6 +1190,10 @@ function FindWorkspace({ scenario, query, onHome, onSwitch, fromIntent, resume, 
       return;
     }
     setMessages((m) => [...m, { role: "user", text, ref, refItem: item }, { role: "ai", typing: true }]);
+    // surface the conversation: close the open detail and bump the anchor so the shell
+    // auto-reveals (and exits fullscreen) — otherwise the reply is hidden behind the detail
+    setPreview(null); setPlayer(null); setAlbum(null);
+    setSheetAnchor("ask#" + (sheetSeqRef.current++));
     setTimeout(() => {
       setMessages((m) => [...m.slice(0, -1), { role: "ai", node: replyForResource(text, item) }]);
     }, 750);

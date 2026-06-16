@@ -191,6 +191,8 @@
   [data-tip][data-tip-pos="right"]:hover::after { transform: translateY(-50%) translateX(0); }
   [data-tip][data-tip-pos="bottom-left"]::after { left: 0; transform: translateX(0) translateY(-2px); }
   [data-tip][data-tip-pos="bottom-left"]:hover::after { transform: translateX(0) translateY(0); }
+  [data-tip][data-tip-pos="bottom-right"]::after { left: auto; right: 0; transform: translateX(0) translateY(-2px); }
+  [data-tip][data-tip-pos="bottom-right"]:hover::after { transform: translateX(0) translateY(0); }
 
   /* ---- workspace split resizer ---- */
   .ws-resizer { display: flex; align-items: center; justify-content: center; }
@@ -248,6 +250,7 @@
 <script type="text/babel" src="workspace_find.jsx"></script>
 <script type="text/babel" src="workspace_find_media.jsx"></script>
 <script type="text/babel" src="workspace_textbook_answers.jsx"></script>
+<script type="text/babel" src="workspace_textbook_cards.jsx"></script>
 <script type="text/babel" src="workspace_textbook.jsx"></script>
 <script type="text/babel" src="workspace_courseware.jsx"></script>
 <script type="text/babel" src="workspace_generic.jsx"></script>

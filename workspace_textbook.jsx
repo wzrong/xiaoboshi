@@ -56,6 +56,9 @@ function TextbookWorkspace({ scenario, query, onHome, onSwitch, fromIntent, logg
   const [navOpen, setNavOpen] = tS(false); // catalog drawer (left overlay)
   const [switcherOpen, setSwitcherOpen] = tS(false); // 切换教材 drawer (right overlay)
   const [pdfCite, setPdfCite] = tS(null); // citation whose 教材原文 PDF page is open
+  const [cardModal, setCardModal] = tS(null); // knowledge card (二次加工) shown in a modal
+  const [tbToast, setTbToast] = tS(null);
+  const toast = (msg) => { setTbToast(msg); setTimeout(() => setTbToast(null), 2200); };
   const isSingle = !!(book && !book.free && !book.multi);
   const bookLabel = !book ? "" : book.free ? "不限教材" : book.multi ? `${book.list.length} 本教材` : `${book.edition} ${book.subject} · ${book.name}`;
   const [citeOpen, setCiteOpen] = tS(false);
@@ -132,8 +135,15 @@ function TextbookWorkspace({ scenario, query, onHome, onSwitch, fromIntent, logg
   const hasConvo = (t) => t.some((m) => m.role === "user" || m.answer || m.compare);
   const switchNote = (bk) => ({ role: "sys", icon: "refresh", text: bk.free ? "已切换为「不限教材」· 后续提问不再锁定教材" : bk.multi ? `已切换为 ${bk.list.length} 本教材综合` : `已切换教材 · ${bk.edition} ${bk.subject} · ${bk.name}` });
   const applyBook = (bk, kind) => {
-    if (book && hasConvo(thread)) { setBook(bk); setThread((t) => [...t, switchNote(bk)]); }
-    else { setBook(bk); setThread((t) => [...t.filter((m) => m.role === "user" || m.node || m.text || m.answer || m.compare), greetFor(bk, kind)]); setAnswered(false); }
+    if (book && hasConvo(thread)) {
+      // switching mid-conversation must NOT silently rewrite the prior answer — keep it,
+      // drop a divider, and offer an explicit 「按新教材重新回答」 for the last question.
+      const lastQ = (() => { for (let i = thread.length - 1; i >= 0; i--) if (thread[i].role === "user") return thread[i].text; return null; })();
+      const hadAnswer = thread.some((m) => m.answer || m.compare);
+      const lbl = bk.free ? "不限教材" : bk.multi ? `${bk.list.length} 本教材` : `${bk.edition} ${bk.subject} · ${bk.name}`;
+      setBook(bk);
+      setThread((t) => [...t, switchNote(bk), ...(lastQ && hadAnswer ? [{ role: "ai", reanswer: { q: lastQ, label: lbl } }] : [])]);
+    } else { setBook(bk); setThread((t) => [...t.filter((m) => m.role === "user" || m.node || m.text || m.answer || m.compare), greetFor(bk, kind)]); setAnswered(false); }
   };
   // open / switch a textbook chosen from the picker
   const openBook = (bk) => applyBook(bk, "picked");
@@ -177,15 +187,24 @@ function TextbookWorkspace({ scenario, query, onHome, onSwitch, fromIntent, logg
       }
     }, compare ? 1600 : 1400);
   };
-  // 后续动作：展开/举例留在问教材；生成导图/练习题交给对应场景（同一个助手）
+  // 后续动作：展开/举例留在问教材；生成导图/练习题交给对应场景；查看资源跳找资源（同一个助手）
   const lastUserQ = () => { for (let i = thread.length - 1; i >= 0; i--) if (thread[i].role === "user") return thread[i].text; return ""; };
-  const onFollow = (f) => {
+  const onFollow = (f, ans) => {
     if (/导图/.test(f)) return onSwitch && onSwitch("mindmap", lastUserQ());
-    if (/练习|题/.test(f)) return onSwitch && onSwitch("paper", lastUserQ());
+    if (/资源|课件|试卷|相关/.test(f)) return onSwitch && onSwitch("find", lastUserQ());
+    if (/教案|教学设计/.test(f)) return onSwitch && onSwitch("lesson", lastUserQ());
+    if (/练习|题/.test(f) && !/辨析|这道题/.test(f)) return onSwitch && onSwitch("paper", lastUserQ());
+    if (/卡片/.test(f)) {
+      // 知识卡片是当前回答的二次加工（继承依据），留在问教材内 —— 直接弹出卡片
+      const card = (ans && ans.card) || (curAns && curAns.card);
+      if (card) { setCardModal(card); return; }
+    }
+    if (/选择教材|选教材/.test(f)) { setSwitcherOpen(true); return; }
+    if (/打开教材原文|原文/.test(f)) { const c = (ans && ans.citations && ans.citations[0]) || (curAns && curAns.citations && curAns.citations[0]); if (c) { setPdfCite(c); return; } }
     ask(f + "（紧接上一个问题）");
   };
 
-  const sampleQs = ["光反应和暗反应有什么区别？", "「光合作用」在哪些教材里出现过？", "本节的重点概念有哪些？", "这部分知识中考/高考怎么考？"];
+  const sampleQs = ["光反应和暗反应有什么区别？", "为什么会产生感应电流？", "这部分知识中考/高考怎么考？", "这节课怎么给学生讲清楚？"];
   const { headerRecognizing, send } = useSmartSend({ scenarioId: scenario.id, onSwitch, setMessages: setThread, localSend: ask });
 
   // ---- cold start: no textbook selected (switched in / logged out / no memory) ----
@@ -219,8 +238,8 @@ function TextbookWorkspace({ scenario, query, onHome, onSwitch, fromIntent, logg
               )}
             </div>
           </div>
-          <div style={{ padding: "0 16px", borderTop: "1px solid var(--line)", background: "var(--surface)" }}>
-            <div style={{ maxWidth: 720, margin: "0 auto", padding: "12px 0 14px" }}>
+          <div style={{ padding: "0 16px", background: "var(--surface)" }}>
+            <div style={{ maxWidth: 720, margin: "0 auto", padding: "4px 0 12px" }}>
               <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 10 }}>
                 {sampleQs.map((q, i) => (
                   <button key={i} onClick={() => coldSend(q)} className="sug-pop" style={{ animationDelay: `${i * 0.05}s`, display: "inline-flex", alignItems: "center", gap: 6, padding: "7px 12px", borderRadius: 999, border: "1px dashed var(--brand-soft-border)", background: "var(--brand-soft)", color: "var(--brand-deep)", fontSize: 12.5, fontWeight: 600, cursor: "pointer", fontFamily: "var(--font-zh)" }}>
@@ -310,7 +329,7 @@ function TextbookWorkspace({ scenario, query, onHome, onSwitch, fromIntent, logg
   ) : null;
 
   return (
-    <WorkspaceShell scenario={scenario} onHome={onHome} onSwitch={onSwitch} nav={nav} headerRecognizing={headerRecognizing} chatLed={!mobile} mobilePanelLabel="教材依据" mobilePanelIcon="shield">
+    <WorkspaceShell scenario={scenario} onHome={onHome} onSwitch={onSwitch} nav={nav} headerRecognizing={headerRecognizing} chatLed={!mobile} mobilePanelLabel="教材依据" mobilePanelIcon="shield" openSheetKey={answered ? "tb" + thread.length : null}>
       {/* left: the assistant's conversation · right: 问教材 stage (教材切换 + 目录 + 教材依据) */}
       <TbChat mobile={mobile}>
         {mobile && (
@@ -345,6 +364,16 @@ function TextbookWorkspace({ scenario, query, onHome, onSwitch, fromIntent, logg
               const grouped = m.role !== "user" && m.role !== "sys" && !!prev && prev.role !== "user" && prev.role !== "sys";
               return m.answer ? (
                 <DynamicAnswer key={i} ans={m.ans || curAns} activeCite={activeCite} setActiveCite={setActiveCite} onFollow={onFollow} grouped={grouped} />
+              ) : m.reanswer ? (
+                <div key={i} className="ans-pop" style={{ display: "flex", gap: 11, alignItems: "flex-start" }}>
+                  <BotAvatar size={30} />
+                  <div style={{ flex: 1, minWidth: 0, background: "var(--surface)", border: "1px solid var(--line)", borderRadius: "4px 16px 16px 16px", padding: "14px 16px", boxShadow: "0 8px 26px -20px rgba(0,0,0,.3)" }}>
+                    <p style={{ margin: "0 0 11px", fontSize: 13.5, lineHeight: 1.65, color: "var(--ink)" }}>已切换到 <b style={{ color: "var(--brand-deep)" }}>{m.reanswer.label}</b>。要按新教材重新回答上一个问题吗？<span style={{ color: "var(--ink-3)" }}>（旧答案会保留）</span></p>
+                    <button onClick={() => ask(m.reanswer.q)} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 14px", borderRadius: 10, border: "none", background: "var(--brand)", color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "var(--font-zh)" }}>
+                      <Icon name="refresh" size={14} /> 按新教材重新回答
+                    </button>
+                  </div>
+                </div>
               ) : m.compare ? (
                 <CompareBlock key={i} CMP={CMP} activeCite={activeCite} setActiveCite={setActiveCite} onAsk={ask} grouped={grouped} />
               ) : m.role === "sys" ? (
@@ -372,8 +401,8 @@ function TextbookWorkspace({ scenario, query, onHome, onSwitch, fromIntent, logg
           </div>
         </div>
         {/* sample questions + input */}
-        <div style={{ padding: "0 16px", borderTop: "1px solid var(--line)", background: "var(--surface)" }}>
-          <div style={{ maxWidth: 720, margin: "0 auto", padding: "12px 0 14px" }}>
+        <div style={{ padding: "0 16px", background: "var(--surface)" }}>
+          <div style={{ maxWidth: 720, margin: "0 auto", padding: "4px 0 12px" }}>
             {!answered && (
               <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 10 }}>
                 {sampleQs.map((q, i) => (
@@ -551,6 +580,11 @@ function TextbookWorkspace({ scenario, query, onHome, onSwitch, fromIntent, logg
 
       {/* ===== 教材原文 PDF page viewer ===== */}
       {pdfCite && <PdfPagePreview cite={pdfCite} onClose={() => setPdfCite(null)} mobile={mobile} />}
+      {/* ===== 知识卡片（二次加工）===== */}
+      {cardModal && <KnowledgeCardModal card={cardModal} onClose={() => setCardModal(null)} onToast={toast} />}
+      {tbToast && (
+        <div className="enter-pop" style={{ position: "fixed", bottom: 26, left: "50%", transform: "translateX(-50%)", zIndex: 140, background: "var(--ink)", color: "var(--surface)", padding: "11px 18px", borderRadius: 11, fontSize: 13, fontWeight: 700, boxShadow: "0 12px 30px -10px rgba(0,0,0,.4)" }}>{tbToast}</div>
+      )}
     </WorkspaceShell>
   );
 }
@@ -558,16 +592,16 @@ function TextbookWorkspace({ scenario, query, onHome, onSwitch, fromIntent, logg
 function TextbookInput({ onAsk }) {
   const [v, setV] = tS("");
   const [att, setAtt] = tS([]);
+  const [viewFile, setViewFile] = tS(null);
   const taRef = tR(null);
+  const TA_MAX = Math.round(13.5 * 1.5 * 5) + 8; // ~5 lines, then scroll in place
   // auto-grow: 1 line → up to 5 lines, then scroll inside
   tE(() => {
     const el = taRef.current;
     if (!el) return;
     el.style.height = "auto";
-    const maxH = Math.round(13.5 * 1.5 * 5) + 8; // 5 lines + vertical padding
-    const next = Math.min(el.scrollHeight, maxH);
-    el.style.height = next + "px";
-    el.style.overflowY = el.scrollHeight > maxH + 1 ? "auto" : "hidden";
+    el.style.height = Math.min(el.scrollHeight, TA_MAX) + "px";
+    el.style.overflowY = el.scrollHeight > TA_MAX + 1 ? "auto" : "hidden";
   }, [v]);
   const send = () => {
     if (!v.trim() && att.length === 0) return;
@@ -577,8 +611,13 @@ function TextbookInput({ onAsk }) {
   };
   return (
     <div>
-      <FileChips files={att} onRemove={(i) => setAtt((f) => f.filter((_, j) => j !== i))} style={{ marginBottom: 8 }} />
-      <div style={{ display: "flex", gap: 8, alignItems: "flex-end", background: "var(--surface-2)", border: "1px solid var(--line)", borderRadius: 14, padding: 9 }}>
+      {/* homepage-style composer: attachments (top, inside box) → input area → button row, focus border animates */}
+      <div
+        onFocusCapture={(e) => { e.currentTarget.style.borderColor = "var(--brand)"; e.currentTarget.style.boxShadow = "var(--ring), var(--input-shadow)"; }}
+        onBlurCapture={(e) => { e.currentTarget.style.borderColor = "var(--input-border)"; e.currentTarget.style.boxShadow = "none"; }}
+        style={{ background: "var(--surface)", border: "1.5px solid var(--input-border)", borderRadius: 16, padding: "10px 12px 8px", transition: "border-color .2s, box-shadow .25s" }}
+      >
+        <FileChips files={att} onRemove={(i) => setAtt((f) => f.filter((_, j) => j !== i))} onView={(n) => setViewFile(n)} style={{ marginBottom: att.length ? 8 : 0 }} />
         <textarea
           ref={taRef}
           value={v}
@@ -591,13 +630,17 @@ function TextbookInput({ onAsk }) {
           }}
           rows={1}
           placeholder="就本节教材内容提问，答案有据可依…"
-          style={{ flex: 1, border: "none", outline: "none", background: "transparent", resize: "none", fontSize: 13.5, fontFamily: "var(--font-zh)", color: "var(--ink)", lineHeight: 1.5, padding: "4px 4px", overflowY: "hidden", boxSizing: "border-box" }}
+          style={{ width: "100%", display: "block", border: "none", outline: "none", background: "transparent", resize: "none", fontSize: 13.5, fontFamily: "var(--font-zh)", color: "var(--ink)", lineHeight: 1.5, padding: "2px 2px", maxHeight: TA_MAX, overflowY: "hidden", boxSizing: "border-box" }}
         />
-        <ClipButton onFiles={(names) => setAtt((f) => [...f, ...names].slice(0, 6))} compact />
-        <button onClick={send} style={{ width: 36, height: 36, borderRadius: 10, border: "none", background: "var(--brand-grad)", backgroundColor: "var(--brand)", color: "#fff", display: "grid", placeItems: "center", cursor: "pointer", flexShrink: 0 }}>
-          <Icon name="send" size={16} />
-        </button>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginTop: 6 }}>
+          <ClipButton onFiles={(names) => setAtt((f) => [...f, ...names].slice(0, 6))} compact />
+          <button onClick={send} style={{ width: 34, height: 34, borderRadius: 10, border: "none", background: "var(--brand-grad)", backgroundColor: "var(--brand)", color: "#fff", display: "grid", placeItems: "center", cursor: "pointer", flexShrink: 0 }}>
+            <Icon name="send" size={16} />
+          </button>
+        </div>
       </div>
+      <div style={{ textAlign: "center", fontSize: 10.5, color: "var(--ink-4)", marginTop: 5, lineHeight: 1.2 }}>AI 内容仅供教研参考</div>
+      {viewFile && <FileViewer name={viewFile} onClose={() => setViewFile(null)} />}
     </div>
   );
 }

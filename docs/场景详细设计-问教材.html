@@ -15,8 +15,8 @@
     --font: "Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif;
     --serif: "Noto Serif SC", "Songti SC", serif;
     --num: "Nunito", "Noto Sans SC", sans-serif;
-    --brand: #2f73e0; --brand-deep: #1f4f9e; --brand-soft: #eef4fd; --brand-line: #cfe0f7;
-    --tb: #2f6fdb; --tb-soft: #ecf2fd; --tb-line: #cadcf6; --tb-ink: #1f4f9e;
+    --brand: #1591c2; --brand-deep: #0f6d96; --brand-soft: #e8f5fb; --brand-line: #c2e3f1;
+    --tb: #1591c2; --tb-soft: #e8f5fb; --tb-line: #c2e3f1; --tb-ink: #0f6d96;
     --ink: #1c2430; --ink-2: #45505f; --ink-3: #6b7686; --ink-4: #9aa3b0;
     --line: #e4e7ec; --line-2: #eef0f3; --paper: #ffffff; --desk: #eceae3;
     --accent: #e8743b; --green: #16a37b; --violet: #7a5cf0; --pink: #d23f66;
@@ -28,31 +28,31 @@
   body { margin: 0; font-family: var(--font); background: var(--desk); color: var(--ink); -webkit-font-smoothing: antialiased; line-height: 1.72; font-size: 15px; }
 
   .shell { display: flex; align-items: flex-start; gap: 0; }
-  .toc { position: sticky; top: 0; align-self: flex-start; width: 286px; height: 100vh; flex-shrink: 0; background: #16233b; color: #b6c4da; padding: 30px 22px 40px; overflow-y: auto; font-size: 13px; }
+  .toc { position: sticky; top: 0; align-self: flex-start; width: 286px; height: 100vh; flex-shrink: 0; background: #0f2734; color: #aecadb; padding: 30px 22px 40px; overflow-y: auto; font-size: 13px; }
   .toc-brand { display: flex; align-items: center; gap: 11px; margin-bottom: 6px; }
   .toc-logo { width: 42px; height: 42px; border-radius: 12px; background: var(--tb); color: #fff; display: grid; place-items: center; font-weight: 900; font-size: 22px; flex-shrink: 0; font-family: var(--serif); }
   .toc-brand h1 { font-size: 15px; color: #fff; margin: 0; font-weight: 800; letter-spacing: .2px; }
-  .toc-brand p { font-size: 11px; color: #7f8ba6; margin: 2px 0 0; font-weight: 600; }
-  .toc-meta { font-size: 11px; color: #6a778f; border-top: 1px solid #283750; border-bottom: 1px solid #283750; padding: 12px 2px; margin: 18px 0 16px; display: flex; flex-direction: column; gap: 5px; }
-  .toc-meta span b { color: #a6b3ca; font-weight: 700; }
+  .toc-brand p { font-size: 11px; color: #6e93a6; margin: 2px 0 0; font-weight: 600; }
+  .toc-meta { font-size: 11px; color: #5f8094; border-top: 1px solid #1d3d4e; border-bottom: 1px solid #1d3d4e; padding: 12px 2px; margin: 18px 0 16px; display: flex; flex-direction: column; gap: 5px; }
+  .toc-meta span b { color: #9bbccd; font-weight: 700; }
   .toc nav { display: flex; flex-direction: column; gap: 1px; }
-  .toc .grp { font-size: 10.5px; letter-spacing: 1.5px; text-transform: uppercase; color: #5d6b85; font-weight: 800; margin: 18px 0 7px; padding-left: 11px; }
-  .toc a { color: #a6b3ca; text-decoration: none; padding: 6px 11px; border-radius: 8px; display: block; transition: all .15s; font-weight: 500; }
-  .toc a:hover { background: #1f3050; color: #fff; }
-  .toc a.sub { padding-left: 22px; font-size: 12px; color: #8190ab; }
+  .toc .grp { font-size: 10.5px; letter-spacing: 1.5px; text-transform: uppercase; color: #547489; font-weight: 800; margin: 18px 0 7px; padding-left: 11px; }
+  .toc a { color: #9bbccd; text-decoration: none; padding: 6px 11px; border-radius: 8px; display: block; transition: all .15s; font-weight: 500; }
+  .toc a:hover { background: #163847; color: #fff; }
+  .toc a.sub { padding-left: 22px; font-size: 12px; color: #7ba0b3; }
   .toc a.active { background: var(--tb); color: #fff; }
-  .toc .back { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: #8190ab; margin-top: 22px; padding: 8px 11px; border: 1px solid #283750; border-radius: 8px; }
-  .toc .back:hover { background: #1f3050; color: #fff; }
+  .toc .back { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: #7ba0b3; margin-top: 22px; padding: 8px 11px; border: 1px solid #1d3d4e; border-radius: 8px; }
+  .toc .back:hover { background: #163847; color: #fff; }
 
   .pages { flex: 1; min-width: 0; padding: 40px 40px 80px; display: flex; flex-direction: column; align-items: center; gap: 30px; }
   .page { width: 100%; max-width: var(--maxw); background: var(--paper); border-radius: 4px; box-shadow: 0 2px 14px rgba(20,30,50,0.09); padding: 64px 72px; }
 
   .cover { padding: 0; overflow: hidden; }
-  .cover-top { background: linear-gradient(155deg, #2f73e0, #1c4894 88%); color: #fff; padding: 70px 72px 56px; position: relative; }
+  .cover-top { background: linear-gradient(155deg, #1aa0d0, #0d6188 90%); color: #fff; padding: 70px 72px 56px; position: relative; }
   .cover-top::after { content: ""; position: absolute; inset: 0; background: radial-gradient(520px 280px at 86% -10%, rgba(255,255,255,.18), transparent 70%); pointer-events: none; }
   .cover-badge { display: inline-flex; align-items: center; gap: 8px; font-size: 12.5px; font-weight: 700; background: rgba(255,255,255,.16); padding: 6px 14px; border-radius: 999px; margin-bottom: 24px; }
   .cover-top h1 { font-size: 36px; font-weight: 900; margin: 0 0 12px; letter-spacing: -.5px; line-height: 1.2; }
-  .cover-top .sub { font-size: 16px; font-weight: 500; color: #d3e3fb; margin: 0; max-width: 560px; }
+  .cover-top .sub { font-size: 16px; font-weight: 500; color: #cfeaf6; margin: 0; max-width: 560px; }
   .cover-bottom { padding: 34px 72px 52px; }
   .cover-info { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 30px; }
   .cover-info div { font-size: 13px; }
@@ -99,7 +99,7 @@
   .tbl-wrap th:first-child, .tbl-wrap td:first-child { padding-left: 16px; }
 
   .pill { display: inline-block; font-size: 11px; font-weight: 800; padding: 2px 9px; border-radius: 999px; font-family: var(--font); white-space: nowrap; }
-  .pill.tb { background: #e6f1fb; color: #1f5fae; }
+  .pill.tb { background: #e1f3fb; color: #0f6d96; }
   .pill.find { background: #e7f6ef; color: #167a56; }
   .pill.paper { background: #fbede4; color: #b65324; }
   .pill.cw { background: #ece9fc; color: #5a44c4; }
@@ -107,7 +107,7 @@
   .pill.mind { background: #eef6e3; color: #5a7a25; }
   .pill.gen { background: #eceef3; color: #515b6b; }
   .pill.gray { background: #eef0f3; color: var(--ink-3); }
-  .pill.a { background: #e6f1fb; color: #1f5fae; }
+  .pill.a { background: #e1f3fb; color: #0f6d96; }
   .pill.b { background: #fdf0e8; color: #b65324; }
   .pill.c { background: #ece9fc; color: #5a44c4; }
 
@@ -152,7 +152,7 @@
   /* chat mock for the 回答与依据 section */
   .chatmock { border: 1px solid var(--line); border-radius: 14px; background: #fafbfc; padding: 18px; margin: 16px 0; }
   .cm-row { display: flex; justify-content: flex-end; margin-bottom: 12px; }
-  .cm-bubble { background: linear-gradient(180deg,#3a7ce4,#2f73e0); color: #fff; padding: 9px 13px; border-radius: 14px 14px 4px 14px; font-size: 13px; font-weight: 500; max-width: 70%; }
+  .cm-bubble { background: linear-gradient(180deg,#26a6d4,#1591c2); color: #fff; padding: 9px 13px; border-radius: 14px 14px 4px 14px; font-size: 13px; font-weight: 500; max-width: 70%; }
   .cm-ai { display: flex; gap: 9px; align-items: flex-start; }
   .cm-av { width: 26px; height: 26px; border-radius: 8px; background: var(--tb-soft); border: 1px solid var(--tb-line); display: grid; place-items: center; color: var(--tb); flex-shrink: 0; font-size: 13px; }
   .cm-ab { background: #fff; border: 1px solid var(--line); padding: 11px 13px; border-radius: 4px 14px 14px 14px; font-size: 13px; color: var(--ink-2); max-width: 84%; }
@@ -406,30 +406,84 @@
       </div>
       <div class="chatmock">
         <div class="cm-row"><div class="cm-bubble">光反应和暗反应有什么区别？</div></div>
-        <div class="cm-ai"><span class="cm-av">🤖</span><div class="cm-ab"><b style="color:#1f5fae">对比分析</b> · 光反应「见光、放氧、产能」，暗反应「固碳、还原、耗能」，按场所/条件/物质/能量四维对照最清楚……<div class="cm-cite">🛡 基于：人教版 · 高中生物 · 必修1 · 第5章第4节 · 2 处引用</div></div></div>
+        <div class="cm-ai"><span class="cm-av">🤖</span><div class="cm-ab"><b style="color:#0f6d96">对比分析</b> · 光反应「见光、放氧、产能」，暗反应「固碳、还原、耗能」，按场所/条件/物质/能量四维对照最清楚……<div class="cm-cite">🛡 基于：人教版 · 高中生物 · 必修1 · 第5章第4节 · 2 处引用</div></div></div>
       </div>
       <div class="chatmock">
         <div class="cm-row"><div class="cm-bubble">三角函数是什么？（未选教材）</div></div>
-        <div class="cm-ai"><span class="cm-av">🤖</span><div class="cm-ab"><b style="color:#1f5fae">概念解释</b> · 三角函数是以角为自变量、以单位圆上点坐标为函数值的一类函数……<div class="cm-cand">⚠ 可能关联教材内容。选择具体版本后可获得更贴合课本的解释</div></div></div>
+        <div class="cm-ai"><span class="cm-av">🤖</span><div class="cm-ab"><b style="color:#0f6d96">概念解释</b> · 三角函数是以角为自变量、以单位圆上点坐标为函数值的一类函数……<div class="cm-cand">⚠ 可能关联教材内容。选择具体版本后可获得更贴合课本的解释</div></div></div>
       </div>
       <p class="sec-note">原型表现：<code>workspace_textbook_answers</code> 按问题类型生成动态结构；依据条按 grounded（指定/多本/上传，绿色可溯）与非 grounded（候选/通用，黄色提示）两种样式区分。</p>
 
       <h3 class="sec" id="s7-2"><span class="idx">7.2</span>问题类型体系</h3>
-      <p>问题类型用于选择<b>回答结构</b>与<b>知识卡片结构</b>。完整体系为 <b>14 个业务类型 + 3 个兜底类型</b>（见主口径文档）；<b>原型当前精简为 5 类</b>，覆盖绝大多数真实问法，后续按需细分。</p>
-      <h4 class="sub">原型已实现的 5 类（自动分类）</h4>
+      <p>问题类型用于选择<b>回答结构</b>与<b>知识卡片结构</b>。完整体系为 <b>14 个业务类型 + 3 个兜底类型</b>，原型已<b>全部实现并配有典型问题 mock</b>，提问后即按对应结构作答。</p>
+      <h4 class="sub">14 业务类型 + 3 兜底类型（原型均已实现，自动分类）</h4>
+      <p>原型已把<b>全部 17 个类型</b>落地：分类器按「具体意图在前、通用理解在后」的优先级命中，每类对应一套<b>回答结构</b>和一张<b>知识卡片结构</b>。下表给出类型、典型问法与回答结构。</p>
+      <h5 class="sub2">A · 知识理解类（6）</h5>
       <div class="tbl-wrap">
         <table>
-          <thead><tr><th>类型</th><th>触发问法</th><th>回答结构</th></tr></thead>
+          <thead><tr><th>类型</th><th>典型问法（mock）</th><th>回答结构</th></tr></thead>
           <tbody>
-            <tr><td><b>概念解释</b></td><td>什么是 / 是什么 / 定义（兜底默认）</td><td>定义 → 出处 → 要点 → 示例 → 易错</td></tr>
-            <tr><td><b>原因解释</b></td><td>为什么 / 原因 / 怎么来的 / 机理</td><td>结论 → 原因链 → 情境还原 → 误区</td></tr>
-            <tr><td><b>对比分析</b></td><td>区别 / 异同 / 对比 / 不同点</td><td>总体区别 → 维度对比表 → 易混点 → 记忆法</td></tr>
-            <tr><td><b>归纳总结</b></td><td>有哪些 / 作用 / 分类 / 特点 / 意义</td><td>总括 → 分点 → 场景 → 示例</td></tr>
-            <tr><td><b>应用理解</b></td><td>怎么用 / 如何应用 / 实际中</td><td>场景 → 知识点 → 例子 → 提醒</td></tr>
+            <tr><td><span class="pill a">概念解释</span></td><td>三角函数是什么 / X 的定义（兜底默认）</td><td>定义 → 出处 → 要点 → 示例 → 易错</td></tr>
+            <tr><td><span class="pill a">原因解释</span></td><td>为什么会产生感应电流 / X 的原因</td><td>结论 → 原因链 → 情境还原 → 误区</td></tr>
+            <tr><td><span class="pill a">原理机制</span></td><td>酶催化的原理是什么 / X 的工作原理</td><td>结论 → 出处 → 机制步骤 → 易错</td></tr>
+            <tr><td><span class="pill a">对比分析</span></td><td>光反应和暗反应有什么区别</td><td>总体区别 → 维度对比表 → 易混点 → 记忆法</td></tr>
+            <tr><td><span class="pill a">归纳总结</span></td><td>环境描写有哪些作用 / X 的特点</td><td>总括 → 分点 → 场景 → 示例</td></tr>
+            <tr><td><span class="pill a">应用理解</span></td><td>函数怎么用来解决实际问题</td><td>场景 → 知识点 → 例子 → 提醒</td></tr>
           </tbody>
         </table>
       </div>
-      <div class="note"><span class="nt">完整 14+3 类（规划）</span>业务类型还包括：原理机制、易错辨析、知识脉络、教材定位、教材解读、课堂讲解、教学设计启发、考法分析、题目知识点定位；兜底类型：泛知识问答、教材相关未分类、需要澄清。每类有对应回答结构与<b>知识卡片结构</b>映射，避免「回答按 14+3 类、卡片只剩少数模板」的断层。详见《问教材实现步骤与系统提示词》§5.0 / §5.11。</div>
+      <h5 class="sub2">B · 辨析与结构类（3）</h5>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr><th>类型</th><th>典型问法（mock）</th><th>回答结构</th></tr></thead>
+          <tbody>
+            <tr><td><span class="pill b">易错辨析</span></td><td>失重是不是就没有重力了 / X 对吗</td><td>结论 → 误解vs正解表 → 辨析 → 记忆法</td></tr>
+            <tr><td><span class="pill b">知识脉络</span></td><td>函数这一章的知识脉络是怎样的</td><td>总括 → 脉络链 → 节点要点 → 提醒</td></tr>
+            <tr><td><span class="pill b">题目知识点定位</span></td><td>这道题考什么知识点</td><td>考点 → 对应教材 → 转「题目解析」</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <h5 class="sub2">C · 教材与教学类（5）</h5>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr><th>类型</th><th>典型问法（mock）</th><th>回答结构</th></tr></thead>
+          <tbody>
+            <tr><td><span class="pill c">教材定位</span></td><td>勾股定理在教材哪一节</td><td>直答位置 → 出处 → 周边导航（可开原文）</td></tr>
+            <tr><td><span class="pill c">教材解读</span></td><td>这一节编者为什么这样安排</td><td>编排意图 → 出处 → 重难点 → 示例</td></tr>
+            <tr><td><span class="pill c">课堂讲解</span></td><td>这节课怎么给学生讲清楚</td><td>讲解思路 → 分步 → 课堂活动 → 提醒</td></tr>
+            <tr><td><span class="pill c">教学设计启发</span></td><td>这节课怎么导入 / 有什么活动设计</td><td>思路 → 导入/活动/小结 → 建议（可转写教案）</td></tr>
+            <tr><td><span class="pill c">考法分析</span></td><td>这个知识点中考怎么考</td><td>总括 → 常见考法 → 题型×考点表 → 易错</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <h5 class="sub2">D · 兜底类型（3）</h5>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr><th>类型</th><th>触发</th><th>处理</th></tr></thead>
+          <tbody>
+            <tr><td><span class="pill gray">泛知识问答</span></td><td>未绑定教材的通用学科问题</td><td>直答 → 要点 → 明示「通用知识」并引导选教材</td></tr>
+            <tr><td><span class="pill gray">教材相关未分类</span></td><td>与教材相关但意图不明确</td><td>先给一个回答 + 轻引导补充</td></tr>
+            <tr><td><span class="pill gray">需要澄清</span></td><td>「帮我讲讲」等无主题输入</td><td>不硬答，反问方向 + 列出可能想问的几类</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="note ok"><span class="nt">原型现状</span>以上 <b>17 类全部在交互原型中实现</b>：每类有典型问题作为 mock 数据，提问后会展示对应的<b>问题类型标签 + 回答结构</b>；分类器优先级为「题目定位 / 教材定位 / 考法 / 教学设计 / 课堂讲解 / 教材解读 / 知识脉络 / 易错辨析 → 对比 / 原理 / 原因 / 归纳 / 应用 → 概念（兜底）」。完整体系与提示词口径见《问教材实现步骤与系统提示词》§5.0 / §5.11。</div>
+
+      <h4 class="sub">7.2.1 知识卡片：每类回答的二次加工</h4>
+      <p>每个回答都可一键「<b>生成知识卡片</b>」——把当前回答<b>浓缩</b>成一张可嵌课件 / 供学生复习的卡片，<b>继承该回答的依据</b>（不另起一轮无依据生成）。卡片结构随问题类型自动适配，从回答 blocks 提炼：</p>
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr><th>来源回答含</th><th>卡片呈现</th><th>适用类型（举例）</th></tr></thead>
+          <tbody>
+            <tr><td>对比表（table）</td><td>紧凑对比表</td><td>对比分析、易错辨析、考法分析</td></tr>
+            <tr><td>原因/机制/脉络链（chain）</td><td>编号步骤流</td><td>原因解释、原理机制、知识脉络</td></tr>
+            <tr><td>分点（points）</td><td>要点清单</td><td>概念、归纳、应用、教材解读、课堂讲解、教学设计、考法</td></tr>
+            <tr><td>note / pitfall</td><td>卡片底部「记忆 / 易错」条</td><td>全部</td></tr>
+            <tr><td>basis 依据</td><td>卡片页脚溯源条（绿色可溯 / 黄色通用）</td><td>全部</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="sec-note">卡片标题取问题主体 + 类型标签；点击「生成知识卡片」弹出卡片模态，支持「复制文本 / 存入我的内容」。这样保证「回答按 17 类、卡片也按 17 类」一一对应，不再出现回答细分而卡片只剩少数模板的断层。</p>
 
       <h3 class="sec" id="s7-3"><span class="idx">7.3</span>依据类型与文案</h3>
       <p>依据类型由 <a class="xref" href="#s5">§5.3</a> 教材上下文判断决定，直接对应用户可见文案，且<b>真实反映来源</b>——不把系统推断说成用户已指定，不把通用知识说成教材内容。</p>
@@ -470,7 +524,7 @@
       <p>切换教材<b>不静默改写</b>旧答案：切换后保留历史回答、落一条分隔，并提供一个显式的「<b>按新教材重新回答</b>」入口，点击后基于新教材范围重新检索作答，旧答案仍在历史里可回看。</p>
       <div class="chatmock">
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px"><span style="flex:1;height:1px;background:var(--line)"></span><span style="font-size:11.5px;font-weight:700;color:var(--ink-3);background:#fff;border:1px solid var(--line);padding:4px 12px;border-radius:999px">🔄 已切换教材 · 北师大版 数学 · 七年级上册</span><span style="flex:1;height:1px;background:var(--line)"></span></div>
-        <div class="cm-ai"><span class="cm-av">🤖</span><div class="cm-ab">已切换到 <b style="color:#1f5fae">北师大版 数学 · 七年级上册</b>。要按新教材重新回答上一个问题吗？<span style="color:var(--ink-3)">（旧答案会保留）</span><div style="margin-top:10px;display:inline-flex;align-items:center;gap:6px;padding:7px 13px;border-radius:9px;background:var(--tb);color:#fff;font-size:12.5px;font-weight:700">🔄 按新教材重新回答</div></div></div>
+        <div class="cm-ai"><span class="cm-av">🤖</span><div class="cm-ab">已切换到 <b style="color:#0f6d96">北师大版 数学 · 七年级上册</b>。要按新教材重新回答上一个问题吗？<span style="color:var(--ink-3)">（旧答案会保留）</span><div style="margin-top:10px;display:inline-flex;align-items:center;gap:6px;padding:7px 13px;border-radius:9px;background:var(--tb);color:#fff;font-size:12.5px;font-weight:700">🔄 按新教材重新回答</div></div></div>
       </div>
       <p class="sec-note">原型已实现：切换教材后若已有回答，落「已切换」分隔条并追加「按新教材重新回答」卡片，点击即以新教材重新作答。</p>
       <div class="foot">问教材场景 · 详细设计 — AI 小博士　|　PART B · 回答与依据</div>
@@ -569,7 +623,8 @@
           <thead><tr><th>环节</th><th>状态</th></tr></thead>
           <tbody>
             <tr><td>冷启动教材选择器（不限教材 / 继续上次 / 选一本 / 勾选多本）</td><td><span class="pill tb">原型已实现</span></td></tr>
-            <tr><td>问题类型自动分类与动态回答结构（概念/原因/对比/归纳/应用 5 类）</td><td><span class="pill tb">原型已实现</span></td></tr>
+            <tr><td>问题类型自动分类与动态回答结构（14 业务类型 + 3 兑底，均有 mock）</td><td><span class="pill tb">原型已实现</span></td></tr>
+            <tr><td>各类型知识卡片（点击生成·结构随类型适配·继承回答依据）</td><td><span class="pill tb">原型已实现</span></td></tr>
             <tr><td>多学科测试数据（光合作用·对比 / 三角函数·概念 / 电磁感应·原因 / 环境描写·归纳）</td><td><span class="pill tb">原型已实现</span></td></tr>
             <tr><td>依据类型区分（指定/上传/多本 可溯 · 候选/通用 提示）</td><td><span class="pill tb">原型已实现</span></td></tr>
             <tr><td>右侧教材依据 / 教材目录两视图 · 引用卡片 · 教材原文扫描页</td><td><span class="pill tb">原型已实现</span></td></tr>
@@ -577,7 +632,7 @@
             <tr><td>切换教材后保留旧答案 + 「按新教材重新回答」</td><td><span class="pill tb">原型已实现</span></td></tr>
             <tr><td>后续动作（展开/举例/生成知识卡片留场景内 · 查看相关资源/导图/练习题 handoff）</td><td><span class="pill tb">原型已实现</span></td></tr>
             <tr><td>上传截图/附件提问（输入支持上传；OCR 识别与「这页怎么讲」基于上传内容作答）</td><td><span class="pill gray">部分（上传 UI 已实现，OCR 待建）</span></td></tr>
-            <tr><td>完整 14+3 问题类型与对应知识卡片模板</td><td><span class="pill gray">设想（当前 5 类）</span></td></tr>
+            <tr><td>完整 14+3 问题类型与对应知识卡片模板</td><td><span class="pill tb">原型已实现</span></td></tr>
             <tr><td>教材 RAG 底座、citation 清洗、可靠性判断、textbook-chat v2/v3 接入</td><td><span class="pill gray">待建（阶段 0–4）</span></td></tr>
           </tbody>
         </table>
