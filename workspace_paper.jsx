@@ -325,11 +325,11 @@ function PaperWorkspace({ scenario, query, onHome, onSwitch, fromIntent, resume,
     if (fromIntent && query) {
       return [
         ...window.ChatSession.take(),
-        ...(window.ChatSession.echoed(query) ? [] : [{ role: "user", text: query }]),
+        ...(window.ChatSession.echoed(query) ? [] : [window.ChatSession.seedUser(query)]),
         { role: "ai", wide: true, intent: query, render: () => <InlineIntent query={query} onDone={() => { const m = paperMeta(query, mem); setMeta(m); setMessages((ms) => [...ms, { role: "ai", node: setupNote(m) }]); }} /> },
       ];
     }
-    if (freshQuery) { const m = paperMeta(initialQ, mem); return [...window.ChatSession.take(), ...(window.ChatSession.echoed(query) ? [] : [{ role: "user", text: query }]), { role: "ai", node: setupNote(m) }]; }
+    if (freshQuery) { const m = paperMeta(initialQ, mem); return [...window.ChatSession.take(), ...(window.ChatSession.echoed(query) ? [] : [window.ChatSession.seedUser(query)]), { role: "ai", node: setupNote(m) }]; }
     return window.enterThread(scenario, greet);
   });
   const PAPER_SUGS = ["再难一点", "解答题加到 6 道", "第 1 题换一道", "附上答案与解析"];
@@ -424,7 +424,7 @@ function PaperWorkspace({ scenario, query, onHome, onSwitch, fromIntent, resume,
 
   return (
     <WorkspaceShell scenario={scenario} onHome={onHome} onSwitch={onSwitch} nav={nav} headerRecognizing={headerRecognizing} mobilePanelLabel={phase === "paper" ? "试卷" : "组卷"} mobilePanelIcon="paper" openSheetKey={paper ? paper.total : null}>
-      <ChatPanel messages={messages} onSend={send} suggestions={sugs} placeholder={phase === "paper" ? "调整卷子，或说「再难一点」…" : "描述要出的卷子…"} />
+      <ChatPanel messages={messages} onSend={send} suggestions={sugs} placeholder={phase === "paper" ? "调整卷子，或说「再难一点」…" : "描述要出的卷子…"} onOpenRef={(item) => { window.ChatSession.pendingOpenResource = item; onSwitch && onSwitch("find", ""); }} />
       <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", background: "var(--canvas)" }}>
         {/* 工具栏 */}
         <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 16px", borderBottom: "1px solid var(--line)", background: "var(--surface)", flexShrink: 0 }}>

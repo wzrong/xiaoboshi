@@ -115,6 +115,10 @@
   @keyframes pulseBg { 0% { background: var(--brand-soft); } 100% { background: transparent; } }
   @keyframes drawerIn { from { transform: translateX(40px); opacity: 0; } to { transform: none; opacity: 1; } }
   .drawer-pop { animation: drawerIn .3s ease both; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .mini-spin { width: 12px; height: 12px; border-radius: 50%; border: 2px solid var(--brand-soft-border); border-top-color: var(--brand); animation: spin .7s linear infinite; display: inline-block; flex-shrink: 0; }
+  @keyframes heartbeat { 0%, 100% { transform: translateX(-50%) scale(1); } 50% { transform: translateX(-50%) scale(1.14); } }
+  .heartbeat { animation: heartbeat 1s ease-in-out infinite; }
 
   .home-fade { animation: fadeUp .55s var(--ease-out) both; }
   .chip-pop { animation: fadeUp .5s var(--ease-out) both; }

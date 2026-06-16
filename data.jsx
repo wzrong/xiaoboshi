@@ -107,7 +107,7 @@ const RESOURCES = [
   {
     id: 1,
     title: "人教版数学七年级上册 1.2 有理数 同步练习（含解析）",
-    type: "同步练习",
+    type: "同步练",
     grade: "七年级",
     subject: "数学",
     edition: "人教版",
@@ -119,11 +119,12 @@ const RESOURCES = [
     reviewed: true,
     updated: "2025-08",
     tags: ["有理数", "随堂", "含答案"],
+    chips: ["2025–2026学年", "上学期", "同步教学", "答案+解析"],
   },
   {
     id: 2,
     title: "《有理数及其运算》单元检测卷 A 卷",
-    type: "单元测试",
+    type: "单元卷",
     grade: "七年级",
     subject: "数学",
     edition: "人教版",
@@ -135,11 +136,12 @@ const RESOURCES = [
     reviewed: true,
     updated: "2025-07",
     tags: ["单元卷", "梯度难度"],
+    chips: ["上学期", "单元复习", "校考", "答案+解析"],
   },
   {
     id: 3,
     title: "有理数的加减法 微课 + 配套学案",
-    type: "微课·学案",
+    type: "学案",
     grade: "七年级",
     subject: "数学",
     edition: "人教版",
@@ -151,11 +153,12 @@ const RESOURCES = [
     reviewed: true,
     updated: "2025-09",
     tags: ["微课", "学案", "新授"],
+    chips: ["上学期", "新授课", "配套音视频"],
   },
   {
     id: 4,
     title: "有理数易错题精选 30 题（培优）",
-    type: "专项突破",
+    type: "专项训练",
     grade: "七年级",
     subject: "数学",
     edition: "通用",
@@ -167,11 +170,12 @@ const RESOURCES = [
     reviewed: true,
     updated: "2025-06",
     tags: ["易错", "培优", "压轴"],
+    chips: ["上学期", "专项复习", "精品", "答案+解析"],
   },
   {
     id: 5,
     title: "有理数概念课 教学课件（精品）",
-    type: "教学课件",
+    type: "课件",
     grade: "七年级",
     subject: "数学",
     edition: "人教版",
@@ -183,6 +187,7 @@ const RESOURCES = [
     reviewed: true,
     updated: "2025-08",
     tags: ["课件", "新授", "情境导入"],
+    chips: ["上学期", "新授课", "精品"],
   },
 ];
 
@@ -236,8 +241,8 @@ const VIDEOS = [
     kind: "video",
     title: "【生物实验】观察根尖分生区细胞的有丝分裂",
     cat: "实验视频",
-    subject: "生物",
-    grade: "高中必修1",
+    subject: "生物学",
+    grade: "高一",
     edition: "人教版",
     duration: "14:20",
     quality: "1080P",
@@ -275,6 +280,8 @@ const VIDEOS = [
 ];
 
 // Mock ALBUM (专辑/合集) resources for 找资源
+// 专辑详情按「单元 → 课文/专题 → 资料」层级全量展开（参考学科网专辑页层级），
+// 资料行只展示文档类，样式与资源列表一致。fmt 决定文件图标（PPT/Word/分层作业/讲义…）。
 const ALBUMS = [
   {
     id: "a1",
@@ -283,26 +290,59 @@ const ALBUMS = [
     subject: "语文",
     grade: "六年级",
     edition: "统编版",
-    total: 28,
+    total: 19,
     downloads: "8.7万",
     match: 94,
     reviewed: true,
     updated: "2025-12",
     composition: [
-      { type: "课件", n: 8 },
-      { type: "教案", n: 6 },
-      { type: "试卷", n: 8 },
-      { type: "习题", n: 6 },
+      { type: "课件", n: 6 },
+      { type: "教案", n: 4 },
+      { type: "作业", n: 5 },
+      { type: "讲义", n: 2 },
+      { type: "试卷", n: 2 },
     ],
-    items: [
-      { type: "课件", title: "第一单元 考点精讲串讲课件", fmt: "PPTX", pages: 32 },
-      { type: "教案", title: "第一单元 复习课教学设计", fmt: "DOCX", pages: 9 },
-      { type: "微课", title: "阅读理解答题技巧 精讲微课", fmt: "MP4", dur: "09:21" },
-      { type: "试卷", title: "期末模拟检测卷（一）含答案", fmt: "DOCX", pages: 6, q: 26 },
-      { type: "习题", title: "易错字词·古诗文默写专项", fmt: "DOCX", pages: 5 },
-      { type: "课件", title: "习作复习：写人记事考点串讲", fmt: "PPTX", pages: 28 },
-      { type: "试卷", title: "期末真题汇编卷（近三年）", fmt: "DOCX", pages: 8, q: 30 },
-      { type: "教案", title: "口语交际与综合性学习 教案", fmt: "DOCX", pages: 7 },
+    units: [
+      {
+        name: "第一单元 民风民俗",
+        lessons: [
+          { name: "1 北京的春节/老舍", items: [
+            { type: "课件", fmt: "PPT", title: "1 北京的春节（素养进阶教学课件）语文统编版六下", pages: 30 },
+            { type: "教案", fmt: "Word", title: "1 北京的春节（素养进阶教学设计）语文统编版六下", pages: 8 },
+            { type: "作业", fmt: "作业", title: "1 北京的春节（素养进阶分层作业）语文统编版六下", pages: 5 },
+            { type: "讲义", fmt: "讲义", title: "1 北京的春节：详略与场景描写（讲义）语文统编版六下", pages: 6 },
+          ] },
+          { name: "2 腊八粥/沈从文", items: [
+            { type: "课件", fmt: "PPT", title: "2 腊八粥（素养进阶教学课件）语文统编版六下", pages: 28 },
+            { type: "教案", fmt: "Word", title: "2 腊八粥（素养进阶教学设计）语文统编版六下", pages: 7 },
+            { type: "作业", fmt: "作业", title: "2 腊八粥（素养进阶分层作业）语文统编版六下", pages: 5 },
+          ] },
+          { name: "3 古诗三首", items: [
+            { type: "课件", fmt: "PPT", title: "3 古诗三首（素养进阶教学课件）语文统编版六下", pages: 26 },
+            { type: "作业", fmt: "作业", title: "3 古诗三首（素养进阶分层作业）语文统编版六下", pages: 4 },
+          ] },
+          { name: "4* 藏戏/马晨明", items: [
+            { type: "课件", fmt: "PPT", title: "4* 藏戏（素养进阶教学课件）语文统编版六下", pages: 22 },
+            { type: "作业", fmt: "作业", title: "4* 藏戏（素养进阶分层作业）语文统编版六下", pages: 4 },
+          ] },
+        ],
+      },
+      {
+        name: "期末复习专题",
+        lessons: [
+          { name: "专项 · 阅读理解", items: [
+            { type: "讲义", fmt: "讲义", title: "记叙文阅读答题方法 考点精讲（讲义）", pages: 9 },
+            { type: "作业", fmt: "作业", title: "课外阅读理解 专项训练（含答案）", pages: 8 },
+          ] },
+          { name: "专项 · 习作（写人记事）", items: [
+            { type: "课件", fmt: "PPT", title: "习作复习：写人记事 考点串讲课件", pages: 24 },
+          ] },
+          { name: "期末检测", items: [
+            { type: "试卷", fmt: "Word", title: "六年级语文下册 期末模拟检测卷（一）含答案", pages: 6, q: 26 },
+            { type: "试卷", fmt: "Word", title: "六年级语文下册 期末真题汇编卷（近三年）", pages: 8, q: 30 },
+          ] },
+        ],
+      },
     ],
   },
   {
@@ -312,23 +352,60 @@ const ALBUMS = [
     subject: "数学",
     grade: "高三",
     edition: "通用",
-    total: 22,
+    total: 14,
     downloads: "5.2万",
     match: 89,
     reviewed: true,
     updated: "2025-11",
     composition: [
-      { type: "课件", n: 7 },
-      { type: "试卷", n: 9 },
-      { type: "习题", n: 6 },
+      { type: "课件", n: 5 },
+      { type: "讲义", n: 3 },
+      { type: "作业", n: 2 },
+      { type: "题集", n: 2 },
+      { type: "试卷", n: 2 },
     ],
-    items: [
-      { type: "课件", title: "函数的概念与性质 一轮精讲", fmt: "PPTX", pages: 40 },
-      { type: "试卷", title: "函数专题滚动训练卷（一）", fmt: "DOCX", pages: 6, q: 22 },
-      { type: "习题", title: "导数的几何意义 易错题精选", fmt: "DOCX", pages: 5 },
-      { type: "课件", title: "导数与函数单调性 专题突破", fmt: "PPTX", pages: 36 },
-      { type: "试卷", title: "函数与导数 综合检测卷", fmt: "DOCX", pages: 8, q: 24 },
-      { type: "习题", title: "压轴题：导数中的恒成立问题", fmt: "DOCX", pages: 4 },
+    units: [
+      {
+        name: "专题一 函数的概念与性质",
+        lessons: [
+          { name: "1.1 函数的概念与表示", items: [
+            { type: "课件", fmt: "PPT", title: "1.1 函数的概念与表示 一轮精讲课件", pages: 38 },
+            { type: "教案", fmt: "Word", title: "1.1 函数的概念与表示 一轮复习教学设计", pages: 7 },
+            { type: "作业", fmt: "作业", title: "1.1 函数的概念与表示 分层训练（含答案）", pages: 5 },
+          ] },
+          { name: "1.2 函数的基本性质", items: [
+            { type: "课件", fmt: "PPT", title: "1.2 单调性·奇偶性·周期性 专题突破课件", pages: 40 },
+            { type: "讲义", fmt: "讲义", title: "1.2 函数性质综合应用（讲义）", pages: 8 },
+          ] },
+        ],
+      },
+      {
+        name: "专题二 导数及其应用",
+        lessons: [
+          { name: "2.1 导数的概念与几何意义", items: [
+            { type: "课件", fmt: "PPT", title: "2.1 导数的概念与几何意义 一轮精讲课件", pages: 34 },
+            { type: "讲义", fmt: "讲义", title: "2.1 导数的几何意义 易错点精讲（讲义）", pages: 6 },
+            { type: "题集", fmt: "题集", title: "2.1 导数的几何意义 易错题精选", pages: 5 },
+          ] },
+          { name: "2.2 导数与函数单调性", items: [
+            { type: "课件", fmt: "PPT", title: "2.2 导数与函数单调性 专题突破课件", pages: 36 },
+            { type: "作业", fmt: "作业", title: "2.2 导数与单调性 分层训练（含答案）", pages: 5 },
+          ] },
+          { name: "2.3 导数中的恒成立与压轴", items: [
+            { type: "讲义", fmt: "讲义", title: "2.3 恒成立与能成立问题 方法归纳（讲义）", pages: 7 },
+            { type: "题集", fmt: "题集", title: "2.3 压轴题：导数中的恒成立问题精选", pages: 4 },
+          ] },
+        ],
+      },
+      {
+        name: "综合检测",
+        lessons: [
+          { name: "专题综合检测", items: [
+            { type: "试卷", fmt: "Word", title: "函数与导数 专题滚动训练卷（一）含答案", pages: 6, q: 22 },
+            { type: "试卷", fmt: "Word", title: "函数与导数 综合检测卷（含解析）", pages: 8, q: 24 },
+          ] },
+        ],
+      },
     ],
   },
 ];
@@ -336,7 +413,7 @@ const ALBUMS = [
 // Mock textbook Q&A for 问教材
 const TEXTBOOK_TREE = {
   edition: "人教版",
-  subject: "生物",
+  subject: "生物学",
   grade: "高中必修1",
   chapters: [
     {
@@ -452,7 +529,7 @@ const USER_MEMORY = {
     { id: "w2", scenario: "courseware", icon: "slides", hue: 255, title: "《整式的加减》互动课件", kind: "互动课件", source: "AI 生成", meta: "人教版 · 七年级 · 18 页 · 2 课时", when: "3 天前", status: "done" },
     { id: "w3", scenario: "lesson", icon: "lesson", hue: 320, title: "《数轴》教学设计", kind: "教案", source: "AI 生成", meta: "人教版 · 七年级 · 情境导入", when: "上周", status: "done" },
     { id: "w7", scenario: "find", icon: "slides", hue: 210, title: "《一元一次方程》名师同步课件", kind: "课件", source: "学科网下载", meta: "人教版 · 七年级 · 来自资源库", when: "上周", status: "saved" },
-    { id: "w4", scenario: "paper", icon: "paper", hue: 25, title: "第一单元《有理数》单元测试", kind: "试卷", source: "学科网下载", meta: "人教版 · 七年级 · 中等偏难 · 24 题", when: "上周", status: "saved" },
+    { id: "w4", scenario: "paper", icon: "paper", hue: 25, title: "第一单元《有理数》单元测试", kind: "试卷", source: "学科网下载", meta: "人教版 · 七年级 · 中等 · 24 题", when: "上周", status: "saved" },
     { id: "w5", scenario: "courseware", icon: "slides", hue: 255, title: "《正数和负数》导入课件", kind: "PPT 课件", source: "AI 生成", meta: "人教版 · 七年级 · 12 页", when: "2 周前", status: "draft" },
     { id: "w6", scenario: "mindmap", icon: "mindmap", hue: 175, title: "《有理数》知识网络图", kind: "思维导图", source: "AI 生成", meta: "人教版 · 七年级 · 一章", when: "2 周前", status: "done" },
     { id: "w8", scenario: "find", icon: "interactive", hue: 45, title: "《有理数运算》闯关备课组件", kind: "备课组件", source: "备课产品", meta: "人教版 · 七年级 · 课堂活动", when: "2 周前", status: "saved" },

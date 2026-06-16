@@ -271,36 +271,145 @@ function RecognizingPanel() {
   );
 }
 
+// ---- Session task bar (pinned above the composer) ----
+// Surfaces an in-progress 出卷子/写教案 task started this session, so a teacher who
+// jumped here (e.g. tapped a 引用 card) always has a fixed way back to their draft.
+// Two visual states: 草稿条 (dashed/muted, draft in progress) → 结果条 (solid/brand, built).
+function deriveSessionTask() {
+  const clean = (s) => (s || "").replace(/[《》]/g, "").trim();
+  const p = window.ChatSession.scratch.paper2;
+  if (p && (p.q || p.paper)) {
+    const topic = clean((p.paper && p.paper.meta && p.paper.meta.topic) || ((p.q || "").match(/《(.+?)》/) || [])[1] || (p.q || "").replace(/^据/, "").slice(0, 12) || "卷子");
+    return { scenario: "paper", icon: "paper", kind: "卷子", topic, built: !!p.paper };
+  }
+  const l = window.ChatSession.scratch.lesson;
+  if (l && (l.q || l.doc)) {
+    const topic = clean((l.doc && l.doc.topic) || ((l.q || "").match(/《(.+?)》/) || [])[1] || (l.q || "").replace(/^据/, "").slice(0, 12) || "教案");
+    return { scenario: "lesson", icon: "lesson", kind: "教案", topic, built: !!l.doc };
+  }
+  return null;
+}
+function SessionTaskBar({ task, onOpen }) {
+  if (!task) return null;
+  const built = task.built;
+  return (
+    <div style={{ padding: "0 14px 10px" }}>
+      <button onClick={onOpen} title={built ? "打开成品" : "回到草稿继续编辑"} style={{
+        width: "100%", display: "flex", alignItems: "center", gap: 10, textAlign: "left", cursor: "pointer", fontFamily: "var(--font-zh)",
+        padding: "9px 11px", borderRadius: 12,
+        border: built ? "1px solid var(--brand-soft-border)" : "1.5px dashed var(--line-2)",
+        background: built ? "var(--brand-soft)" : "var(--surface-2)",
+        transition: "all .15s",
+      }}>
+        <span style={{ width: 30, height: 30, borderRadius: 8, flexShrink: 0, display: "grid", placeItems: "center",
+          background: built ? "var(--surface)" : "transparent",
+          border: built ? "1px solid var(--brand-soft-border)" : "1px dashed var(--line-2)",
+          color: built ? "var(--brand-deep)" : "var(--ink-4)" }}>
+          <Icon name={task.icon} size={15} />
+        </span>
+        <span style={{ flex: 1, minWidth: 0 }}>
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 10, fontWeight: 800, letterSpacing: ".3px", color: built ? "var(--brand-deep)" : "var(--ink-4)" }}>
+            <span style={{ width: 6, height: 6, borderRadius: "50%", background: built ? "oklch(0.72 0.17 150)" : "var(--ink-4)", flexShrink: 0 }} />
+            {built ? "已生成 · 点击查看" : "草稿编辑中 · 进度已保留"}
+          </span>
+          <span style={{ display: "block", fontSize: 13, fontWeight: 700, color: "var(--ink)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginTop: 2 }}>
+            {built ? "" : "继续编辑 "}《{task.topic}》{task.kind}
+          </span>
+        </span>
+        <Icon name="chevronRight" size={16} />
+      </button>
+    </div>
+  );
+}
+
 // ---- Chat panel (left) ----
-function ChatPanel({ messages, onSend, suggestions, placeholder, width = 380, pinnedCard, roundsById, shownId, onOpenRound, retrieving, header, onOpenRef, clarify, onResolveClarify, onSkipClarify }) {
+function ChatPanel({ messages, onSend, suggestions, placeholder, width = 380, pinnedCard, roundsById, shownId, onOpenRound, retrieving, header, onOpenRef, clarify, onResolveClarify, onSkipClarify, taskBar }) {
   const [draft, setDraft] = uS("");
-  const [att, setAtt] = uS([]);
+  const [att, setAtt] = uS([]);          // { id, name, status: uploading|parsing|ready }
+  const [viewFile, setViewFile] = uS(null);
+  const [atBottom, setAtBottom] = uS(true);
   const scrollRef = uR(null);
+  const taRef = uR(null);
+  const atBottomRef = uR(true);
+  const prevLenRef = uR(messages.length);
+  const TA_MAX = 116; // ~5 lines, then scroll in place
+  const aiBusy = messages.some((m) => m.typing);
+
+  // auto-scroll to latest ONLY when a new message arrives AND the user is already
+  // at the bottom — never yank them up from history (clicking history = no jump)
+  const recomputeBottom = () => {
+    const el = scrollRef.current; if (!el) return;
+    const nb = el.scrollHeight - el.scrollTop - el.clientHeight < 60;
+    atBottomRef.current = nb; setAtBottom(nb);
+  };
+  // Always snap to the latest when the message list actually changes — sends, AI
+  // replies, handoff seeds all reach the bottom. Clicking a history result card does
+  // NOT change `messages`, so this effect won't fire and the chat stays put.
   uE(() => {
-    if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    const el = scrollRef.current; if (!el) return;
+    el.scrollTop = el.scrollHeight;
+    recomputeBottom();
   }, [messages]);
+  const scrollToBottom = () => { const el = scrollRef.current; if (!el) return; el.scrollTop = el.scrollHeight; atBottomRef.current = true; setAtBottom(true); };
+
+  // grow the textarea up to 5 lines, then keep height and scroll internally
+  uE(() => {
+    const el = taRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = Math.min(el.scrollHeight, TA_MAX) + "px";
+    el.style.overflowY = el.scrollHeight > TA_MAX ? "auto" : "hidden";
+  }, [draft]);
+
+  // attachments: simulate upload → parse → ready so it feels real
+  const addFiles = (names) => {
+    const incoming = names.map((n) => ({ id: Math.random().toString(36).slice(2), name: n, status: "uploading" }));
+    setAtt((f) => [...f, ...incoming].slice(0, 6));
+    incoming.forEach((it) => {
+      setTimeout(() => setAtt((f) => f.map((x) => (x.id === it.id && x.status === "uploading" ? { ...x, status: "parsing" } : x))), 700);
+      setTimeout(() => setAtt((f) => f.map((x) => (x.id === it.id ? { ...x, status: "ready" } : x))), 1700);
+    });
+  };
+  const busyUpload = att.some((a) => a.status !== "ready");
+
+  // Opening a round (clicking a result pill) must NOT move the chat — it only swaps the
+  // right pane. Capture the scroll position and pin it across the re-render frames, so
+  // the conversation stays exactly where the teacher was reading.
+  const handleOpenRound = (id) => {
+    const el = scrollRef.current;
+    const keep = el ? el.scrollTop : 0;
+    onOpenRound && onOpenRound(id);
+    const pin = () => { if (scrollRef.current) scrollRef.current.scrollTop = keep; };
+    requestAnimationFrame(pin);
+    requestAnimationFrame(() => requestAnimationFrame(pin));
+    setTimeout(pin, 80);
+  };
+
   const send = (txt) => {
     const v = (txt ?? draft).trim();
     if (!v && att.length === 0) return;
-    onSend(v, att);
+    if (busyUpload) return; // wait until attachments finish parsing
+    onSend(v, att.map((a) => a.name));
     setDraft("");
     setAtt([]);
   };
+
+  const sugs = (suggestions || []).slice(0, 3); // default show 3 follow-up questions
   return (
     <div style={{ width, flexShrink: 0, display: "flex", flexDirection: "column", background: "var(--surface)", borderRight: "1px solid var(--line)" }}>
       {header}
-      <div ref={scrollRef} style={{ flex: 1, overflowY: "auto", padding: "20px 18px", display: "flex", flexDirection: "column", gap: 16 }}>
+      <div ref={scrollRef} onScroll={recomputeBottom} style={{ flex: 1, overflowY: "auto", padding: "20px 18px", display: "flex", flexDirection: "column", gap: 16 }}>
         {messages.map((m, i) => {
           const round = roundsById && m.roundId != null ? roundsById[m.roundId] : null;
           const prev = messages[i - 1];
           const grouped = m.role !== "user" && m.role !== "sys" && !!prev && prev.role !== "user" && prev.role !== "sys";
-          return <Bubble key={i} m={m} round={round} active={round && round.id === shownId && !retrieving} onOpenRound={onOpenRound} grouped={grouped} onOpenRef={onOpenRef} />;
+          return <Bubble key={i} m={m} round={round} active={round && round.id === shownId && !retrieving} onOpenRound={handleOpenRound} grouped={grouped} onOpenRef={onOpenRef} onViewFile={setViewFile} />;
         })}
         {pinnedCard}
       </div>
-      {suggestions && suggestions.length > 0 && !clarify && (
+      {sugs.length > 0 && !clarify && (
         <div style={{ padding: "10px 16px 4px", display: "flex", flexWrap: "wrap", gap: 8 }}>
-          {suggestions.map((s, i) => (
+          {sugs.map((s, i) => (
             <button
               key={i}
               onClick={() => send(s)}
@@ -327,10 +436,23 @@ function ChatPanel({ messages, onSend, suggestions, placeholder, width = 380, pi
         </div>
       )}
       {clarify && <ClarifyPopover onResolve={onResolveClarify} onSkip={onSkipClarify} />}
-      <div style={{ padding: 14, borderTop: "1px solid var(--line)" }}>
-        <FileChips files={att} onRemove={(i) => setAtt((f) => f.filter((_, j) => j !== i))} style={{ marginBottom: 8 }} />
-        <div style={{ display: "flex", gap: 8, alignItems: "flex-end", background: "var(--surface-2)", border: "1px solid var(--line)", borderRadius: 14, padding: 8 }}>
+      {!clarify && taskBar}
+      <div style={{ padding: 14, borderTop: "1px solid var(--line)", position: "relative" }}>
+        {/* scroll-to-bottom — appears when scrolled up; heartbeats while 小博士 is outputting */}
+        {!atBottom && (
+          <button onClick={scrollToBottom} title={aiBusy ? "小博士正在输出…" : "回到最新"} className={aiBusy ? "heartbeat" : ""} style={{ position: "absolute", top: -44, left: "50%", transform: "translateX(-50%)", width: 34, height: 34, borderRadius: "50%", border: "1px solid var(--line)", background: "var(--surface)", boxShadow: "0 8px 20px -8px rgba(20,30,50,.3)", color: "var(--brand-deep)", display: "grid", placeItems: "center", cursor: "pointer", zIndex: 6 }}>
+            {aiBusy ? <span className="mini-spin" /> : <Icon name="chevron" size={18} />}
+          </button>
+        )}
+        {/* homepage-style composer: attachments (top, inside box) → input area → button row */}
+        <div
+          onFocusCapture={(e) => { e.currentTarget.style.borderColor = "var(--brand)"; e.currentTarget.style.boxShadow = "var(--ring), var(--input-shadow)"; }}
+          onBlurCapture={(e) => { e.currentTarget.style.borderColor = "var(--input-border)"; e.currentTarget.style.boxShadow = "none"; }}
+          style={{ background: "var(--surface)", border: "1.5px solid var(--input-border)", borderRadius: 16, padding: "10px 12px 8px", transition: "border-color .2s, box-shadow .25s" }}
+        >
+          <FileChips files={att} onRemove={(i) => setAtt((f) => f.filter((_, j) => j !== i))} onView={(n) => setViewFile(n)} style={{ marginBottom: att.length ? 8 : 0 }} />
           <textarea
+            ref={taRef}
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
             onKeyDown={(e) => {
@@ -341,17 +463,22 @@ function ChatPanel({ messages, onSend, suggestions, placeholder, width = 380, pi
             }}
             rows={1}
             placeholder={clarify ? "选上方，或直接在这里描述你要找的资源…" : (placeholder || "继续告诉我你的调整…")}
-            style={{ flex: 1, border: "none", outline: "none", background: "transparent", resize: "none", fontSize: 13.5, fontFamily: "var(--font-zh)", color: "var(--ink)", lineHeight: 1.5, padding: "4px 2px" }}
+            style={{ width: "100%", display: "block", border: "none", outline: "none", background: "transparent", resize: "none", fontSize: 13.5, fontFamily: "var(--font-zh)", color: "var(--ink)", lineHeight: 1.5, padding: "2px 2px", maxHeight: TA_MAX, overflowY: "hidden", boxSizing: "border-box" }}
           />
-          <ClipButton onFiles={(names) => setAtt((f) => [...f, ...names].slice(0, 6))} compact />
-          <button
-            onClick={() => send()}
-            style={{ width: 34, height: 34, borderRadius: 10, border: "none", background: "var(--brand-grad)", backgroundColor: "var(--brand)", color: "#fff", display: "grid", placeItems: "center", cursor: "pointer", flexShrink: 0 }}
-          >
-            <Icon name="send" size={16} />
-          </button>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginTop: 6 }}>
+            <ClipButton onFiles={addFiles} compact />
+            <button
+              onClick={() => send()}
+              disabled={busyUpload}
+              title={busyUpload ? "附件解析中…" : "发送"}
+              style={{ width: 34, height: 34, borderRadius: 10, border: "none", background: busyUpload ? "var(--line)" : "var(--brand-grad)", backgroundColor: busyUpload ? "var(--line)" : "var(--brand)", color: busyUpload ? "var(--ink-3)" : "#fff", display: "grid", placeItems: "center", cursor: busyUpload ? "default" : "pointer", flexShrink: 0, transition: "background .2s" }}
+            >
+              <Icon name="send" size={16} />
+            </button>
+          </div>
         </div>
       </div>
+      {viewFile && <FileViewer name={viewFile} onClose={() => setViewFile(null)} />}
     </div>
   );
 }
@@ -377,7 +504,7 @@ function ArtifactChip({ a }) {
   );
 }
 
-function Bubble({ m, round, active, onOpenRound, grouped, onOpenRef }) {
+function Bubble({ m, round, active, onOpenRound, grouped, onOpenRef, onViewFile }) {
   // slim system marker — scenario switches etc. A divider, not a chat bubble.
   if (m.role === "sys") {
     return (
@@ -411,7 +538,7 @@ function Bubble({ m, round, active, onOpenRound, grouped, onOpenRef }) {
         {m.files && m.files.length > 0 && (
           <div style={{ display: "flex", flexWrap: "wrap", gap: 6, justifyContent: "flex-end" }}>
             {m.files.map((name, i) => (
-              <span key={i} style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "4px 8px", borderRadius: 8, background: "var(--surface-2)", border: "1px solid var(--line)", fontSize: 11.5, fontWeight: 600, color: "var(--ink-2)", maxWidth: 180 }}>
+              <span key={i} onClick={() => onViewFile && onViewFile(name)} title={onViewFile ? "点击查看" : undefined} style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "4px 8px", borderRadius: 8, background: "var(--surface-2)", border: "1px solid var(--line)", fontSize: 11.5, fontWeight: 600, color: "var(--ink-2)", maxWidth: 180, cursor: onViewFile ? "pointer" : "default" }}>
                 <Icon name="file" size={12} />
                 <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{name}</span>
               </span>
@@ -419,7 +546,7 @@ function Bubble({ m, round, active, onOpenRound, grouped, onOpenRef }) {
           </div>
         )}
         {m.text && (
-          <div style={{ background: "var(--brand-grad)", backgroundColor: "var(--brand)", color: "#fff", padding: "10px 13px", borderRadius: "14px 14px 4px 14px", fontSize: 13.5, lineHeight: 1.6, fontWeight: 500 }}>
+          <div style={{ background: "var(--brand-grad)", backgroundColor: "var(--brand)", color: "#fff", padding: "10px 13px", borderRadius: "14px 14px 4px 14px", fontSize: 13.5, lineHeight: 1.6, fontWeight: 500, whiteSpace: "pre-wrap", overflowWrap: "anywhere" }}>
             {m.text}
           </div>
         )}
@@ -427,7 +554,7 @@ function Bubble({ m, round, active, onOpenRound, grouped, onOpenRef }) {
     );
   }
   return (
-    <div style={{ display: "flex", gap: 9, alignItems: "flex-start", maxWidth: m.wide ? "98%" : "92%", width: m.wide ? "100%" : "auto", marginTop: grouped ? -8 : 0 }}>
+    <div style={{ display: "flex", gap: 9, alignItems: "flex-start", maxWidth: "92%", width: m.wide ? "100%" : "auto", marginTop: grouped ? -8 : 0 }}>
       {/* one avatar per assistant turn — consecutive AI blocks share the first one */}
       {grouped ? <div style={{ width: 28, flexShrink: 0 }} /> : <BotAvatar size={28} />}
       <div style={{ flex: m.wide ? 1 : "0 1 auto", minWidth: 0, display: "flex", flexDirection: "column", gap: 8 }}>
@@ -456,18 +583,19 @@ function Bubble({ m, round, active, onOpenRound, grouped, onOpenRef }) {
 }
 
 // ---- 找资源 workspace ----
+// 与标签树对齐：筛选维度 = 学段 / 学科 / 版本 / 类型[41] / 难度（业务流程§5.4）
 const MORE_FILTERS = [
-  { key: "grade", label: "年级", opts: ["七年级", "八年级", "九年级"] },
-  { key: "subject", label: "学科", opts: ["数学", "物理", "英语"] },
-  { key: "edition", label: "版本", opts: ["人教版", "北师大版", "通用"] },
-  { key: "type", label: "类型", opts: ["同步练习", "单元测试", "微课·学案", "专项突破", "教学课件"] },
+  { key: "stage", label: "学段", opts: ["小学", "初中", "高中", "中职"] },
+  { key: "subject", label: "学科", opts: ["语文", "数学", "英语", "物理", "化学", "生物学", "历史", "地理", "道德与法治", "科学"] },
+  { key: "edition", label: "版本", opts: ["人教版", "统编版", "北师大版", "苏教版", "外研版", "通用"] },
+  { key: "type", label: "类型", opts: ["课件", "教案", "学案", "作业", "试卷", "题集", "素材", "示范课", "备课综合"] },
   { key: "diff", label: "难度", opts: ["基础", "中等", "拔高"] },
 ];
 
 const HANDOFF = [
   { id: "paper", icon: "paper", label: "直接出一份卷子", hue: 25, hint: "从学科网题库智能组卷" },
   { id: "lesson", icon: "lesson", label: "生成配套教案", hue: 320, hint: "对齐课标的教学设计" },
-  { id: "courseware", icon: "slides", label: "做成课件", hue: 255, hint: "结构清晰的 PPT" },
+  { id: "courseware", icon: "slides", label: "做成课件", hue: 255, hint: "结构清晰的 PPT / 互动课件" },
 ];
 
 const RESULT_TABS = [
@@ -476,7 +604,8 @@ const RESULT_TABS = [
   { k: "video", label: "视频" },
   { k: "album", label: "专辑" },
 ];
-const SUBJ_LIST = ["语文", "数学", "英语", "物理", "化学", "生物", "历史", "地理", "政治", "科学", "道德与法治"];
+// 解析用别名表：含口语化写法，长名在前优先命中（生物学 > 生物、历史与社会 > 历史）
+const SUBJ_LIST = ["语文", "数学", "英语", "物理", "化学", "生物学", "生物", "历史与社会", "历史", "地理", "道德与法治", "思想政治", "政治", "科学", "信息技术"];
 const GRADE_LIST = ["七年级", "八年级", "九年级", "高一", "高二", "高三", "六年级", "五年级", "四年级", "三年级"];
 function pickSubject(q) { return q ? SUBJ_LIST.find((s) => q.includes(s)) : null; }
 function pickGrade(q) { return q ? GRADE_LIST.find((g) => q.includes(g)) : null; }
@@ -498,8 +627,8 @@ function replyForResource(q, item) {
     const comp = (item.composition || []).map((c) => `${c.type}${c.n}`).join("、");
     if (/主题|涵盖|知识|范围|考点|重点/.test(q)) return <span>《{t}》是一套 <b>{item.total || ""} 份</b>的成套合集，含 {comp}，覆盖 <b style={{ color: "var(--brand-deep)" }}>{tagStr}</b> 等主题。可整套打包，也可只取其中的试卷或课件单独使用 —— 你想先看哪一类我都能帮你拆出来。</span>;
   }
-  // 讲题（A 类，基于原卷定位）
-  if (/这道题|怎么讲|讲一下|讲题|讲解这/.test(q)) {
+  // 讲题（A 类，AI 从原卷挑典型题，不要求用户先指定哪道）
+  if (/这道题|怎么讲|讲一下|讲题|讲解这|典型题|讲讲|挑几道/.test(q)) {
     return <span>好的，我从《{t}》里挑一道<b>典型题</b>来讲：先帮学生厘清 <b style={{ color: "var(--brand-deep)" }}>{tags[0] || "核心知识点"}</b> 的解题入口，再分步推导、标注易错点。你也可以指定第几题，我据原卷逐题讲解。</span>;
   }
   // 考点 / 教学重点 / 教学目标 / 学习目标 / 教学流程（A 类内容总结）
@@ -547,9 +676,10 @@ const SOURCE_STYLE = {
 };
 function SourceTag({ source }) {
   const s = SOURCE_STYLE[source] || SOURCE_STYLE["学科网"];
+  // low-key: a small dot + muted label, no colored pill (sources shouldn't dominate the card)
   return (
-    <span style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "1px 7px", borderRadius: 5, background: s.bg, border: `1px solid ${s.bd}`, color: s.c, fontSize: 10.5, fontWeight: 800, whiteSpace: "nowrap" }}>
-      <Icon name={s.icon} size={11} sw={2} /> {s.label}
+    <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 10, fontWeight: 600, color: "var(--ink-3)", whiteSpace: "nowrap" }}>
+      <span style={{ width: 6, height: 6, borderRadius: "50%", background: s.c, opacity: 0.75, flexShrink: 0 }} /> {s.label}
     </span>
   );
 }
@@ -611,6 +741,21 @@ const ROUND_SUGS = {
   all: ["只看视频", "有没有成套专辑", "只要含答案的文档", "难度再高一点"],
 };
 
+// follow-up chips above the input — grounded in THIS round's真实理解（学科 / 章节 / 形态），
+// 而不是一组写死的通用词。
+function roundSuggestions(round) {
+  if (!round) return [];
+  const subj = round.subject || "";
+  const topic = ((round.query || "").match(/《(.+?)》/) || [])[1] || "";
+  if (round.kind === "video") return ["只看实验视频", "教师研修视频", topic ? `${topic}讲解视频` : "换个知识点的视频", "据此配套出题"];
+  if (round.kind === "album") return ["展开专辑内容", "整套打包下载", "只要其中的试卷", "换个复习专辑"];
+  // 文档 / 混合轨
+  const s = ["只要含答案解析", "难度再高一点"];
+  s.push(topic ? `${topic}易错题专项` : (subj ? `${subj}其它章节` : "换个章节"));
+  s.push("有没有配套微课");
+  return s;
+}
+
 // result pill — sits BELOW the reply bubble (not nested inside it), width follows the bubble column
 function ResultPill({ count, active, onOpen }) {
   return (
@@ -651,13 +796,13 @@ function resourceCategory(item) {
   if (item._kind === "album" || item.composition) return "album";
   const t = (item.type || "") + "";
   if (/课件|PPT|幻灯/.test(t)) return "courseware";
-  if (/学案|导学案/.test(t)) return "studyguide";   // 含「微课·学案」优先归学案
-  if (/教案|教学设计|说课/.test(t)) return "lesson";
+  if (/学案|导学案|学习任务单|知识清单|实验报告单/.test(t)) return "studyguide";
+  if (/教案|讲义|教学设计|学历案|作业设计|说课/.test(t)) return "lesson";
+  if (/同步练|单元卷|作业|假期|寒假|暑假/.test(t)) return "homework";
   if (/微课/.test(t)) return "video";
-  if (/假期|寒假|暑假|作业/.test(t)) return "homework";
-  if (/素材|图片|图集/.test(t)) return "material";
+  if (/素材|图片|图集|音频|动画/.test(t)) return "material";
   if (/备课|综合/.test(t)) return "comprehensive";
-  return "paper"; // 同步练习/单元测试/专项突破/试卷/试题/习题/真题…
+  return "paper"; // 试卷 / 题集（试题汇编·专项训练·综合训练）/ 真题…
 }
 
 // short category label shown on the chat reference card
@@ -677,8 +822,8 @@ function buildResourceAsks(item, loggedIn) {
     video: "总结这个视频的要点", album: "总结这个合集的主题范围", material: null,
   }[cat];
   const dynamic = {
-    paper: [{ text: "这道题怎么讲", cls: "A" }, { text: "据此出一份同类卷子", cls: "C", to: "paper" }],
-    homework: [{ text: "据此出一份同类练习", cls: "C", to: "paper" }],
+    paper: [{ text: "挑几道典型题讲讲", cls: "A" }, { text: "据此出一份同类卷子", cls: "C", to: "paper" }],
+    homework: [{ text: "挑几道典型题讲讲", cls: "A" }, { text: "据此出一份同类练习", cls: "C", to: "paper" }],
     courseware: [{ text: "提取这份课件的教学目标", cls: "A" }, { text: "据此生成一份教案", cls: "C", to: "lesson" }],
     lesson: [{ text: "整理一下这份教案的教学流程", cls: "A" }],
     studyguide: [{ text: "提取学生学习目标和重点", cls: "A" }],
@@ -715,58 +860,68 @@ function AskBar({ item, loggedIn, onAsk }) {
   );
 }
 
-// ---- 追问 / 澄清弹框（找资源参数不足时，一轮补齐学科 + 学段/年级）------------------
-// 触发见 handleSend：消息是「找资源意图」但学科未知且无已确认上下文时，从输入框
-// 上方上拉浮现（Claude AskUserQuestion 式）。最多一轮；学科必选、学段+年级选填；
-// 支持键盘 1–9 选学科、回车确认、Esc 跳过；也可直接在下方输入框自己描述。
-const CLARIFY_SUBJECTS = ["语文", "数学", "英语", "物理", "化学", "生物", "历史", "地理", "政治"];
+// ---- 追问 / 澄清弹框（找资源参数不足时，一轮补齐学段 + 学科）------------------
+// 触发见 handleSend。顺序有讲究：学段决定了可选的学科与年级，所以先选学段
+// （必选）→ 再选学科（必选，选项随学段变）→ 年级（选填）。也可直接在下方输入框自己描述。
 const CLARIFY_STAGES = ["小学", "初中", "高中"];
+const CLARIFY_SUBJECTS_BY_STAGE = {
+  小学: ["语文", "数学", "英语", "科学", "道德与法治"],
+  初中: ["语文", "数学", "英语", "物理", "化学", "生物学", "历史", "地理", "道德与法治"],
+  高中: ["语文", "数学", "英语", "物理", "化学", "生物学", "历史", "地理", "思想政治"],
+};
 const CLARIFY_GRADES_BY_STAGE = {
   小学: ["一年级", "二年级", "三年级", "四年级", "五年级", "六年级"],
   初中: ["七年级", "八年级", "九年级"],
   高中: ["高一", "高二", "高三"],
 };
 function ClarifyPopover({ onResolve, onSkip }) {
-  const [sj, setSj] = uS(null);
   const [stage, setStage] = uS(null);
+  const [sj, setSj] = uS(null);
   const [gr, setGr] = uS(null);
+  const stageRef = uR(stage); stageRef.current = stage;
   const sjRef = uR(sj); sjRef.current = sj;
   const grRef = uR(gr); grRef.current = gr;
-  const stageRef = uR(stage); stageRef.current = stage;
   uE(() => {
     const onKey = (e) => {
       const typing = /^(input|textarea)$/i.test((e.target && e.target.tagName) || "");
       if (e.key === "Escape") { onSkip && onSkip(); return; }
       if (typing) return; // don't hijack keys while the user is typing a free answer
-      if (e.key === "Enter" && sjRef.current) { e.preventDefault(); onResolve(sjRef.current, grRef.current, stageRef.current); return; }
+      if (e.key === "Enter" && stageRef.current && sjRef.current) { e.preventDefault(); onResolve(sjRef.current, grRef.current, stageRef.current); return; }
+      // number keys pick a subject — only once a stage is chosen (subject list depends on it)
+      const list = stageRef.current ? CLARIFY_SUBJECTS_BY_STAGE[stageRef.current] : null;
       const n = parseInt(e.key, 10);
-      if (n >= 1 && n <= CLARIFY_SUBJECTS.length) { e.preventDefault(); setSj(CLARIFY_SUBJECTS[n - 1]); }
+      if (list && n >= 1 && n <= list.length) { e.preventDefault(); setSj(list[n - 1]); }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, []);
-  const pickStage = (s) => { if (stage === s) { setStage(null); setGr(null); } else { setStage(s); setGr(null); } };
+  // changing 学段 resets the dependent 学科 + 年级
+  const pickStage = (s) => { if (stage === s) { setStage(null); setSj(null); setGr(null); } else { setStage(s); setSj(null); setGr(null); } };
   const lbl = { fontSize: 11, fontWeight: 800, color: "var(--ink-3)", marginBottom: 8, letterSpacing: ".3px" };
   const wrap = { display: "flex", flexWrap: "wrap", gap: 7 };
   const chip = (active) => ({ display: "inline-flex", alignItems: "center", gap: 6, padding: "6px 12px", borderRadius: 999, border: `1px solid ${active ? "var(--brand)" : "var(--line)"}`, background: active ? "var(--brand-soft)" : "var(--surface)", color: active ? "var(--brand-deep)" : "var(--ink-2)", fontSize: 12.5, fontWeight: 700, cursor: "pointer", fontFamily: "var(--font-zh)", transition: "all .12s" });
   const kbd = (active) => ({ display: "grid", placeItems: "center", width: 15, height: 15, borderRadius: 4, fontSize: 9.5, fontWeight: 800, fontFamily: "var(--font-num, inherit)", background: active ? "var(--brand)" : "var(--surface-2)", color: active ? "#fff" : "var(--ink-4)", border: active ? "none" : "1px solid var(--line)" });
-  const valLabel = gr || stage || "";
+  const subjects = stage ? CLARIFY_SUBJECTS_BY_STAGE[stage] : [];
+  const valLabel = [stage, sj].filter(Boolean).join(" · ");
+  const ready = !!stage && !!sj;
   return (
     <div className="clarify-pop" style={{ margin: "0 14px 10px", borderRadius: 16, border: "1px solid var(--line)", background: "var(--surface)", boxShadow: "0 16px 40px -16px rgba(20,30,50,0.28), 0 2px 8px -4px rgba(20,30,50,0.12)", overflow: "hidden" }}>
       <div style={{ display: "flex", alignItems: "flex-start", gap: 10, padding: "13px 14px 10px" }}>
         <span style={{ width: 26, height: 26, borderRadius: 8, background: "var(--brand-soft)", border: "1px solid var(--brand-soft-border)", display: "grid", placeItems: "center", color: "var(--brand-deep)", flexShrink: 0, marginTop: 1 }}><Icon name="spark" size={14} /></span>
-        <div style={{ flex: 1, minWidth: 0, fontSize: 13.5, fontWeight: 700, color: "var(--ink)", lineHeight: 1.5 }}>想帮你筛得更准 —— 找<b style={{ color: "var(--brand-deep)" }}>哪个学科、学段</b>的资源？</div>
+        <div style={{ flex: 1, minWidth: 0, fontSize: 13.5, fontWeight: 700, color: "var(--ink)", lineHeight: 1.5 }}>想帮你筛得更准 —— 找<b style={{ color: "var(--brand-deep)" }}>哪个学段、学科</b>的资源？</div>
         <button onClick={() => onSkip && onSkip()} title="跳过（Esc）" style={{ width: 24, height: 24, borderRadius: 7, border: "none", background: "transparent", color: "var(--ink-4)", cursor: "pointer", display: "grid", placeItems: "center", flexShrink: 0 }}><Icon name="close" size={15} /></button>
       </div>
       <div style={{ padding: "2px 14px 12px", display: "flex", flexDirection: "column", gap: 13 }}>
         <div>
-          <div style={lbl}>学科（必选）</div>
-          <div style={wrap}>{CLARIFY_SUBJECTS.map((s, i) => <button key={s} style={chip(sj === s)} onClick={() => setSj(s)}><span style={kbd(sj === s)}>{i + 1}</span>{s}</button>)}</div>
-        </div>
-        <div>
-          <div style={lbl}>学段（选填）</div>
+          <div style={lbl}>学段（必选）</div>
           <div style={wrap}>{CLARIFY_STAGES.map((s) => <button key={s} style={chip(stage === s)} onClick={() => pickStage(s)}>{s}</button>)}</div>
         </div>
+        {stage && (
+          <div>
+            <div style={lbl}>学科（必选）</div>
+            <div style={wrap}>{subjects.map((s, i) => <button key={s} style={chip(sj === s)} onClick={() => setSj(s)}><span style={kbd(sj === s)}>{i + 1}</span>{s}</button>)}</div>
+          </div>
+        )}
         {stage && (
           <div>
             <div style={lbl}>年级（选填）</div>
@@ -777,11 +932,11 @@ function ClarifyPopover({ onResolve, onSkip }) {
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, padding: "10px 14px", borderTop: "1px solid var(--line-2)", background: "var(--surface-2)" }}>
         <button onClick={() => onSkip && onSkip()} style={{ border: "none", background: "transparent", color: "var(--ink-3)", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "var(--font-zh)" }}>跳过，先给我看大致结果</button>
         <button
-          disabled={!sj}
+          disabled={!ready}
           onClick={() => onResolve(sj, gr, stage)}
-          style={{ padding: "8px 16px", borderRadius: 10, border: "none", background: sj ? "var(--brand)" : "var(--line)", color: sj ? "#fff" : "var(--ink-4)", fontSize: 13, fontWeight: 700, cursor: sj ? "pointer" : "default", fontFamily: "var(--font-zh)", display: "inline-flex", alignItems: "center", gap: 6 }}
+          style={{ padding: "8px 16px", borderRadius: 10, border: "none", background: ready ? "var(--brand)" : "var(--line)", color: ready ? "#fff" : "var(--ink-4)", fontSize: 13, fontWeight: 700, cursor: ready ? "pointer" : "default", fontFamily: "var(--font-zh)", display: "inline-flex", alignItems: "center", gap: 6 }}
         >
-          <Icon name="search" size={14} /> {sj ? `检索 ${valLabel ? valLabel + " · " : ""}${sj}` : "请先选学科"}
+          <Icon name="search" size={14} /> {ready ? `检索 ${valLabel}` : (!stage ? "请先选学段" : "请选学科")}
         </button>
       </div>
     </div>
@@ -845,7 +1000,7 @@ function FindWorkspace({ scenario, query, onHome, onSwitch, fromIntent, resume, 
       setRetrieving(false);
       setActiveRound(round.id);
       setMessages((m) => [...m, roundMsg(round)]);
-      setSuggestions(ROUND_SUGS[round.kind] || ROUND_SUGS.all);
+      setSuggestions(roundSuggestions(round));
     }, 220);
   };
 
@@ -874,7 +1029,7 @@ function FindWorkspace({ scenario, query, onHome, onSwitch, fromIntent, resume, 
     }
     return [{ role: "ai", node: (<div>你好老师，告诉我你要找什么 —— 文档、<b>实验/研修视频</b>、还是<b>成套专辑</b>都行，例如「凸透镜成像的实验视频」「六年级语文期末复习专辑」。我会从<b style={{ color: "var(--auth-ink)" }}>学科网资源库</b>为你精准匹配。</div>) }];
   });
-  const [suggestions, setSuggestions] = uS(rounds.length ? (ROUND_SUGS[rounds[rounds.length - 1].kind] || ROUND_SUGS.all) : []);
+  const [suggestions, setSuggestions] = uS(rounds.length ? roundSuggestions(rounds[rounds.length - 1]) : []);
   // persist the thread so the assistant keeps the SAME conversation across scenario switches
   uE(() => { window.ChatSession.save(window.freezeChat(messages)); }, [messages]);
 
@@ -898,7 +1053,7 @@ function FindWorkspace({ scenario, query, onHome, onSwitch, fromIntent, resume, 
       setActiveRound(round.id);
       setSheetAnchor("r" + round.id + "#" + (sheetSeqRef.current++));
       setMessages((m) => [...m.slice(0, -1), roundMsg(round)]);
-      setSuggestions(ROUND_SUGS[round.kind] || ROUND_SUGS.all);
+      setSuggestions(roundSuggestions(round));
     }, 850);
   };
 
@@ -942,7 +1097,7 @@ function FindWorkspace({ scenario, query, onHome, onSwitch, fromIntent, resume, 
     setClarify(null);
     const gradePart = gr || stage;
     const value = `${gradePart ? gradePart + " · " : ""}${sj}`;
-    setMessages((m) => [...m, { role: "ai", answered: { q: "想找哪个学科、学段的资源？", value } }]);
+    setMessages((m) => [...m, { role: "ai", answered: { q: "想找哪个学段、学科的资源？", value } }]);
     doRetrieve(forText || `${gr || stage || ""}${sj}`);
   };
 
@@ -966,8 +1121,12 @@ function FindWorkspace({ scenario, query, onHome, onSwitch, fromIntent, resume, 
     const ref = { title: item.title, type: refLabel(item) };
     if (cls === "C") {
       const to = (typeof q === "object" && q.to) || "paper";
-      setMessages((m) => [...m, { role: "user", text, ref, refItem: item }]);
-      onSwitch && onSwitch(to, `据《${(item.title || "").slice(0, 16)}》${to === "lesson" ? "生成配套教案" : "出一份同类卷子"}`);
+      // carry the originating resource into the target scenario so its seeded user
+      // message shows a reference card — otherwise "据此…" loses its anchor on scroll
+      window.ChatSession.handoffRef = { title: item.title, type: refLabel(item), item };
+      // strip any existing 《》 from the title so we don't double-wrap (e.g. 据《《有理数》…》)
+      const cleanTitle = (item.title || "").replace(/[《》]/g, "").slice(0, 16);
+      onSwitch && onSwitch(to, `据《${cleanTitle}》${to === "lesson" ? "生成配套教案" : "出一份同类卷子"}`);
       return;
     }
     setMessages((m) => [...m, { role: "user", text, ref, refItem: item }, { role: "ai", typing: true }]);
@@ -983,6 +1142,12 @@ function FindWorkspace({ scenario, query, onHome, onSwitch, fromIntent, resume, 
     else if (item._kind === "album" || item.composition) { setPlayer(null); setPreview(null); setAlbum(item); }
     else { setPlayer(null); setAlbum(null); setPreview(item); }
   };
+
+  // returning from a 出卷子/教案 handoff via the reference card → reopen that resource here
+  uE(() => {
+    const po = window.ChatSession.pendingOpenResource;
+    if (po) { window.ChatSession.pendingOpenResource = null; setTimeout(() => openRef(po), 0); }
+  }, []);
 
   // album item helpers
   const previewItem = (it) => setPreview({ title: it.title, pages: it.pages || 12, qcount: it.q || 0, updated: album ? album.updated : "2025", type: it.type });
@@ -1018,7 +1183,7 @@ function FindWorkspace({ scenario, query, onHome, onSwitch, fromIntent, resume, 
 
   return (
     <WorkspaceShell scenario={scenario} onHome={onHome} onSwitch={onSwitch} nav={nav} headerRecognizing={headerRecognizing} mobilePanelLabel="资源" mobilePanelIcon="search" openSheetKey={sheetKey}>
-      <ChatPanel messages={messages} onSend={send} suggestions={suggestions} placeholder="例如：只看实验视频 / 整套打包下载" roundsById={roundsById} shownId={shownId} retrieving={retrieving} onOpenRound={openRound} onOpenRef={openRef} clarify={clarify} onResolveClarify={resolveClarify} onSkipClarify={skipClarify} />
+      <ChatPanel messages={messages} onSend={send} suggestions={suggestions} placeholder="例如：只看实验视频 / 整套打包下载" roundsById={roundsById} shownId={shownId} retrieving={retrieving} onOpenRound={openRound} onOpenRef={openRef} clarify={clarify} onResolveClarify={resolveClarify} onSkipClarify={skipClarify} taskBar={(() => { const t = deriveSessionTask(); return t ? <SessionTaskBar task={t} onOpen={() => onSwitch && onSwitch(t.scenario, "")} /> : null; })()} />
       {/* results */}
       <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", position: "relative" }}>
         {!rounds.length && !retrieving && <FindColdStart loggedIn={!resume && loggedIn} onPick={(q) => handleSend(q)} />}
@@ -1060,7 +1225,7 @@ function HandoffBar({ topic, onSwitch, query }) {
     <div style={{ marginTop: 4, padding: 16, borderRadius: 16, border: "1px dashed var(--brand-soft-border)", background: "var(--brand-soft)" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
         <Icon name="sparkArrow" size={17} />
-        <span style={{ fontSize: 13.5, fontWeight: 700, color: "var(--brand-deep)" }}>没找到完全合适的？让小博士基于学科网资源库直接生成</span>
+        <span style={{ fontSize: 13.5, fontWeight: 700, color: "var(--brand-deep)" }}>没找到完全合适的？把需求说得更具体些我再帮你精准筛选 —— 或让小博士基于学科网资源库直接生成</span>
       </div>
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
         {HANDOFF.map((h) => (
@@ -1090,7 +1255,7 @@ function FindColdStart({ onPick, loggedIn }) {
   const mobile = useIsMobile();
   // memory-driven personalization (logged-in teacher with a profile)
   const memExamples = [
-    { kind: "贴合你的班级", hue: 25, icon: "search", items: ["人教版七年级上《有理数》同步练习，中等偏上", "七年级数学《整式的加减》易错题专项", "《一元一次方程》单元测试卷 含答案"] },
+    { kind: "贴合你的班级", hue: 25, icon: "search", items: ["人教版七年级上《有理数》同步练习，中等", "七年级数学《整式的加减》易错题专项", "《一元一次方程》单元测试卷 含答案"] },
     { kind: "你常找的视频", hue: 200, icon: "interactive", items: ["七年级数学《数轴》讲解视频", "有理数运算 微课 + 配套学案", "初中数学 公开课 / 研修视频"] },
     { kind: "成套备课专辑", hue: 255, icon: "layers", items: ["人教版七年级数学下册 期末复习专辑", "初一数学一元一次方程 一轮复习合集", "七年级上册 计算专题 提分合集"] },
   ];
@@ -1172,7 +1337,7 @@ function NotFound({ topic, onSwitch, query }) {
       </div>
       <div style={{ fontSize: 16, fontWeight: 800, color: "var(--ink)", marginBottom: 6 }}>当前条件下暂无现成资源完全匹配</div>
       <div style={{ fontSize: 13.5, color: "var(--ink-3)", marginBottom: 22, lineHeight: 1.6 }}>
-        在左侧对我说「放宽难度 / 换个版本」，或者 —— 让小博士基于学科网资源库<b style={{ color: "var(--brand-deep)" }}>直接为你生成</b>
+        先把需求说得更具体些（学段、版本、知识点、难度…），我再帮你精准筛一批；或者 —— 让小博士基于学科网资源库<b style={{ color: "var(--brand-deep)" }}>直接为你生成</b>
       </div>
       <div style={{ maxWidth: 560, margin: "0 auto" }}>
         <HandoffBar topic={topic} onSwitch={onSwitch} query={query} />
@@ -1202,13 +1367,12 @@ function ResourceCard({ r, onPreview, onDownload, source }) {
       </div>
       <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 7 }}>
         <div style={{ fontSize: 14, fontWeight: 700, color: "var(--ink)", lineHeight: 1.4, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{r.title}</div>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 11, color: "var(--ink-3)", flexWrap: "wrap", rowGap: 4 }}>
-          {source && <SourceTag source={source} />}
+        <div style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 11, color: "var(--ink-3)", flexWrap: "wrap", rowGap: 5 }}>
+          <span style={{ padding: "1.5px 8px", borderRadius: 6, background: "var(--brand-soft)", border: "1px solid var(--brand-soft-border)", color: "var(--brand-deep)", fontWeight: 800, whiteSpace: "nowrap" }}>{r.type}</span>
           <span style={{ fontWeight: 700, color: "var(--ink-2)", whiteSpace: "nowrap" }}>{r.edition} · {r.grade}{r.subject}</span>
-          <span style={{ padding: "1px 7px", borderRadius: 5, background: "var(--surface-2)", border: "1px solid var(--line)", fontWeight: 600, whiteSpace: "nowrap" }}>{r.type}</span>
-          <span style={{ whiteSpace: "nowrap" }}>难度·{r.diff}</span>
-          {r.qcount > 0 && <span style={{ whiteSpace: "nowrap" }}>{r.qcount} 题</span>}
-          <span style={{ whiteSpace: "nowrap" }}>{r.pages} 页</span>
+          {(r.chips || []).slice(0, 4).map((c, i) => <span key={i} style={{ padding: "1.5px 7px", borderRadius: 6, background: "var(--surface-2)", border: "1px solid var(--line)", color: "var(--ink-3)", fontWeight: 600, whiteSpace: "nowrap" }}>{c}</span>)}
+          {(r.qcount > 0 || r.pages) && <span style={{ whiteSpace: "nowrap" }}>{r.qcount > 0 ? `${r.qcount}题` : ""}{r.qcount > 0 && r.pages ? " · " : ""}{r.pages ? `${r.pages}页` : ""}</span>}
+          {source && <span style={{ marginLeft: "auto" }}><SourceTag source={source} /></span>}
         </div>
       </div>
       <Icon name="chevronRight" size={18} />

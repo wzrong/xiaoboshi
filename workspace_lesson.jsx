@@ -380,11 +380,11 @@ function LessonWorkspace({ scenario, query, onHome, onSwitch, fromIntent, resume
     if (fromIntent && query) {
       return [
         ...window.ChatSession.take(),
-        ...(window.ChatSession.echoed(query) ? [] : [{ role: "user", text: query }]),
+        ...(window.ChatSession.echoed(query) ? [] : [window.ChatSession.seedUser(query)]),
         { role: "ai", wide: true, intent: query, render: () => <InlineIntent query={query} onDone={() => { const m = lessonMeta(query, mem); setMeta(m); setRawQ(query); setOutline(buildOutline()); setMessages((ms) => [...ms, { role: "ai", node: outlineNote(m) }]); }} /> },
       ];
     }
-    if (freshQuery) return [...window.ChatSession.take(), ...(window.ChatSession.echoed(query) ? [] : [{ role: "user", text: query }]), { role: "ai", node: outlineNote(lessonMeta(initialQ, mem)) }];
+    if (freshQuery) return [...window.ChatSession.take(), ...(window.ChatSession.echoed(query) ? [] : [window.ChatSession.seedUser(query)]), { role: "ai", node: outlineNote(lessonMeta(initialQ, mem)) }];
     return window.enterThread(scenario, greet);
   });
   const LESSON_SUGS = ["补充教学反思", "作业改成分层", "重难点再细化", "导入换成情境式"];
@@ -436,7 +436,7 @@ function LessonWorkspace({ scenario, query, onHome, onSwitch, fromIntent, resume
 
   return (
     <WorkspaceShell scenario={scenario} onHome={onHome} onSwitch={onSwitch} nav={nav} headerRecognizing={headerRecognizing} mobilePanelLabel="教案" mobilePanelIcon="lesson" openSheetKey={doc ? doc.topic : null}>
-      <ChatPanel messages={messages} onSend={send} suggestions={sugs} placeholder="课题，或要修改的地方…" />
+      <ChatPanel messages={messages} onSend={send} suggestions={sugs} placeholder="课题，或要修改的地方…" onOpenRef={(item) => { window.ChatSession.pendingOpenResource = item; onSwitch && onSwitch("find", ""); }} />
       <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", background: "var(--canvas)" }}>
         {/* 文档工具栏 */}
         <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 16px", borderBottom: "1px solid var(--line)", background: "var(--surface)", flexShrink: 0 }}>

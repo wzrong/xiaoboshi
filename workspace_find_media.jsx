@@ -36,11 +36,11 @@ function VideoCard({ v, onPlay, onDownload, source }) {
       <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", justifyContent: "center", gap: 6 }}>
         <div style={{ fontSize: 14, fontWeight: 700, color: "var(--ink)", lineHeight: 1.4, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{v.title}</div>
         <div style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 11.5, color: "var(--ink-3)", flexWrap: "wrap", rowGap: 3 }}>
-          {source && <SourceTag source={source} />}
           <span style={{ fontWeight: 700, color: "var(--ink-2)", whiteSpace: "nowrap" }}>{v.grade}{v.subject}</span>
           <span style={{ whiteSpace: "nowrap" }}>{v.quality}</span>
           <span style={{ whiteSpace: "nowrap" }}>{v.chapters.length} 章节</span>
           <span style={{ display: "inline-flex", alignItems: "center", gap: 3, whiteSpace: "nowrap" }}><Icon name="eye" size={12} /> {v.plays}</span>
+          {source && <span style={{ marginLeft: "auto" }}><SourceTag source={source} /></span>}
         </div>
       </div>
     </div>
@@ -151,7 +151,21 @@ function VideoPlayer({ v, onClose, onDownload, onAsk, onAddBasket, loggedIn }) {
 }
 
 // ---- ALBUM CARD (in results) ----
-const TYPE_HUE = { 课件: 255, 教案: 320, 试卷: 25, 习题: 150, 微课: 200, 视频: 200 };
+const TYPE_HUE = { 课件: 255, 教案: 320, 学案: 200, 作业: 25, 试卷: 25, 题集: 150, 素材: 95, 微课: 200, 视频: 200 };
+
+// file-type badge for album resource rows (P=课件/PPT, W=教案/Word, 练=作业, 讲=讲义…)
+const FILE_BADGE = {
+  PPT: { ch: "P", c: "#E0742F", bg: "#FBEDE3" },
+  Word: { ch: "W", c: "#2A6FDB", bg: "#E8F0FC" },
+  作业: { ch: "练", c: "#E0742F", bg: "#FBEDE3" },
+  讲义: { ch: "讲", c: "#7A5AF0", bg: "#EDE9FB" },
+  题集: { ch: "题", c: "#1F9D55", bg: "#E6F4EC" },
+};
+function FileBadge({ fmt, type }) {
+  const b = FILE_BADGE[fmt] || FILE_BADGE[type] || { ch: (type || "资").slice(0, 1), c: "var(--brand-deep)", bg: "var(--brand-soft)" };
+  return <span style={{ width: 24, height: 24, borderRadius: 6, background: b.bg, color: b.c, border: `1px solid ${b.c}40`, display: "grid", placeItems: "center", fontSize: 12.5, fontWeight: 800, flexShrink: 0, fontFamily: "var(--font-num)" }}>{b.ch}</span>;
+}
+function albumCount(a) { return (a.units || []).reduce((s, u) => s + u.lessons.reduce((t, l) => t + l.items.length, 0), 0); }
 
 function AlbumCard({ a, onOpen, source }) {
   return (
@@ -180,8 +194,8 @@ function AlbumCard({ a, onOpen, source }) {
           <span style={{ display: "inline-flex", alignItems: "center", gap: 4, background: "var(--brand-soft)", color: "var(--brand-deep)", border: "1px solid var(--brand-soft-border)", fontSize: 10, fontWeight: 800, padding: "1px 7px", borderRadius: 5, flexShrink: 0 }}>
             <Icon name="layers" size={11} /> 专辑
           </span>
-          {source && <SourceTag source={source} />}
           <span style={{ fontSize: 11, color: "var(--ink-3)", fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{a.edition} · {a.grade}{a.subject}</span>
+          {source && <span style={{ marginLeft: "auto" }}><SourceTag source={source} /></span>}
         </div>
         <div style={{ fontSize: 14, fontWeight: 800, color: "var(--ink)", lineHeight: 1.4, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{a.title}</div>
         <div style={{ fontSize: 11.5, color: "var(--ink-3)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
@@ -199,11 +213,15 @@ function AlbumPage({ a, onClose, onPreviewItem, onPlayItem, onDownload, onAddBas
   const total = a.composition.reduce((s, c) => s + c.n, 0);
   return (
     <div className="drawer-pop" style={{ position: "absolute", inset: 0, background: "var(--canvas)", zIndex: 25, display: "flex", flexDirection: "column" }}>
-      {/* header */}
-      <div style={{ padding: "16px 24px", borderBottom: "1px solid var(--line)", background: "var(--surface)" }}>
-        <button onClick={onClose} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "7px 11px", borderRadius: 9, border: "1px solid var(--line)", background: "var(--surface)", color: "var(--ink-2)", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "var(--font-zh)", marginBottom: 14 }}>
+      {/* slim sticky back bar — only this stays fixed, so the resource list gets full room */}
+      <div style={{ padding: "10px 24px", borderBottom: "1px solid var(--line)", background: "var(--surface)", flexShrink: 0 }}>
+        <button onClick={onClose} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "7px 11px", borderRadius: 9, border: "1px solid var(--line)", background: "var(--surface)", color: "var(--ink-2)", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "var(--font-zh)" }}>
           <Icon name="back" size={15} /> 返回搜索结果
         </button>
+      </div>
+      {/* cover + title + composition scroll WITH the list (no longer frozen) */}
+      <div style={{ flex: 1, overflowY: "auto" }}>
+        <div style={{ padding: "16px 24px 18px", borderBottom: "1px solid var(--line)", background: "var(--surface)" }}>
         <div style={{ display: "flex", gap: 18 }}>
           <div style={{ width: 92, height: 118, flexShrink: 0, borderRadius: 10, background: "linear-gradient(160deg, var(--brand), var(--brand-deep))", display: "flex", flexDirection: "column", justifyContent: "space-between", padding: 12, color: "#fff", boxShadow: "0 10px 24px -12px var(--brand-glow)" }}>
             <Icon name="layers" size={22} />
@@ -242,51 +260,47 @@ function AlbumPage({ a, onClose, onPreviewItem, onPlayItem, onDownload, onAddBas
             ))}
           </div>
         </div>
-      </div>
-      {/* album-level 问小博士 (only collection-level questions; sub-resources keep their own) */}
-      <AskBar item={a} loggedIn={loggedIn} onAsk={onAsk} />
-      {/* item list */}
-      <div style={{ flex: 1, overflowY: "auto", padding: "16px 24px 28px" }}>
-        <div style={{ fontSize: 13, fontWeight: 700, color: "var(--ink-2)", marginBottom: 12 }}>专辑内资料（{a.items.length} / {a.total}）</div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          {a.items.map((it, i) => {
-            const isVideo = it.fmt === "MP4";
-            const hue = TYPE_HUE[it.type] || 150;
-            const open = () => (isVideo ? onPlayItem(it) : onPreviewItem(it));
-            return (
-              <div
-                key={i}
-                onClick={open}
-                className="res-card"
-                style={{ display: "flex", alignItems: "center", gap: 14, background: "var(--surface)", border: "1px solid var(--line)", borderRadius: 12, padding: "12px 14px", cursor: "pointer", transition: "box-shadow .2s, border-color .2s" }}
-                onMouseEnter={(e) => { e.currentTarget.style.boxShadow = "0 10px 24px -16px rgba(0,0,0,.28)"; e.currentTarget.style.borderColor = "var(--brand-soft-border)"; }}
-                onMouseLeave={(e) => { e.currentTarget.style.boxShadow = "none"; e.currentTarget.style.borderColor = "var(--line)"; }}
-              >
-                <ScenarioGlyph icon={isVideo ? "interactive" : it.type === "课件" ? "slides" : it.type === "教案" ? "lesson" : it.type === "试卷" ? "paper" : "search"} hue={hue} size={38} />
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 14, fontWeight: 700, color: "var(--ink)" }}>{it.title}</div>
-                  <div style={{ display: "flex", gap: 10, marginTop: 4, fontSize: 11.5, color: "var(--ink-3)" }}>
-                    <span style={{ color: `oklch(0.5 0.12 ${hue})`, fontWeight: 700 }}>{it.type}</span>
-                    <span>{it.fmt}</span>
-                    {it.pages && <span>{it.pages} 页</span>}
-                    {it.q && <span>{it.q} 题</span>}
-                    {it.dur && <span>{it.dur}</span>}
-                  </div>
+        </div>
+        {/* item list — 全量层级展开：单元 → 课文 / 专题 → 资料（仅文档类，样式与资源列表一致）*/}
+        <div style={{ padding: "10px 24px 24px" }}>
+        <div style={{ display: "flex", alignItems: "baseline", gap: 8, padding: "8px 2px 10px", borderBottom: "1px solid var(--line)", marginBottom: 4 }}>
+          <span style={{ fontSize: 13, fontWeight: 800, color: "var(--ink-2)" }}>专辑内全部资料</span>
+          <span style={{ fontSize: 12, color: "var(--ink-3)", fontWeight: 600 }}>共 {albumCount(a)} 份 · 按单元 / 课时编排</span>
+        </div>
+        {(a.units || []).map((u, ui) => (
+          <div key={ui} style={{ marginTop: ui ? 14 : 2 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "9px 2px" }}>
+              <Icon name="layers" size={14} />
+              <span style={{ fontSize: 13.5, fontWeight: 800, color: "var(--ink)" }}>{u.name}</span>
+            </div>
+            {u.lessons.map((l, li) => (
+              <div key={li} style={{ marginLeft: 6 }}>
+                <div style={{ fontSize: 12.5, fontWeight: 700, color: "var(--ink-2)", padding: "8px 0 5px 16px" }}>{l.name}</div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 1, marginLeft: 16, paddingLeft: 9, borderLeft: "1.5px solid var(--line)" }}>
+                  {l.items.map((it, ii) => (
+                    <div
+                      key={ii}
+                      onClick={() => onPreviewItem(it)}
+                      style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 10px", borderRadius: 9, cursor: "pointer", transition: "background .15s" }}
+                      onMouseEnter={(e) => { e.currentTarget.style.background = "var(--surface-2)"; }}
+                      onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
+                    >
+                      <FileBadge fmt={it.fmt} type={it.type} />
+                      <span style={{ flex: 1, minWidth: 0, fontSize: 13, color: "var(--ink)", fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{it.title}</span>
+                      <span style={{ fontSize: 11, color: "var(--ink-3)", whiteSpace: "nowrap", flexShrink: 0 }}>{it.type}{it.pages ? ` · ${it.pages}页` : ""}{it.q ? ` · ${it.q}题` : ""}</span>
+                      <Icon name="chevronRight" size={15} />
+                    </div>
+                  ))}
                 </div>
-                <button onClick={(e) => { e.stopPropagation(); open(); }} style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "6px 13px", borderRadius: 9, border: "1px solid var(--line)", background: "var(--surface)", color: "var(--ink-2)", fontWeight: 700, fontSize: 12.5, cursor: "pointer", fontFamily: "var(--font-zh)" }}>
-                  {isVideo ? (
-                    <React.Fragment><svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z" /></svg> 播放</React.Fragment>
-                  ) : (
-                    <React.Fragment><Icon name="eye" size={14} /> 查看</React.Fragment>
-                  )}
-                </button>
               </div>
-            );
-          })}
+            ))}
+          </div>
+        ))}
         </div>
-        <div style={{ textAlign: "center", marginTop: 16, fontSize: 12.5, color: "var(--ink-3)" }}>
-          仅展示前 {a.items.length} 份 · 完整 {a.total} 份资料下载后可在「资源篮」查看
-        </div>
+      </div>
+      {/* album-level 问小博士 — pinned at the bottom, consistent with 文档预览 / 视频播放 */}
+      <div style={{ flexShrink: 0, borderTop: "1px solid var(--line)", background: "var(--surface)" }}>
+        <AskBar item={a} loggedIn={loggedIn} onAsk={onAsk} />
       </div>
     </div>
   );

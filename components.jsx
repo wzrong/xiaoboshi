@@ -248,42 +248,134 @@ function ClipButton({ onFiles, label = "参考资料", compact = false }) {
   );
 }
 
-function FileChips({ files, onRemove, style }) {
+function FileChips({ files, onRemove, onView, style }) {
   if (!files || files.length === 0) return null;
   return (
     <div style={{ display: "flex", flexWrap: "wrap", gap: 7, ...style }}>
-      {files.map((name, i) => (
-        <span
-          key={i}
-          className="ent-pop"
-          style={{
-            display: "inline-flex",
-            alignItems: "center",
-            gap: 6,
-            padding: "5px 8px 5px 9px",
-            borderRadius: 9,
-            background: "var(--brand-soft)",
-            border: "1px solid var(--brand-soft-border)",
-            fontSize: 12,
-            fontWeight: 600,
-            color: "var(--brand-deep)",
-            maxWidth: 220,
-          }}
-        >
-          <Icon name="file" size={13} />
-          <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{name}</span>
-          {onRemove && (
-            <span onClick={() => onRemove(i)} style={{ display: "inline-flex", cursor: "pointer", opacity: 0.6 }}>
-              <Icon name="close" size={12} sw={2.4} />
-            </span>
-          )}
-        </span>
-      ))}
+      {files.map((f, i) => {
+        const name = typeof f === "string" ? f : f.name;
+        const status = typeof f === "string" ? "ready" : (f.status || "ready");
+        const busy = status !== "ready";
+        const note = status === "uploading" ? "上传中" : status === "parsing" ? "解析中" : null;
+        return (
+          <span
+            key={i}
+            className="ent-pop"
+            onClick={() => !busy && onView && onView(name)}
+            title={busy ? undefined : (onView ? "点击查看" : undefined)}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 6,
+              padding: "5px 8px 5px 9px",
+              borderRadius: 9,
+              background: "var(--brand-soft)",
+              border: "1px solid var(--brand-soft-border)",
+              fontSize: 12,
+              fontWeight: 600,
+              color: "var(--brand-deep)",
+              maxWidth: 240,
+              cursor: (!busy && onView) ? "pointer" : "default",
+              opacity: busy ? 0.9 : 1,
+            }}
+          >
+            {busy ? <span className="mini-spin" /> : <Icon name="file" size={13} />}
+            <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{name}</span>
+            {note && <span style={{ fontSize: 10, fontWeight: 700, color: "var(--ink-3)", whiteSpace: "nowrap" }}>· {note}</span>}
+            {onRemove && (
+              <span onClick={(e) => { e.stopPropagation(); onRemove(i); }} style={{ display: "inline-flex", cursor: "pointer", opacity: 0.6 }}>
+                <Icon name="close" size={12} sw={2.4} />
+              </span>
+            )}
+          </span>
+        );
+      })}
     </div>
   );
 }
 
-Object.assign(window, { ClipButton, FileChips });
+// ---- Attachment preview modal (demo: mock filenames, so we render a stand-in preview) ----
+function FileViewer({ name, onClose }) {
+  if (!name) return null;
+  const ext = (name.split(".").pop() || "").toLowerCase();
+  const isImg = ["png", "jpg", "jpeg", "gif", "webp", "bmp", "svg"].includes(ext);
+  const kind = isImg ? "图片" : ext === "pdf" ? "PDF" : ext === "mp4" ? "视频" : "文档";
+  return (
+    <div onClick={onClose} style={{ position: "fixed", inset: 0, zIndex: 120, background: "rgba(18,24,38,.5)", backdropFilter: "blur(2px)", display: "grid", placeItems: "center", padding: 20 }}>
+      <div onClick={(e) => e.stopPropagation()} style={{ width: "min(520px,92vw)", maxHeight: "86vh", background: "var(--surface)", borderRadius: 16, border: "1px solid var(--line)", boxShadow: "0 24px 60px -20px rgba(0,0,0,.4)", display: "flex", flexDirection: "column", overflow: "hidden", fontFamily: "var(--font-zh)" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "13px 16px", borderBottom: "1px solid var(--line)", flexShrink: 0 }}>
+          <span style={{ width: 30, height: 30, borderRadius: 8, background: "var(--brand-soft)", border: "1px solid var(--brand-soft-border)", display: "grid", placeItems: "center", color: "var(--brand-deep)", flexShrink: 0 }}><Icon name="file" size={15} /></span>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 13.5, fontWeight: 800, color: "var(--ink)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{name}</div>
+            <div style={{ fontSize: 11, color: "var(--ink-3)", marginTop: 1 }}>{(ext || "file").toUpperCase()} · 附件预览</div>
+          </div>
+          <button onClick={onClose} style={{ width: 30, height: 30, borderRadius: 8, border: "1px solid var(--line)", background: "var(--surface)", color: "var(--ink-2)", display: "grid", placeItems: "center", cursor: "pointer", flexShrink: 0 }}><Icon name="close" size={15} sw={2.4} /></button>
+        </div>
+        <div style={{ flex: 1, overflowY: "auto", padding: "20px 22px", background: "var(--surface-2)" }}>
+          {isImg ? (
+            <div className="ph-stripe" style={{ width: "100%", aspectRatio: "4 / 3", borderRadius: 10, display: "grid", placeItems: "center", color: "var(--ink-3)", fontSize: 12.5, fontWeight: 700 }}>图片预览</div>
+          ) : (
+            <div style={{ background: "#fff", borderRadius: 8, border: "1px solid var(--line)", padding: "26px 26px", boxShadow: "0 6px 20px -14px rgba(0,0,0,.3)", aspectRatio: "1 / 1.3" }}>
+              <div style={{ fontSize: 13, fontWeight: 800, color: "#1a1a1a", textAlign: "center", marginBottom: 16, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{name}</div>
+              {[...Array(7)].map((_, k) => (<div key={k} style={{ height: 7, background: "#eee", borderRadius: 3, marginBottom: 10, width: `${88 - ((k * 11) % 40)}%` }} />))}
+            </div>
+          )}
+          <div style={{ marginTop: 14, fontSize: 11.5, color: "var(--ink-3)", textAlign: "center", lineHeight: 1.6 }}>演示环境暂不解析真实文件；正式版会在此预览你上传的{kind}。</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+Object.assign(window, { ClipButton, FileChips, FileViewer });
+
+// ---- Resource peek modal — non-destructive preview of a referenced resource ----
+// Used when a teacher clicks a 引用卡片 inside 出卷子/写教案: instead of navigating away
+// (which would hide their in-progress draft), we pop a lightweight summary so their work
+// is never interrupted. They can choose to open it fully in 找资源, or just keep working.
+function ResourcePeek({ item, onClose, onOpenInFind }) {
+  if (!item) return null;
+  const isAlbum = !!(item.composition || item.units);
+  const isVideo = !!(item.chapters || item.cat);
+  const kindLabel = isAlbum ? ("专辑 · " + (item.total || "") + " 份") : isVideo ? "视频" : (item.type || "资料");
+  const metaLine = [item.edition, item.grade, item.subject].filter(Boolean).join(" · ");
+  const chips = item.chips || item.tags || [];
+  return (
+    <div onClick={onClose} style={{ position: "fixed", inset: 0, zIndex: 130, background: "rgba(18,24,38,.5)", backdropFilter: "blur(2px)", display: "grid", placeItems: "center", padding: 20 }}>
+      <div onClick={(e) => e.stopPropagation()} style={{ width: "min(460px,92vw)", background: "var(--surface)", borderRadius: 16, border: "1px solid var(--line)", boxShadow: "0 24px 60px -20px rgba(0,0,0,.4)", overflow: "hidden", fontFamily: "var(--font-zh)" }}>
+        <div style={{ display: "flex", alignItems: "flex-start", gap: 12, padding: "16px 18px 14px" }}>
+          <span style={{ width: 38, height: 38, borderRadius: 10, background: "var(--brand-soft)", border: "1px solid var(--brand-soft-border)", display: "grid", placeItems: "center", color: "var(--brand-deep)", flexShrink: 0 }}><Icon name={isAlbum ? "layers" : isVideo ? "interactive" : "file"} size={18} /></span>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 11, fontWeight: 800, color: "var(--brand-deep)", marginBottom: 3 }}>引用的资源 · {kindLabel}</div>
+            <div style={{ fontSize: 14.5, fontWeight: 800, color: "var(--ink)", lineHeight: 1.45 }}>{item.title}</div>
+          </div>
+          <button onClick={onClose} style={{ width: 28, height: 28, borderRadius: 8, border: "1px solid var(--line)", background: "var(--surface)", color: "var(--ink-2)", display: "grid", placeItems: "center", cursor: "pointer", flexShrink: 0 }}><Icon name="close" size={14} sw={2.4} /></button>
+        </div>
+        <div style={{ padding: "0 18px 4px" }}>
+          {metaLine && <div style={{ fontSize: 12.5, color: "var(--ink-2)", fontWeight: 600, marginBottom: 9 }}>{metaLine}</div>}
+          {isAlbum && item.composition && (
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 7, marginBottom: 9 }}>
+              {item.composition.map((c, i) => <span key={i} style={{ fontSize: 11.5, fontWeight: 600, color: "var(--ink-3)", background: "var(--surface-2)", border: "1px solid var(--line)", padding: "2px 9px", borderRadius: 7 }}>{c.type} {c.n}</span>)}
+            </div>
+          )}
+          {!isAlbum && chips.length > 0 && (
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 7, marginBottom: 9 }}>
+              {chips.slice(0, 5).map((c, i) => <span key={i} style={{ fontSize: 11.5, fontWeight: 600, color: "var(--ink-3)", background: "var(--surface-2)", border: "1px solid var(--line)", padding: "2px 9px", borderRadius: 7 }}>{c}</span>)}
+            </div>
+          )}
+        </div>
+        <div style={{ margin: "6px 18px 0", padding: "9px 12px", borderRadius: 10, background: "var(--brand-soft)", border: "1px solid var(--brand-soft-border)", fontSize: 12, color: "var(--brand-deep)", fontWeight: 600, lineHeight: 1.5, display: "flex", gap: 7 }}>
+          <Icon name="spark" size={14} /> <span>这只是快速预览，<b>不会打断</b>你当前的草稿。</span>
+        </div>
+        <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", padding: "14px 18px 16px" }}>
+          <button onClick={onClose} style={{ padding: "9px 15px", borderRadius: 10, border: "1px solid var(--line)", background: "var(--surface)", color: "var(--ink-2)", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "var(--font-zh)" }}>继续当前工作</button>
+          <button onClick={onOpenInFind} style={{ padding: "9px 15px", borderRadius: 10, border: "none", background: "var(--brand)", color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "var(--font-zh)", display: "inline-flex", alignItems: "center", gap: 6 }}><Icon name="search" size={14} /> 在「找资源」中打开</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+Object.assign(window, { ResourcePeek });
 
 // ── Shared: smart send with re-routing + a brief "recognizing" header flash ──
 // Every workspace routes its chat input through this. On each send we run a
@@ -358,9 +450,12 @@ const ChatSession = {
   log: [],
   scratch: {},           // per-scenario live state (rounds, configs…) that survives switches
   pendingArtifact: null, // set when the teacher clicks an artifact chip from another scenario
+  handoffRef: null,      // set when a resource-detail 「据此出卷/教案」 hands off — the target seeds a reference card
   take() { return this.log.slice(); },
   save(msgs) { this.log = msgs || []; },
-  clear() { this.log = []; this.scratch = {}; this.pendingArtifact = null; },
+  clear() { this.log = []; this.scratch = {}; this.pendingArtifact = null; this.handoffRef = null; },
+  // build the seeded user bubble for a handed-off query, attaching (and consuming) any handoffRef
+  seedUser(q) { const r = this.handoffRef; this.handoffRef = null; return r ? { role: "user", text: q, ref: { title: r.title, type: r.type }, refItem: r.item } : { role: "user", text: q }; },
   echoed(q) {
     const v = (q || "").trim();
     return !!v && this.log.some((m) => m.role === "user" && (m.text || "").trim() === v);

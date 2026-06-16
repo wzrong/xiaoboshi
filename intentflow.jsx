@@ -309,7 +309,7 @@ function InlineIntent({ query, onDone, instant }) {
   };
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 12, minWidth: 240 }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: 12, width: "100%", boxSizing: "border-box" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 12.5, fontWeight: 700, color: "var(--ink-2)" }}>
         {instant ? "已理解你的需求" : "正在理解你的需求"} {step < 4 && <Dots />}
       </div>
@@ -329,7 +329,7 @@ function InlineIntent({ query, onDone, instant }) {
       </Row>
       <Row idx={3} icon="check" label={isGeneral ? "未匹配到专用工具" : "识别场景"}>
         {step >= 3 && (
-          <div className="match-pop" style={{ marginTop: 8, display: "flex", alignItems: "center", gap: 10, padding: 9, borderRadius: 11, background: `oklch(0.96 0.04 ${scenario.hue})`, border: `1px solid oklch(0.84 0.07 ${scenario.hue})` }}>
+          <div className="match-pop" style={{ marginTop: 8, display: "flex", alignItems: "center", gap: 10, padding: 9, borderRadius: 11, maxWidth: "100%", boxSizing: "border-box", background: `oklch(0.96 0.04 ${scenario.hue})`, border: `1px solid oklch(0.84 0.07 ${scenario.hue})` }}>
             <ScenarioGlyph icon={scenario.icon} hue={scenario.hue} size={32} active />
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontSize: 13.5, fontWeight: 800, color: "var(--ink)" }}>{isGeneral ? "由通用助手解答" : scenario.name}</div>
