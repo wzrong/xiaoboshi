@@ -41,6 +41,9 @@ function App() {
   const removeFromBasket = (bid) => setBasket((b) => b.filter((x) => x.bid !== bid));
 
   aE(() => applyTheme(t), [t.primary, t.dark]);
+  // expose theme handle so the account menu can toggle 浅色/深色
+  window.__aidaDark = !!t.dark;
+  window.__aidaSetDark = (v) => setTweak("dark", v);
 
   const S = window.AIDATA.SCENARIOS;
   const scenario = scenarioId === "general" ? window.AIDATA.GENERAL : (S.find((s) => s.id === scenarioId) || S[0]);
@@ -180,7 +183,6 @@ function App() {
       <TweaksPanel>
         <TweakSection label="主题" />
         <TweakColor label="主色" value={t.primary} options={PRIMARY_OPTIONS} onChange={(v) => setTweak("primary", v)} />
-        <TweakToggle label="深色模式" value={t.dark} onChange={(v) => setTweak("dark", v)} />
         <TweakSection label="首页方向" />
         <TweakRadio
           label="布局"

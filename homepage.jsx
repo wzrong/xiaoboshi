@@ -14,6 +14,31 @@ function MenuRow({ icon, label, accent, onClick }) {
   );
 }
 
+// 外观（浅色/深色）—— 账号浮层内的主题分段控件
+function AppearanceRow() {
+  const [dark, setDark] = useState(!!window.__aidaDark);
+  const set = (v) => { setDark(v); window.__aidaDark = v; window.__aidaSetDark && window.__aidaSetDark(v); };
+  const seg = (on, label, icon, v) => (
+    <button
+      onClick={() => set(v)}
+      style={{ flex: 1, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 5, padding: "6px 8px", borderRadius: 7, border: "none", cursor: "pointer", fontFamily: "var(--font-zh)", fontSize: 12, fontWeight: 700, transition: "all .15s", background: on ? "var(--surface)" : "transparent", color: on ? "var(--brand-deep)" : "var(--ink-3)", boxShadow: on ? "0 1px 3px rgba(0,0,0,.12)" : "none" }}
+    >
+      <Icon name={icon} size={14} /> {label}
+    </button>
+  );
+  return (
+    <div style={{ padding: "7px 10px", display: "flex", alignItems: "center", gap: 10 }}>
+      <span style={{ flexShrink: 0, fontSize: 13, fontWeight: 600, color: "var(--ink-2)", display: "inline-flex", alignItems: "center", gap: 10 }}>
+        <Icon name="sun" size={15} /> 外观
+      </span>
+      <div style={{ flex: 1, display: "flex", gap: 2, padding: 2, borderRadius: 9, background: "var(--surface-2)" }}>
+        {seg(!dark, "浅色", "sun", false)}
+        {seg(dark, "深色", "moon", true)}
+      </div>
+    </div>
+  );
+}
+
 // The shared smart input box
 function SmartInput({ value, setValue, onSubmit, big, placeholder, ghost }) {
   const ref = useRef(null);
@@ -861,6 +886,23 @@ function LeftRail({ page, loggedIn, onNavigate, onNewChat, onResume, onLogout, o
         <NavItem icon="grid" label="我的内容" active={page === "works"} onClick={() => go("works")} />
         <NavItem icon="basket" label={basketCount > 0 ? `资源篮 · ${basketCount}` : "资源篮"} onClick={() => (loggedIn ? onOpenBasket && onOpenBasket() : onRequireLogin())} />
         <a
+          href={encodeURI("学科网智能搜索首页 (standalone).html")}
+          target="_blank"
+          rel="noopener noreferrer"
+          title="学科网智能搜索"
+          style={{ width: "100%", boxSizing: "border-box", display: "flex", alignItems: "center", gap: 11, padding: open ? "10px 12px" : "10px 0", justifyContent: open ? "flex-start" : "center", borderRadius: 11, border: "none", cursor: "pointer", fontFamily: "var(--font-zh)", fontSize: 14, fontWeight: 600, background: "transparent", color: "var(--ink-2)", textDecoration: "none", transition: "background .15s" }}
+          onMouseEnter={(e) => (e.currentTarget.style.background = "var(--surface-2)")}
+          onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+        >
+          <span style={{ flexShrink: 0, width: 20, height: 20, display: "grid", placeItems: "center" }}><Icon name="search" size={18} /></span>
+          {open && (
+            <span style={{ whiteSpace: "nowrap", lineHeight: 1, flex: 1, display: "inline-flex", alignItems: "center", gap: 6 }}>
+              学科网智能搜索
+              <Icon name="external" size={13} />
+            </span>
+          )}
+        </a>
+        <a
           href="https://wzrong.me/xiaoboshi/docs/产品设计文档.html"
           target="_blank"
           rel="noopener noreferrer"
@@ -956,6 +998,8 @@ function LeftRail({ page, loggedIn, onNavigate, onNewChat, onResume, onLogout, o
                   <MenuRow icon="spark" label="我的记忆" onClick={() => { setAcctMenu(false); onNavigate("memory"); }} />
                   <MenuRow icon="grid" label="我的内容" onClick={() => { setAcctMenu(false); onNavigate("works"); }} />
                   <MenuRow icon="chat" label="历史对话" onClick={() => { setAcctMenu(false); onNavigate("history"); }} />
+                  <div style={{ height: 1, background: "var(--line)", margin: "5px 4px" }} />
+                  <AppearanceRow />
                   <div style={{ height: 1, background: "var(--line)", margin: "5px 4px" }} />
                   <MenuRow icon="back" label="退出登录" onClick={() => { setAcctMenu(false); onLogout && onLogout(); }} />
                 </div>
