@@ -149,13 +149,24 @@ function TextbookWorkspace({ scenario, query, onHome, onSwitch, fromIntent, logg
   const openBook = (bk) => applyBook(bk, "picked");
   const openFree = () => applyBook({ free: true }, "free");
   const openMulti = (list) => applyBook({ multi: true, list }, "multi");
-  // click a section in the catalog → locate it, keep the conversation, drop a context note
+  // click a section in the catalog → locate it + show recommended questions as quick-ask chips
+  const secQuestions = (secName) => {
+    const base = secName.replace(/第\d+节\s*·?\s*/, "").replace(/——.*/, "").trim();
+    return [
+      `${base}的核心概念是什么？`,
+      `${base}的教学重难点有哪些？`,
+      `${base}有哪些常见考点？`,
+      `怎么给学生讲清楚${base}？`,
+    ];
+  };
   const pickSection = (ci, si) => {
     const sec = TREE.chapters[ci] && TREE.chapters[ci].sections[si];
     if (!sec) return;
     setActiveSec({ ci, si });
     setNavOpen(false);
-    if (hasConvo(thread)) setThread((t) => [...t, { role: "sys", icon: "book", text: `已定位到 ${TREE.chapters[ci].name} · ${sec.name}` }]);
+    const qs = secQuestions(sec.name);
+    setThread((t) => [...t, { role: "sys", icon: "book", text: `已定位到 ${TREE.chapters[ci].name} · ${sec.name}`, questions: qs }]);
+    setSampleQs(qs);
   };
   // switching an already-open book slides the picker in from the right (smoother than swapping the page)
   const switchBook = () => setSwitcherOpen(true);
@@ -175,14 +186,14 @@ function TextbookWorkspace({ scenario, query, onHome, onSwitch, fromIntent, logg
     setAnswered(false);
     setTimeout(() => {
       setThinking(false);
-      const art = { scenario: "textbook", icon: "book", kind: compare ? "compare" : "answer", title: q, meta: compare ? "跨教材对比" : "含教材出处" };
+      const art = null; // 问教材的回答始终在左侧对话中展示，不需要跨场景 artifact 收缩
       if (compare) {
-        setThread((t) => [...t, { role: "ai", compare: true, artifact: art }]);
+        setThread((t) => [...t, { role: "ai", compare: true }]);
         setAnswered("compare");
       } else {
         const a = mkAns(q);
         setCurAns(a);
-        setThread((t) => [...t, { role: "ai", answer: true, ans: a, artifact: art }]);
+        setThread((t) => [...t, { role: "ai", answer: true, ans: a }]);
         setAnswered(true);
       }
     }, compare ? 1600 : 1400);
@@ -204,7 +215,7 @@ function TextbookWorkspace({ scenario, query, onHome, onSwitch, fromIntent, logg
     ask(f + "（紧接上一个问题）");
   };
 
-  const sampleQs = ["光反应和暗反应有什么区别？", "为什么会产生感应电流？", "这部分知识中考/高考怎么考？", "这节课怎么给学生讲清楚？"];
+  const [sampleQs, setSampleQs] = tS(["光反应和暗反应有什么区别？", "为什么会产生感应电流？", "这部分知识中考/高考怎么考？", "这节课怎么给学生讲清楚？"]);
   const { headerRecognizing, send } = useSmartSend({ scenarioId: scenario.id, onSwitch, setMessages: setThread, localSend: ask });
 
   // ---- cold start: no textbook selected (switched in / logged out / no memory) ----
@@ -377,12 +388,25 @@ function TextbookWorkspace({ scenario, query, onHome, onSwitch, fromIntent, logg
               ) : m.compare ? (
                 <CompareBlock key={i} CMP={CMP} activeCite={activeCite} setActiveCite={setActiveCite} onAsk={ask} grouped={grouped} />
               ) : m.role === "sys" ? (
-                <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, padding: "2px 0" }}>
-                  <span style={{ flex: 1, height: 1, background: "var(--line)" }} />
-                  <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 11.5, fontWeight: 700, color: "var(--ink-3)", background: "var(--surface-2)", border: "1px solid var(--line)", padding: "4px 12px", borderRadius: 999, maxWidth: "100%" }}>
-                    <Icon name={m.icon || "refresh"} size={12} /> <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.text}</span>
-                  </span>
-                  <span style={{ flex: 1, height: 1, background: "var(--line)" }} />
+                <div key={i} style={{ display: "flex", flexDirection: "column", gap: 8, padding: "2px 0" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    <span style={{ flex: 1, height: 1, background: "var(--line)" }} />
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 11.5, fontWeight: 700, color: "var(--ink-3)", background: "var(--surface-2)", border: "1px solid var(--line)", padding: "4px 12px", borderRadius: 999, maxWidth: "100%" }}>
+                      <Icon name={m.icon || "refresh"} size={12} /> <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.text}</span>
+                    </span>
+                    <span style={{ flex: 1, height: 1, background: "var(--line)" }} />
+                  </div>
+                  {m.questions && m.questions.length > 0 && (
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 6, justifyContent: "center", padding: "0 8px" }}>
+                      {m.questions.map((q, qi) => (
+                        <button key={qi} onClick={() => ask(q)} style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "6px 12px", borderRadius: 10, border: "1px solid var(--line)", background: "var(--surface)", color: "var(--ink-2)", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "var(--font-zh)", transition: "all .15s" }}
+                          onMouseEnter={(e) => { e.currentTarget.style.borderColor = "var(--brand)"; e.currentTarget.style.color = "var(--brand-deep)"; e.currentTarget.style.background = "var(--brand-soft)"; }}
+                          onMouseLeave={(e) => { e.currentTarget.style.borderColor = "var(--line)"; e.currentTarget.style.color = "var(--ink-2)"; e.currentTarget.style.background = "var(--surface)"; }}>
+                          <Icon name="spark" size={12} /> {q}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
               ) : (
                 <Bubble key={i} m={m} grouped={grouped} />
@@ -563,7 +587,7 @@ function TextbookWorkspace({ scenario, query, onHome, onSwitch, fromIntent, logg
       <div onClick={() => setSwitcherOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 84, background: "rgba(20,16,10,.42)", backdropFilter: "blur(2px)", opacity: switcherOpen ? 1 : 0, pointerEvents: switcherOpen ? "auto" : "none", transition: "opacity .26s" }} />
       <div style={mobile
         ? { position: "fixed", left: 0, right: 0, bottom: 0, height: "88dvh", zIndex: 85, background: "var(--canvas)", borderRadius: "18px 18px 0 0", display: "flex", flexDirection: "column", overflow: "hidden", transform: switcherOpen ? "translateY(0)" : "translateY(101%)", transition: "transform .3s cubic-bezier(.32,.72,0,1)", boxShadow: "0 -18px 50px -24px rgba(0,0,0,.5)" }
-        : { position: "fixed", top: 0, left: 0, bottom: 0, width: "min(560px, 96vw)", zIndex: 85, background: "var(--canvas)", display: "flex", flexDirection: "column", overflow: "hidden", transform: switcherOpen ? "translateX(0)" : "translateX(-102%)", transition: "transform .3s cubic-bezier(.32,.72,0,1)", boxShadow: "0 18px 60px -24px rgba(0,0,0,.5)" }}>
+        : { position: "fixed", top: 0, right: 0, bottom: 0, width: "min(560px, 96vw)", zIndex: 85, background: "var(--canvas)", display: "flex", flexDirection: "column", overflow: "hidden", transform: switcherOpen ? "translateX(0)" : "translateX(102%)", transition: "transform .3s cubic-bezier(.32,.72,0,1)", boxShadow: "0 18px 60px -24px rgba(0,0,0,.5)" }}>
         {mobile && <div style={{ width: 40, height: 4, borderRadius: 999, background: "var(--line)", margin: "8px auto 0", flexShrink: 0 }} />}
         <div style={{ flexShrink: 0, display: "flex", alignItems: "center", gap: 10, padding: "13px 18px", borderBottom: "1px solid var(--line)", background: "var(--surface)" }}>
           <span style={{ width: 34, height: 34, borderRadius: 10, background: "var(--brand-soft)", border: "1px solid var(--brand-soft-border)", display: "grid", placeItems: "center", color: "var(--brand-deep)", flexShrink: 0 }}><Icon name="book" size={17} /></span>
@@ -574,7 +598,7 @@ function TextbookWorkspace({ scenario, query, onHome, onSwitch, fromIntent, logg
           <button onClick={() => setSwitcherOpen(false)} aria-label="关闭" style={{ width: 32, height: 32, borderRadius: 9, border: "1px solid var(--line)", background: "var(--surface)", color: "var(--ink-2)", display: "grid", placeItems: "center", cursor: "pointer", flexShrink: 0 }}><Icon name="close" size={16} sw={2.4} /></button>
         </div>
         <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", position: "relative" }}>
-          {switcherOpen && <TextbookPicker onOpen={pickFromDrawer} onFree={freeFromDrawer} onMulti={multiFromDrawer} demoBook={demoBook} compact />}
+          {switcherOpen && <TextbookPicker onOpen={pickFromDrawer} onFree={freeFromDrawer} onMulti={multiFromDrawer} demoBook={demoBook} compact currentBook={book} />}
         </div>
       </div>
 
@@ -705,12 +729,12 @@ function AnswerBlock({ A, activeCite, setActiveCite }) {
 }
 
 // ---- cold-start textbook picker (the 问教材 guide page) ----
-function TextbookPicker({ onOpen, onFree, onMulti, onResume, memBook, demoBook, compact }) {
+function TextbookPicker({ onOpen, onFree, onMulti, onResume, memBook, demoBook, compact, currentBook }) {
   const mobile = useIsMobile();
-  const [stage, setStage] = tS("");
-  const [subject, setSubject] = tS("");
-  const [edition, setEdition] = tS("");
-  const [name, setName] = tS("");
+  const [stage, setStage] = tS(currentBook && !currentBook.free && !currentBook.multi ? (currentBook.stage || "") : "");
+  const [subject, setSubject] = tS(currentBook && !currentBook.free && !currentBook.multi ? (currentBook.subject || "") : "");
+  const [edition, setEdition] = tS(currentBook && !currentBook.free && !currentBook.multi ? (currentBook.edition || "") : "");
+  const [name, setName] = tS(currentBook && !currentBook.free && !currentBook.multi ? (currentBook.name || "") : "");
   const [sel, setSel] = tS([]); // multi-select for 综合复习
   const ready = stage && subject && edition && name;
   const keyOf = (b) => `${b.edition}/${b.subject}/${b.name}`;

@@ -109,6 +109,21 @@ function App() {
     return () => { delete window.openSessionArtifact; };
   }, []);
 
+  // 从学科网资源站「智能搜索」跳转进来 —— 自动带入用户输入的内容，并直接进入
+  // 通用助手的意图识别流程（信息不全则按追问/补全方式继续，与站内一致）。
+  aE(() => {
+    try {
+      const p = new URLSearchParams(window.location.search);
+      const q = (p.get("q") || p.get("query") || "").trim();
+      if (q) {
+        // strip the param so a refresh doesn't re-trigger, but keep history clean
+        const url = window.location.pathname + window.location.hash;
+        window.history.replaceState({}, "", url);
+        goIntent(q);
+      }
+    } catch (e) {}
+  }, []);
+
   // left rail props shared by homepage AND workspaces (the menu stays in every screen)
   const railNav = {
     loggedIn,

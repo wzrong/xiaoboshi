@@ -235,19 +235,21 @@ function GradeWorkspace({ scenario, query, onHome, onSwitch, fromIntent, resume,
   const { headerRecognizing, send } = useSmartSend({ scenarioId: scenario.id, onSwitch, setMessages, localSend });
 
   // ---- right stage ----
-  const stageHeaderRight = (
-    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-      {graded && (
-        <div style={{ display: "flex", gap: 2, padding: 3, borderRadius: 10, background: "var(--surface-2)", border: "1px solid var(--line)" }}>
-          {[{ k: "single", t: "单份" }, { k: "class", t: "整班" }].map((m) => {
-            const on = mode === m.k;
-            return <button key={m.k} onClick={() => { if (!on) runGrade(m.k, true); }} style={{ padding: "5px 12px", borderRadius: 8, border: "none", background: on ? "var(--surface)" : "transparent", color: on ? "var(--brand-deep)" : "var(--ink-3)", fontSize: 12, fontWeight: 800, cursor: on ? "default" : "pointer", fontFamily: "var(--font-zh)", boxShadow: on ? "0 1px 4px rgba(0,0,0,.08)" : "none" }}>{m.t}</button>;
-          })}
-        </div>
-      )}
+  // 模式切换 + 导出按钮放在内容区顶部（而非场景栏），避免场景栏高度不一致
+  const stageHeaderRight = null;
+
+  const contentBar = graded ? (
+    <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 22px", borderBottom: "1px solid var(--line)", background: "var(--surface)", flexShrink: 0 }}>
+      <div style={{ display: "flex", gap: 2, padding: 3, borderRadius: 10, background: "var(--surface-2)", border: "1px solid var(--line)" }}>
+        {[{ k: "single", t: "单份精批" }, { k: "class", t: "整班批改" }].map((m) => {
+          const on = mode === m.k;
+          return <button key={m.k} onClick={() => { if (!on) runGrade(m.k, true); }} style={{ padding: "5px 12px", borderRadius: 8, border: "none", background: on ? "var(--surface)" : "transparent", color: on ? "var(--brand-deep)" : "var(--ink-3)", fontSize: 12, fontWeight: 800, cursor: on ? "default" : "pointer", fontFamily: "var(--font-zh)", boxShadow: on ? "0 1px 4px rgba(0,0,0,.08)" : "none" }}>{m.t}</button>;
+        })}
+      </div>
+      <div style={{ flex: 1 }} />
       <Btn size="sm" kind="soft" icon="download">导出</Btn>
     </div>
-  );
+  ) : null;
 
   let stageBody;
   if (grading) {
@@ -264,7 +266,9 @@ function GradeWorkspace({ scenario, query, onHome, onSwitch, fromIntent, resume,
   } else if (mode === "single") {
     const r = D.single;
     stageBody = (
-      <div style={{ flex: 1, overflowY: "auto", padding: "22px clamp(18px,4%,40px)" }}>
+      <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
+        {contentBar}
+        <div style={{ flex: 1, overflowY: "auto", padding: "22px clamp(18px,4%,40px)" }}>
         <div style={{ maxWidth: 720, margin: "0 auto" }}>
           {/* score header */}
           <div style={{ display: "flex", alignItems: "center", gap: 16, padding: "16px 18px", borderRadius: 16, border: "1px solid var(--line)", background: "var(--surface)", marginBottom: 16 }}>
@@ -302,12 +306,15 @@ function GradeWorkspace({ scenario, query, onHome, onSwitch, fromIntent, resume,
           </div>
           <div style={{ textAlign: "center", fontSize: 11.5, color: "var(--ink-3)", lineHeight: 1.6, padding: "16px 4px 0" }}>AI 批改仅供参考，最终评分与评语请老师确认后下发</div>
         </div>
+        </div>
       </div>
     );
-  } else {
+  } else if (mode === "class") {
     const r = D.classMode;
     stageBody = (
-      <div style={{ flex: 1, overflowY: "auto", padding: "22px clamp(18px,4%,40px)" }}>
+      <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
+        {contentBar}
+        <div style={{ flex: 1, overflowY: "auto", padding: "22px clamp(18px,4%,40px)" }}>
         <div style={{ maxWidth: 720, margin: "0 auto" }}>
           <div style={{ fontSize: 16, fontWeight: 800, color: "var(--ink)", marginBottom: 3 }}>{r.title}</div>
           <div style={{ fontSize: 12, color: "var(--ink-3)", fontWeight: 600, marginBottom: 14 }}>已批改 {r.graded}/{r.count} 份 · 对齐学科网权威答案</div>
@@ -379,6 +386,7 @@ function GradeWorkspace({ scenario, query, onHome, onSwitch, fromIntent, resume,
           </div>
           <div style={{ textAlign: "center", fontSize: 11.5, color: "var(--ink-3)", lineHeight: 1.6, padding: "16px 4px 0" }}>AI 批改与统计仅供参考，最终结果请老师复核</div>
         </div>
+      </div>
       </div>
     );
   }

@@ -376,7 +376,7 @@ function SessionTaskBar({ task, onOpen }) {
 }
 
 // ---- Chat panel (left) ----
-function ChatPanel({ messages, onSend, suggestions, placeholder, width = 380, pinnedCard, roundsById, shownId, onOpenRound, retrieving, header, onOpenRef, clarify, onResolveClarify, onSkipClarify, taskBar, centered }) {
+function ChatPanel({ messages, onSend, suggestions, placeholder, width = 380, pinnedCard, roundsById, shownId, onOpenRound, retrieving, header, onOpenRef, clarify, onResolveClarify, onSkipClarify, clarifyNode, taskBar, centered }) {
   const [draft, setDraft] = uS("");
   const [att, setAtt] = uS([]);          // { id, name, status: uploading|parsing|ready }
   const [viewFile, setViewFile] = uS(null);
@@ -494,7 +494,7 @@ function ChatPanel({ messages, onSend, suggestions, placeholder, width = 380, pi
           </div>
         </div>
       )}
-      {clarify && <ClarifyPopover onResolve={onResolveClarify} onSkip={onSkipClarify} />}
+      {clarify && (clarifyNode || <ClarifyPopover analysis={clarify.analysis} onResolve={onResolveClarify} onSkip={onSkipClarify} />)}
       {!clarify && taskBar}
       <div style={{ padding: "8px 14px 12px", position: "relative" }}>
         {/* scroll-to-bottom — appears when scrolled up; heartbeats while 小博士 is outputting */}
@@ -920,9 +920,10 @@ function AskBar({ item, loggedIn, onAsk }) {
   );
 }
 
-// ---- 追问 / 澄清弹框（找资源参数不足时，一轮补齐学段 + 学科）------------------
-// 触发见 handleSend。顺序有讲究：学段决定了可选的学科与年级，所以先选学段
-// （必选）→ 再选学科（必选，选项随学段变）→ 年级（选填）。也可直接在下方输入框自己描述。
+// ---- 追问 / 澄清弹框（找资源「信息补全」引擎）---------------------------------
+// 核心：根据用户意图识别已知字段，只追问「缺失的最小必要信息」。需要补的字段随
+// 资源类型而变：课件/教案/学案 → 年级·学期·主题；试卷/作业 → 场景。
+// 例：「沁园春雪」→ 已识别 初中·语文·九年级·上册·《沁园春雪》，只差「资料类型」。
 const CLARIFY_STAGES = ["小学", "初中", "高中"];
 const CLARIFY_SUBJECTS_BY_STAGE = {
   小学: ["语文", "数学", "英语", "科学", "道德与法治"],
@@ -934,69 +935,236 @@ const CLARIFY_GRADES_BY_STAGE = {
   初中: ["七年级", "八年级", "九年级"],
   高中: ["高一", "高二", "高三"],
 };
-function ClarifyPopover({ onResolve, onSkip }) {
-  const [stage, setStage] = uS(null);
-  const [sj, setSj] = uS(null);
-  const [gr, setGr] = uS(null);
-  const stageRef = uR(stage); stageRef.current = stage;
-  const sjRef = uR(sj); sjRef.current = sj;
-  const grRef = uR(gr); grRef.current = gr;
+// 资料类型（标签树[41]一级，对齐用户口径的 5 类）→ 决定其下需补字段
+const FIND_TYPES = ["课件", "试卷", "教案", "学案", "作业"];
+const PREP_TYPES = ["课件", "教案", "学案"];   // 备课类 → 年级·学期·主题
+const ASSESS_TYPES = ["试卷", "作业"];          // 测练类 → 场景
+const FIND_SEMESTERS = ["上册", "下册"];
+// 场景（标签树[42]应用场景的常用取值）
+const FIND_SCENES = ["开学", "周测", "阶段检测", "期中", "期末", "一模", "二模", "三模", "模拟预测", "真题"];
+const FIELD_LABEL = { stage: "学段", subject: "学科", type: "资料类型", grade: "年级", semester: "学期", topic: "主题", scene: "场景" };
+const ANY = "__any__"; // 「不限」哨兵值：算已选、但不进入检索条件
+
+// —— 字段解析器（从一句话里抽取结构化条件）——
+function stageOfGrade(g) {
+  if (!g) return null;
+  if (/[一二三四五六]年级/.test(g)) return "小学";
+  if (/[七八九]年级/.test(g)) return "初中";
+  if (/高[一二三]/.test(g)) return "高中";
+  return null;
+}
+function pickStage(q) {
+  if (!q) return null;
+  if (/高中|高一(?![点些])|高二|高三/.test(q)) return "高中";
+  if (/初中|初一|初二|初三|七年级|八年级|九年级/.test(q)) return "初中";
+  if (/小学|一年级|二年级|三年级|四年级|五年级|六年级/.test(q)) return "小学";
+  return null;
+}
+function pickGradeF(q) {
+  if (!q) return null;
+  const map = [["七年级", /七年级|初一/], ["八年级", /八年级|初二/], ["九年级", /九年级|初三/], ["高一", /高一(?![点些])/], ["高二", /高二/], ["高三", /高三/], ["六年级", /六年级/], ["五年级", /五年级/], ["四年级", /四年级/], ["三年级", /三年级/], ["二年级", /二年级/], ["一年级", /一年级/]];
+  const hit = map.find(([, re]) => re.test(q));
+  return hit ? hit[0] : null;
+}
+function pickSemester(q) {
+  if (!q) return null;
+  if (/上册|上学期/.test(q)) return "上册";
+  if (/下册|下学期/.test(q)) return "下册";
+  return null;
+}
+function pickType(q) {
+  if (!q) return null;
+  if (/学案|导学案|学习任务单|知识清单|实验报告单/.test(q)) return "学案";
+  if (/教案|教学设计|讲义|学历案|说课|作业设计/.test(q)) return "教案";
+  if (/课件|幻灯|PPT|ppt/.test(q)) return "课件";
+  if (/同步练|单元卷|专项训练|综合训练|试题汇编|题集|练习|习题|作业/.test(q)) return "作业";
+  if (/试卷|卷子|月考卷|期中卷|期末卷|模拟卷/.test(q)) return "试卷";
+  return null;
+}
+function pickScene(q) {
+  if (!q) return null;
+  return FIND_SCENES.find((s) => q.includes(s)) || (/月考/.test(q) ? "阶段检测" : (/中考|高考|学业考试/.test(q) ? "真题" : null));
+}
+
+// —— 主题知识库：常见课文 / 知识点 → 可推断的 学段·学科·年级·学期·主题 ——
+// 让「沁园春雪」这类输入无需用户明说就能识别到大部分字段，只剩最小缺口。
+const TOPIC_KB = [
+  { kw: ["沁园春雪", "沁园春·雪", "沁园春 雪"], stage: "初中", subject: "语文", grade: "九年级", semester: "上册", topic: "沁园春·雪" },
+  { kw: ["背影"], stage: "初中", subject: "语文", grade: "八年级", semester: "上册", topic: "背影" },
+  { kw: ["故乡"], stage: "初中", subject: "语文", grade: "九年级", semester: "上册", topic: "故乡" },
+  { kw: ["腊八粥"], stage: "小学", subject: "语文", grade: "六年级", semester: "下册", topic: "腊八粥" },
+  { kw: ["草原"], stage: "小学", subject: "语文", grade: "六年级", semester: "上册", topic: "草原" },
+  { kw: ["荷塘月色"], stage: "高中", subject: "语文", grade: "高一", semester: "上册", topic: "荷塘月色" },
+  { kw: ["有理数"], stage: "初中", subject: "数学", grade: "七年级", semester: "上册", topic: "有理数" },
+  { kw: ["整式的加减", "整式"], stage: "初中", subject: "数学", grade: "七年级", semester: "上册", topic: "整式的加减" },
+  { kw: ["一元一次方程"], stage: "初中", subject: "数学", grade: "七年级", semester: "上册", topic: "一元一次方程" },
+  { kw: ["勾股定理"], stage: "初中", subject: "数学", grade: "八年级", semester: "下册", topic: "勾股定理" },
+  { kw: ["平行四边形"], stage: "初中", subject: "数学", grade: "八年级", semester: "下册", topic: "平行四边形" },
+  { kw: ["二次函数"], stage: "初中", subject: "数学", grade: "九年级", semester: "上册", topic: "二次函数" },
+  { kw: ["函数的概念", "函数概念"], stage: "高中", subject: "数学", grade: "高一", semester: "上册", topic: "函数的概念" },
+  { kw: ["凸透镜成像", "凸透镜"], stage: "初中", subject: "物理", grade: "八年级", semester: "上册", topic: "凸透镜成像规律" },
+  { kw: ["欧姆定律"], stage: "初中", subject: "物理", grade: "九年级", semester: "上册", topic: "欧姆定律" },
+  { kw: ["牛顿第一定律", "惯性"], stage: "初中", subject: "物理", grade: "八年级", semester: "下册", topic: "牛顿第一定律" },
+  { kw: ["氧气的实验室制取", "氧气的制取", "制取氧气"], stage: "初中", subject: "化学", grade: "九年级", semester: "上册", topic: "氧气的实验室制取" },
+  { kw: ["燃烧与灭火", "燃烧的条件"], stage: "初中", subject: "化学", grade: "九年级", semester: "上册", topic: "燃烧与灭火" },
+  { kw: ["光合作用"], stage: "初中", subject: "生物学", grade: "七年级", semester: "上册", topic: "光合作用" },
+  { kw: ["鸦片战争"], stage: "初中", subject: "历史", grade: "八年级", semester: "上册", topic: "鸦片战争" },
+  { kw: ["热力环流"], stage: "高中", subject: "地理", grade: "高一", semester: "上册", topic: "热力环流" },
+];
+
+// 把一句话解析成完整画像 v + 各字段来源 src（kb 推断 / text 明示 / ctx 累积）
+function analyzeFind(q, ctx) {
+  const v = { stage: null, subject: null, type: null, grade: null, semester: null, topic: null, scene: null };
+  const src = {};
+  const kb = q ? TOPIC_KB.find((e) => e.kw.some((k) => q.includes(k))) : null;
+  if (kb) ["stage", "subject", "grade", "semester", "topic"].forEach((k) => { if (kb[k]) { v[k] = kb[k]; src[k] = "kb"; } });
+  const tEx = q && (q.match(/《(.+?)》/) || [])[1];
+  if (tEx) { v.topic = tEx.replace(/\s/g, ""); src.topic = "text"; }
+  const ex = { stage: pickStage(q), subject: pickSubject(q), type: pickType(q), grade: pickGradeF(q), semester: pickSemester(q), scene: pickScene(q) };
+  Object.keys(ex).forEach((k) => { if (ex[k]) { v[k] = ex[k]; src[k] = "text"; } });
+  if (!v.stage && v.grade) { v.stage = stageOfGrade(v.grade); if (v.stage) src.stage = "text"; }
+  if (ctx) {
+    if (!v.subject && ctx.subjectConfirmed && ctx.subject) { v.subject = ctx.subject; src.subject = "ctx"; }
+    if (!v.grade && ctx.grade) { v.grade = ctx.grade; src.grade = "ctx"; }
+    if (!v.stage && ctx.stage) { v.stage = ctx.stage; src.stage = "ctx"; }
+    if (!v.stage && v.grade) { v.stage = stageOfGrade(v.grade); if (v.stage) src.stage = "ctx"; }
+  }
+  return { v, src };
+}
+
+// 资料类型决定「最小必要信息」需要哪些字段（学期作为软性项，不强制）
+function requiredKeys(type) {
+  const base = ["stage", "subject", "type"];
+  if (PREP_TYPES.includes(type)) return [...base, "grade", "topic"]; // 备课类：年级 + 主题
+  if (ASSESS_TYPES.includes(type)) return [...base, "scene"];        // 测练类：场景
+  return base; // 类型未定，先把类型问出来
+}
+// 当前画像下，还缺哪些「最小必要信息」（顺序即追问顺序）
+function findGaps(v) {
+  return requiredKeys(v.type).filter((k) => v[k] == null);
+}
+
+// 把补全后的画像拼成一条检索 query（驱动下游 buildRound 的解析）
+function valsToQuery(v) {
+  const real = (x) => (x && x !== ANY) ? x : null;
+  return [real(v.grade) || real(v.stage), real(v.subject), real(v.semester), real(v.type), real(v.scene), real(v.topic) ? `《${real(v.topic)}》` : null].filter(Boolean).join(" ");
+}
+
+// 触发追问前，小博士先回一句「随缺口程度而变」的铺垫话
+function clarifyIntro(v, gaps, rawText) {
+  const ctxStr = [v.stage, v.subject, v.grade, v.semester].filter(Boolean).join("·");
+  const gapStr = gaps.map((k) => FIELD_LABEL[k]).join("、");
+  const onlyType = gaps.length === 1 && gaps[0] === "type";
+  if (onlyType && v.topic) {
+    return <span>已经识别到你要找的是 <b style={{ color: "var(--brand-deep)" }}>《{v.topic}》</b>{ctxStr ? <span>（{ctxStr}）</span> : null} —— 只差一步：你想要哪<b>一类资料</b>？课件、教案还是试卷？下面选一下就好。</span>;
+  }
+  if (ctxStr || v.type) {
+    return <span>好的{v.type ? <span>，帮你找<b>{v.type}</b></span> : null}{ctxStr ? <span>（已识别 <b style={{ color: "var(--brand-deep)" }}>{ctxStr}</b>）</span> : null} —— 再补一下 <b style={{ color: "var(--brand-deep)" }}>{gapStr}</b>，我就能精准检索。</span>;
+  }
+  const wantWord = (rawText.match(/试卷|卷子|课件|教案|讲义|学案|练习|习题|真题|作业|资源/) || ["资源"])[0];
+  return <span>好的，帮你找{wantWord} —— 先确认 <b style={{ color: "var(--brand-deep)" }}>{gapStr}</b>，免得给你一堆不相关的。下面选一下，也可以直接打字告诉我。</span>;
+}
+// 动态「信息补全」卡：已识别字段折叠成一行，下方只渲染缺失的最小必要字段；
+// 选了资料类型后，按类型展开它特有的字段（备课类→年级/学期/主题；测练类→场景）。
+function ClarifyPopover({ analysis, onResolve, onSkip }) {
+  const init = (analysis && analysis.v) || { stage: null, subject: null, type: null, grade: null, semester: null, topic: null, scene: null };
+  const [vals, setVals] = uS(init);
+  const [edit, setEdit] = uS({}); // 已识别字段被点「改」→ 重新展开为可选
+  const valsRef = uR(vals); valsRef.current = vals;
+  const real = (x) => (x && x !== ANY) ? x : null;
+  const set = (k, val) => setVals((s) => ({ ...s, [k]: val }));
+  const openEdit = (k) => setEdit((e) => ({ ...e, [k]: true }));
+  // 字段是否处于「待选」态：初始就缺，或被点击重新编辑
+  const open = (k) => (init[k] == null) || !!edit[k];
+
+  const isPrep = PREP_TYPES.includes(vals.type);
+  const isAssess = ASSESS_TYPES.includes(vals.type);
+  const filled = (k) => vals[k] != null; // ANY（不限）也算已选
+  const ready = requiredKeys(vals.type).every(filled);
+
   uE(() => {
     const onKey = (e) => {
       const typing = /^(input|textarea)$/i.test((e.target && e.target.tagName) || "");
       if (e.key === "Escape") { onSkip && onSkip(); return; }
-      if (typing) return; // don't hijack keys while the user is typing a free answer
-      if (e.key === "Enter" && stageRef.current && sjRef.current) { e.preventDefault(); onResolve(sjRef.current, grRef.current, stageRef.current); return; }
-      // number keys pick a subject — only once a stage is chosen (subject list depends on it)
-      const list = stageRef.current ? CLARIFY_SUBJECTS_BY_STAGE[stageRef.current] : null;
-      const n = parseInt(e.key, 10);
-      if (list && n >= 1 && n <= list.length) { e.preventDefault(); setSj(list[n - 1]); }
+      if (typing) return;
+      if (e.key === "Enter" && requiredKeys(valsRef.current.type).every((k) => valsRef.current[k] != null)) { e.preventDefault(); onResolve(valsRef.current); }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, []);
-  // changing 学段 resets the dependent 学科 + 年级
-  const pickStage = (s) => { if (stage === s) { setStage(null); setSj(null); setGr(null); } else { setStage(s); setSj(null); setGr(null); } };
-  const lbl = { fontSize: 11, fontWeight: 800, color: "var(--ink-3)", marginBottom: 8, letterSpacing: ".3px" };
+  }, [vals.type]);
+
+  const lbl = { fontSize: 11, fontWeight: 800, color: "var(--ink-3)", marginBottom: 8, letterSpacing: ".3px", display: "flex", alignItems: "center", gap: 6 };
   const wrap = { display: "flex", flexWrap: "wrap", gap: 7 };
   const chip = (active) => ({ display: "inline-flex", alignItems: "center", gap: 6, padding: "6px 12px", borderRadius: 999, border: `1px solid ${active ? "var(--brand)" : "var(--line)"}`, background: active ? "var(--brand-soft)" : "var(--surface)", color: active ? "var(--brand-deep)" : "var(--ink-2)", fontSize: 12.5, fontWeight: 700, cursor: "pointer", fontFamily: "var(--font-zh)", transition: "all .12s" });
-  const kbd = (active) => ({ display: "grid", placeItems: "center", width: 15, height: 15, borderRadius: 4, fontSize: 9.5, fontWeight: 800, fontFamily: "var(--font-num, inherit)", background: active ? "var(--brand)" : "var(--surface-2)", color: active ? "#fff" : "var(--ink-4)", border: active ? "none" : "1px solid var(--line)" });
-  const subjects = stage ? CLARIFY_SUBJECTS_BY_STAGE[stage] : [];
-  const valLabel = [stage, sj].filter(Boolean).join(" · ");
-  const ready = !!stage && !!sj;
+
+  // 已识别（锁定）字段 → 顶部一行小标签，可点「改」
+  const lockedKeys = ["stage", "subject", "grade", "semester", "type", "topic", "scene"].filter((k) => !open(k) && vals[k] != null);
+  const lockLabel = (k) => k === "topic" ? (real(vals.topic) ? `《${vals.topic}》` : "不限主题") : (vals[k] === ANY ? (k === "scene" ? "不限场景" : "不限") : vals[k]);
+
+  const chooser = (k) => {
+    if (k === "stage") return <div style={wrap}>{CLARIFY_STAGES.map((s) => <button key={s} style={chip(vals.stage === s)} onClick={() => { setVals((v) => ({ ...v, stage: s, subject: v.subject && !CLARIFY_SUBJECTS_BY_STAGE[s].includes(v.subject) ? null : v.subject, grade: v.grade && !CLARIFY_GRADES_BY_STAGE[s].includes(v.grade) ? null : v.grade })); }}>{s}</button>)}</div>;
+    if (k === "subject") return vals.stage ? <div style={wrap}>{CLARIFY_SUBJECTS_BY_STAGE[vals.stage].map((s) => <button key={s} style={chip(vals.subject === s)} onClick={() => set("subject", s)}>{s}</button>)}</div> : <div style={{ fontSize: 12, color: "var(--ink-4)", fontWeight: 600 }}>请先选择学段</div>;
+    if (k === "type") return <div style={wrap}>{FIND_TYPES.map((s) => <button key={s} style={chip(vals.type === s)} onClick={() => set("type", s)}>{s}</button>)}</div>;
+    if (k === "grade") return vals.stage ? <div style={wrap}>{CLARIFY_GRADES_BY_STAGE[vals.stage].map((s) => <button key={s} style={chip(vals.grade === s)} onClick={() => set("grade", s)}>{s}</button>)}</div> : <div style={{ fontSize: 12, color: "var(--ink-4)", fontWeight: 600 }}>请先选择学段</div>;
+    if (k === "semester") return <div style={wrap}>{FIND_SEMESTERS.map((s) => <button key={s} style={chip(vals.semester === s)} onClick={() => set("semester", s)}>{s}</button>)}<button style={chip(vals.semester === ANY)} onClick={() => set("semester", ANY)}>不限</button></div>;
+    if (k === "scene") return <div style={wrap}>{FIND_SCENES.map((s) => <button key={s} style={chip(vals.scene === s)} onClick={() => set("scene", s)}>{s}</button>)}<button style={chip(vals.scene === ANY)} onClick={() => set("scene", ANY)}>不限场景</button></div>;
+    if (k === "topic") return (
+      <div style={{ display: "flex", gap: 7, flexWrap: "wrap", alignItems: "center" }}>
+        <input value={real(vals.topic) || ""} onChange={(e) => set("topic", e.target.value ? e.target.value : null)} placeholder="输入知识点或章节，如 有理数 / 第一单元" style={{ flex: 1, minWidth: 190, padding: "7px 11px", borderRadius: 10, border: "1px solid var(--line)", fontSize: 12.5, fontFamily: "var(--font-zh)", outline: "none", color: "var(--ink)", background: "var(--surface)" }} />
+        <button style={chip(vals.topic === ANY)} onClick={() => set("topic", ANY)}>暂不指定</button>
+      </div>
+    );
+    return null;
+  };
+
+  // 待选字段，按依赖顺序；类型未定时不展开其下字段
+  const order = ["stage", "subject", "type"];
+  if (vals.type && isPrep) order.push("grade", "semester", "topic");
+  if (vals.type && isAssess) order.push("scene");
+  const bodyFields = order.filter((k) => open(k));
+  const optional = (k) => k === "semester" || k === "topic" || k === "scene";
+  const onlyFew = bodyFields.filter((k) => k !== "semester").length <= 1;
+  const summary = ["stage", "subject", "grade", "semester", "type", "scene"].map((k) => real(vals[k])).filter(Boolean).concat(real(vals.topic) ? [`《${vals.topic}》`] : []).join(" · ");
+
   return (
     <div className="clarify-pop" style={{ margin: "0 14px 10px", borderRadius: 16, border: "1px solid var(--line)", background: "var(--surface)", boxShadow: "0 16px 40px -16px rgba(20,30,50,0.28), 0 2px 8px -4px rgba(20,30,50,0.12)", overflow: "hidden" }}>
       <div style={{ display: "flex", alignItems: "flex-start", gap: 10, padding: "13px 14px 10px" }}>
         <span style={{ width: 26, height: 26, borderRadius: 8, background: "var(--brand-soft)", border: "1px solid var(--brand-soft-border)", display: "grid", placeItems: "center", color: "var(--brand-deep)", flexShrink: 0, marginTop: 1 }}><Icon name="spark" size={14} /></span>
-        <div style={{ flex: 1, minWidth: 0, fontSize: 13.5, fontWeight: 700, color: "var(--ink)", lineHeight: 1.5 }}>想帮你筛得更准 —— 找<b style={{ color: "var(--brand-deep)" }}>哪个学段、学科</b>的资源？</div>
+        <div style={{ flex: 1, minWidth: 0, fontSize: 13.5, fontWeight: 700, color: "var(--ink)", lineHeight: 1.5 }}>{onlyFew ? <span>只差一步 —— 补齐后我就能为你精准检索</span> : <span>帮你补齐<b style={{ color: "var(--brand-deep)" }}>最小必要信息</b>，筛得更准</span>}</div>
         <button onClick={() => onSkip && onSkip()} title="跳过（Esc）" style={{ width: 24, height: 24, borderRadius: 7, border: "none", background: "transparent", color: "var(--ink-4)", cursor: "pointer", display: "grid", placeItems: "center", flexShrink: 0 }}><Icon name="close" size={15} /></button>
       </div>
-      <div style={{ padding: "2px 14px 12px", display: "flex", flexDirection: "column", gap: 13 }}>
-        <div>
-          <div style={lbl}>学段（必选）</div>
-          <div style={wrap}>{CLARIFY_STAGES.map((s) => <button key={s} style={chip(stage === s)} onClick={() => pickStage(s)}>{s}</button>)}</div>
+
+      {lockedKeys.length > 0 && (
+        <div style={{ padding: "0 14px 11px" }}>
+          <div style={{ fontSize: 10.5, fontWeight: 800, color: "var(--ink-4)", marginBottom: 7, letterSpacing: ".3px", display: "flex", alignItems: "center", gap: 5 }}><Icon name="check" size={12} sw={2.6} /> 已为你识别</div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+            {lockedKeys.map((k) => (
+              <button key={k} onClick={() => openEdit(k)} title={`修改${FIELD_LABEL[k]}`} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "5px 9px 5px 10px", borderRadius: 999, border: "1px solid var(--brand-soft-border)", background: "var(--brand-soft)", color: "var(--brand-deep)", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "var(--font-zh)" }}>
+                <span style={{ fontSize: 9.5, fontWeight: 800, color: "var(--ink-4)" }}>{FIELD_LABEL[k]}</span>{lockLabel(k)}<span style={{ fontSize: 10, fontWeight: 700, color: "var(--ink-4)", borderLeft: "1px solid var(--brand-soft-border)", paddingLeft: 6 }}>改</span>
+              </button>
+            ))}
+          </div>
         </div>
-        {stage && (
-          <div>
-            <div style={lbl}>学科（必选）</div>
-            <div style={wrap}>{subjects.map((s, i) => <button key={s} style={chip(sj === s)} onClick={() => setSj(s)}><span style={kbd(sj === s)}>{i + 1}</span>{s}</button>)}</div>
+      )}
+
+      <div style={{ padding: "2px 14px 12px", display: "flex", flexDirection: "column", gap: 13 }}>
+        {bodyFields.map((k) => (
+          <div key={k}>
+            <div style={lbl}>{FIELD_LABEL[k]}{optional(k) ? <span style={{ fontWeight: 600, color: "var(--ink-4)" }}>（可不限）</span> : <span style={{ fontWeight: 700, color: "var(--brand-deep)" }}>必选</span>}</div>
+            {chooser(k)}
           </div>
-        )}
-        {stage && (
-          <div>
-            <div style={lbl}>年级（选填）</div>
-            <div style={wrap}>{CLARIFY_GRADES_BY_STAGE[stage].map((g) => <button key={g} style={chip(gr === g)} onClick={() => setGr(gr === g ? null : g)}>{g}</button>)}</div>
-          </div>
-        )}
+        ))}
+        {!vals.type && <div style={{ fontSize: 11.5, color: "var(--ink-4)", fontWeight: 600, marginTop: -4 }}>选好资料类型后，我会按类型继续补齐它需要的字段。</div>}
       </div>
+
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, padding: "10px 14px", borderTop: "1px solid var(--line-2)", background: "var(--surface-2)" }}>
         <button onClick={() => onSkip && onSkip()} style={{ border: "none", background: "transparent", color: "var(--ink-3)", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "var(--font-zh)" }}>跳过，先给我看大致结果</button>
         <button
           disabled={!ready}
-          onClick={() => onResolve(sj, gr, stage)}
-          style={{ padding: "8px 16px", borderRadius: 10, border: "none", background: ready ? "var(--brand)" : "var(--line)", color: ready ? "#fff" : "var(--ink-4)", fontSize: 13, fontWeight: 700, cursor: ready ? "pointer" : "default", fontFamily: "var(--font-zh)", display: "inline-flex", alignItems: "center", gap: 6 }}
+          onClick={() => onResolve(vals)}
+          style={{ padding: "8px 16px", borderRadius: 10, border: "none", background: ready ? "var(--brand)" : "var(--line)", color: ready ? "#fff" : "var(--ink-4)", fontSize: 13, fontWeight: 700, cursor: ready ? "pointer" : "default", fontFamily: "var(--font-zh)", display: "inline-flex", alignItems: "center", gap: 6, maxWidth: 320 }}
         >
-          <Icon name="search" size={14} /> {ready ? `检索 ${valLabel}` : (!stage ? "请先选学段" : "请选学科")}
+          <Icon name="search" size={14} /> <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{ready ? `检索 ${summary}` : "请补齐必选项"}</span>
         </button>
       </div>
     </div>
@@ -1021,6 +1189,7 @@ function FindWorkspace({ scenario, query, onHome, onSwitch, fromIntent, resume, 
   // accumulated understanding (subject/grade) so vague follow-ups still resolve.
   // subjectConfirmed = 学科已由记忆画像 / 用户输入 / 追问确认（非软默认）；决定是否还需追问。
   const ctxRef = uR({ subject: initSubject, grade: initGrade, subjectConfirmed: !!pickSubject(query) || !!(loggedIn && initSubject) });
+  const skippedRef = uR(false); // 跳过补全后，同一会话内不再追问（除非用户带了新的明确信息）
   const findStored = window.ChatSession.scratch.find || {};
   const idRef = uR(findStored.nextId || 0);
   const sheetSeqRef = uR(0);
@@ -1124,47 +1293,62 @@ function FindWorkspace({ scenario, query, onHome, onSwitch, fromIntent, resume, 
     if (!aboutCurrent && (preview || player || album)) { setPreview(null); setPlayer(null); setAlbum(null); }
     // explicit generation request → hand off to the 出卷子 scenario
     if (text.includes("出卷") && !aboutCurrent) { onSwitch && onSwitch("paper", text); return; }
-    // 追问弹框开着时，用户在输入框打字 = 直接作答（自己填）→ 关框、吸收学科学段、检索
+    // 把一句话的解析结果并入累积上下文（学科/学段/年级）
+    const absorb = (v) => {
+      if (v.subject) { ctxRef.current.subject = v.subject; ctxRef.current.subjectConfirmed = true; }
+      if (v.grade) ctxRef.current.grade = v.grade;
+      if (v.stage) ctxRef.current.stage = v.stage;
+    };
+    // 追问弹框开着时，用户在输入框打字 = 独立的新一轮（不合并）
+    // 关闭当前弹框 → 重新分析新输入 → 如果仍不完整，再弹一次补全卡
     if (clarify) {
       setClarify(null);
-      if (pickSubject(text)) { ctxRef.current.subject = pickSubject(text); ctxRef.current.subjectConfirmed = true; }
-      if (pickGrade(text)) ctxRef.current.grade = pickGrade(text);
-      doRetrieve(text);
-      return;
+      // 继续往下走正常的补全判断流程（不 return）
     }
-    // 参数不足判断：是找资源意图、但学科未知且没有已确认的上下文 → 先回一句「已识别但信息不全」的铺垫，再上拉追问弹框（最多一轮）
-    const subjKnown = pickSubject(text) || (ctxRef.current.subjectConfirmed ? ctxRef.current.subject : null);
-    if (!aboutCurrent && isFindLike(text) && !subjKnown) {
-      const wantWord = (text.match(/试卷|卷子|课件|教案|讲义|学案|练习|习题|真题|素材|视频|专辑|资源/) || ["资源"])[0];
-      setMessages((m) => [...m, { role: "ai", typing: true }]);
-      setTimeout(() => {
-        setMessages((m) => [...m.slice(0, -1), { role: "ai", node: (<span>好的，帮你找{wantWord}没问题 —— 只是你还没说是<b style={{ color: "var(--brand-deep)" }}>哪个学科、哪个学段</b>的，我先确认一下，免得给你一堆不相关的。下方选一下就行，也可以直接打字告诉我。</span>) }]);
-        setClarify({ forText: text });
-      }, 600);
-      return;
+    // 信息补全判断：仅对「文档类」找资源意图生效（视频/专辑形态另走分轨，不在此补全）。
+    // 触发条件 = 这条消息从「文本明示」或「知识库推断」抽到了 学科/类型/主题/年级/场景 等新条件
+    //（而非「难度再高一点」这类仅靠累积上下文的模糊跟进）。
+    const analysis = analyzeFind(text, ctxRef.current);
+    const fromText = ["stage", "subject", "type", "grade", "semester", "topic", "scene"].some((k) => analysis.src[k] === "text" || analysis.src[k] === "kb");
+    if (!aboutCurrent && detectKind(text) === "all" && (fromText || isFindLike(text))) {
+      // 跳过过一次后，仅靠上下文的模糊输入不再追问；带了新的明确信息则重新激活
+      if (fromText) skippedRef.current = false;
+      if (skippedRef.current) { absorb(analysis.v); doRetrieve(text); return; }
+      const gaps = findGaps(analysis.v);
+      if (gaps.length) {
+        const intro = clarifyIntro(analysis.v, gaps, text);
+        setMessages((m) => [...m, { role: "ai", typing: true }]);
+        setTimeout(() => {
+          setMessages((m) => [...m.slice(0, -1), { role: "ai", node: intro }]);
+          setClarify({ forText: text, analysis });
+        }, 600);
+        return;
+      }
     }
-    // 用户明确说出学科 → 记为已确认，后续模糊跟进不再追问
-    if (pickSubject(text)) { ctxRef.current.subject = pickSubject(text); ctxRef.current.subjectConfirmed = true; }
-    if (pickGrade(text)) ctxRef.current.grade = pickGrade(text);
+    // 信息已足够（或视频/专辑/模糊跟进）→ 吸收上下文，直接检索
+    absorb(analysis.v);
     doRetrieve(text);
   };
 
-  // 追问弹框选定后：写入上下文（标记已确认）→ 在 AI 回复里补一张紧凑的「已答」摘要卡 → 继续检索
-  const resolveClarify = (sj, gr, stage) => {
-    ctxRef.current.subject = sj; ctxRef.current.subjectConfirmed = true;
-    if (gr) ctxRef.current.grade = gr;
+  // 补全卡提交后：写入上下文（标记已确认）→ 在 AI 回复里补一张紧凑的「已答」摘要卡 → 继续检索
+  const resolveClarify = (vals) => {
+    const real = (x) => (x && x !== "__any__") ? x : null;
+    if (real(vals.subject)) { ctxRef.current.subject = real(vals.subject); ctxRef.current.subjectConfirmed = true; }
+    if (real(vals.grade)) ctxRef.current.grade = real(vals.grade);
+    if (real(vals.stage)) ctxRef.current.stage = real(vals.stage);
     const forText = clarify ? clarify.forText : "";
     setClarify(null);
-    const gradePart = gr || stage;
-    const value = `${gradePart ? gradePart + " · " : ""}${sj}`;
-    setMessages((m) => [...m, { role: "ai", answered: { q: "想找哪个学段、学科的资源？", value } }]);
-    doRetrieve(forText || `${gr || stage || ""}${sj}`);
+    const value = ["stage", "subject", "grade", "semester", "type", "scene"].map((k) => real(vals[k])).filter(Boolean).concat(real(vals.topic) ? [`《${real(vals.topic)}》`] : []).join(" · ");
+    setMessages((m) => [...m, { role: "ai", answered: { q: "补齐资源信息", value } }]);
+    doRetrieve(valsToQuery(vals) || forText);
   };
 
   // 追问弹框跳过 / 关闭：不带学科，先给一批混合结果（不空手）
+  // 记住跳过状态，后续模糊输入不再弹补全卡（除非用户带了新的明确信息）
   const skipClarify = () => {
     const forText = clarify ? clarify.forText : "";
     setClarify(null);
+    skippedRef.current = true;
     doRetrieve(forText);
   };
 

@@ -129,6 +129,11 @@ function Icon({ name, size = 24, sw = 1.8 }) {
         <path d="M9 6l6 6-6 6" />
       </g>
     ),
+    chevronLeft: (
+      <g>
+        <path d="M15 6l-6 6 6 6" />
+      </g>
+    ),
     plus: (
       <g>
         <line x1="12" y1="5" x2="12" y2="19" />
@@ -297,6 +302,48 @@ function Icon({ name, size = 24, sw = 1.8 }) {
         <path d="M14 4h6v6" />
         <path d="M20 4l-9 9" />
         <path d="M18 13v5a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h5" />
+      </g>
+    ),
+    wand: (
+      <g>
+        <path d="M5 19l9-9" />
+        <path d="M13 5.5l1 1M17 9.5l1 1M16.5 5l.7-2M20.5 9l2-.7M18 13l2 1" />
+        <path d="M14.5 8.5l1.8-1.8a1.3 1.3 0 0 1 1.8 1.8L16.3 10.3" />
+      </g>
+    ),
+    image: (
+      <g>
+        <rect x="4" y="5" width="16" height="14" rx="2" />
+        <circle cx="9" cy="10" r="1.6" />
+        <path d="M5 17l4.5-4.5L13 16l3-3 3 3" />
+      </g>
+    ),
+    template: (
+      <g>
+        <rect x="4" y="4" width="16" height="16" rx="2" />
+        <line x1="4" y1="9" x2="20" y2="9" />
+        <line x1="11" y1="9" x2="11" y2="20" />
+      </g>
+    ),
+    upload: (
+      <g>
+        <path d="M12 16V5" />
+        <path d="M8 9l4-4 4 4" />
+        <path d="M5 18v1a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-1" />
+      </g>
+    ),
+    edit: (
+      <g>
+        <path d="M5 19h3l9-9-3-3-9 9v3z" />
+        <path d="M14 7l3 3" />
+      </g>
+    ),
+    sliders: (
+      <g>
+        <line x1="4" y1="8" x2="20" y2="8" />
+        <line x1="4" y1="16" x2="20" y2="16" />
+        <circle cx="9" cy="8" r="2.2" />
+        <circle cx="15" cy="16" r="2.2" />
       </g>
     ),
   };
