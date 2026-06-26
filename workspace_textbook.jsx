@@ -165,7 +165,15 @@ function TextbookWorkspace({ scenario, query, onHome, onSwitch, fromIntent, logg
     setActiveSec({ ci, si });
     setNavOpen(false);
     const qs = secQuestions(sec.name);
-    setThread((t) => [...t, { role: "sys", icon: "book", text: `已定位到 ${TREE.chapters[ci].name} · ${sec.name}`, questions: qs }]);
+    const marker = { role: "sys", icon: "book", locate: true, text: `已定位到 ${TREE.chapters[ci].name} · ${sec.name}`, questions: qs };
+    // collapse rapid catalog hopping: if the last thing in the thread is itself a
+    // 定位 marker (teacher just clicked around without asking anything), swap it in
+    // place — one live "已定位到…" line whose content changes, not a growing pile.
+    setThread((t) => {
+      const last = t[t.length - 1];
+      if (last && last.locate) return [...t.slice(0, -1), marker];
+      return [...t, marker];
+    });
     setSampleQs(qs);
   };
   // switching an already-open book slides the picker in from the right (smoother than swapping the page)
@@ -200,19 +208,45 @@ function TextbookWorkspace({ scenario, query, onHome, onSwitch, fromIntent, logg
   };
   // 后续动作：展开/举例留在问教材；生成导图/练习题交给对应场景；查看资源跳找资源（同一个助手）
   const lastUserQ = () => { for (let i = thread.length - 1; i >= 0; i--) if (thread[i].role === "user") return thread[i].text; return ""; };
+  // 真正的"问题"（跳过举例/卡片等后续动作注入的用户气泡），用于定位当前知识点
+  const lastRealQ = () => { for (let i = thread.length - 1; i >= 0; i--) { const m = thread[i]; if (m.role === "user" && !m.follow) return m.text; } return lastUserQ(); };
+  // 当前主题短语（用于 handoff 时让目标场景的用户气泡读起来自然，并带上知识点）
+  const topicPhrase = () => {
+    const q = lastRealQ() || (curAns && curAns.blocks && curAns.blocks[0] && curAns.blocks[0].text) || "这个知识点";
+    return q.replace(/[？?。.！!]/g, "").replace(/^(什么是|请问|老师|为什么|怎么样?|如何|有哪些|说说|讲讲)/, "").trim().slice(0, 22);
+  };
+  // 后续动作：每次点击都先作为"用户消息"进入对话流；
+  // 二次加工（举例/展开/知识卡片）留在问教材内并继承当前回答；
+  // 生成类（导图/资源/练习题/教案）作为用户请求 handoff 到对应场景。
   const onFollow = (f, ans) => {
-    if (/导图/.test(f)) return onSwitch && onSwitch("mindmap", lastUserQ());
-    if (/资源|课件|试卷|相关/.test(f)) return onSwitch && onSwitch("find", lastUserQ());
-    if (/教案|教学设计/.test(f)) return onSwitch && onSwitch("lesson", lastUserQ());
-    if (/练习|题/.test(f) && !/辨析|这道题/.test(f)) return onSwitch && onSwitch("paper", lastUserQ());
+    const a = ans || curAns;
+    const tp = topicPhrase();
+    // —— handoff：动作 + 知识点 作为用户消息带进下一个场景 ——
+    if (/导图/.test(f)) return onSwitch && onSwitch("mindmap", `把「${tp}」生成${/对比/.test(f) ? "对比" : "知识"}导图`);
+    if (/资源|课件|试卷|相关/.test(f)) return onSwitch && onSwitch("find", `找「${tp}」相关的资源`);
+    if (/教案|教学设计/.test(f)) return onSwitch && onSwitch("lesson", `按「${tp}」写一份教案`);
+    if (/练习|题/.test(f) && !/辨析|这道题/.test(f)) return onSwitch && onSwitch("paper", `给「${tp}」出几道练习题`);
+    // —— 留在问教材内的二次加工 ——
     if (/卡片/.test(f)) {
-      // 知识卡片是当前回答的二次加工（继承依据），留在问教材内 —— 直接弹出卡片
-      const card = (ans && ans.card) || (curAns && curAns.card);
-      if (card) { setCardModal(card); return; }
+      const card = (a && a.card) || (curAns && curAns.card) || (window.buildKnowledgeCard && window.buildKnowledgeCard(a || curAns, lastRealQ()));
+      if (!card) return;
+      setThread((t) => [...t, { role: "user", text: f, follow: true }]);
+      setThinking(true);
+      setTimeout(() => { setThinking(false); setThread((t) => [...t, { role: "ai", card }]); }, 900);
+      return;
     }
     if (/选择教材|选教材/.test(f)) { setSwitcherOpen(true); return; }
-    if (/打开教材原文|原文/.test(f)) { const c = (ans && ans.citations && ans.citations[0]) || (curAns && curAns.citations && curAns.citations[0]); if (c) { setPdfCite(c); return; } }
-    ask(f + "（紧接上一个问题）");
+    if (/打开教材原文|原文/.test(f)) { const c = (a && a.citations && a.citations[0]) || (curAns && curAns.citations && curAns.citations[0]); if (c) { setPdfCite(c); return; } }
+    // 举例 / 展开 / 讲讲 …… —— 紧扣当前回答给出上下文回答
+    setThread((t) => [...t, { role: "user", text: f, follow: true }]);
+    setThinking(true);
+    setTimeout(() => {
+      setThinking(false);
+      const followAns = window.buildTbFollow(f, a, lastRealQ(), book);
+      setCurAns(followAns);
+      setThread((t) => [...t, { role: "ai", answer: true, ans: followAns }]);
+      setAnswered(true);
+    }, 1100);
   };
 
   const [sampleQs, setSampleQs] = tS(["光反应和暗反应有什么区别？", "为什么会产生感应电流？", "这部分知识中考/高考怎么考？", "这节课怎么给学生讲清楚？"]);
@@ -375,6 +409,14 @@ function TextbookWorkspace({ scenario, query, onHome, onSwitch, fromIntent, logg
               const grouped = m.role !== "user" && m.role !== "sys" && !!prev && prev.role !== "user" && prev.role !== "sys";
               return m.answer ? (
                 <DynamicAnswer key={i} ans={m.ans || curAns} activeCite={activeCite} setActiveCite={setActiveCite} onFollow={onFollow} grouped={grouped} />
+              ) : m.card ? (
+                <div key={i} className="ans-pop" style={{ display: "flex", gap: 11, alignItems: "flex-start", marginTop: grouped ? -8 : 0 }}>
+                  {grouped ? <div style={{ width: 30, flexShrink: 0 }} /> : <BotAvatar size={30} glow />}
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 12.5, color: "var(--ink-2)", fontWeight: 600, marginBottom: 9 }}>已把上面的回答做成一张 <b style={{ color: "var(--brand-deep)" }}>16:9 知识卡片</b>（继承教材依据）。可下载，或存入「我的内容」后直接插入课件：</div>
+                    <KnowledgeCardImage card={m.card} onToast={toast} />
+                  </div>
+                </div>
               ) : m.reanswer ? (
                 <div key={i} className="ans-pop" style={{ display: "flex", gap: 11, alignItems: "flex-start" }}>
                   <BotAvatar size={30} />
@@ -386,7 +428,7 @@ function TextbookWorkspace({ scenario, query, onHome, onSwitch, fromIntent, logg
                   </div>
                 </div>
               ) : m.compare ? (
-                <CompareBlock key={i} CMP={CMP} activeCite={activeCite} setActiveCite={setActiveCite} onAsk={ask} grouped={grouped} />
+                <CompareBlock key={i} CMP={CMP} activeCite={activeCite} setActiveCite={setActiveCite} onAsk={ask} onFollow={onFollow} grouped={grouped} />
               ) : m.role === "sys" ? (
                 <div key={i} style={{ display: "flex", flexDirection: "column", gap: 8, padding: "2px 0" }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -720,8 +762,8 @@ function AnswerBlock({ A, activeCite, setActiveCite }) {
             <Icon name="shield" size={14} /> 本回答依据教材原文 {A.citations.length} 处，可查看出处
           </span>
           <div style={{ flex: 1 }} />
-          <Btn size="sm" kind="soft" icon="mindmap">生成知识导图</Btn>
-          <Btn size="sm" kind="soft" icon="paper">出几道练习题</Btn>
+          <Btn size="sm" kind="soft" icon="mindmap" onClick={() => onFollow && onFollow("生成知识导图")}>生成知识导图</Btn>
+          <Btn size="sm" kind="soft" icon="paper" onClick={() => onFollow && onFollow("出几道练习题")}>出几道练习题</Btn>
         </div>
       </div>
     </div>
@@ -856,7 +898,7 @@ function TextbookPicker({ onOpen, onFree, onMulti, onResume, memBook, demoBook, 
   );
 }
 
-function CompareBlock({ CMP, activeCite, setActiveCite, onAsk, grouped }) {
+function CompareBlock({ CMP, activeCite, setActiveCite, onAsk, onFollow, grouped }) {
   const mobile = useIsMobile();
   const depthColor = (d) => (d.includes("深入") ? { c: "var(--brand-deep)", bg: "var(--brand-soft)", bd: "var(--brand-soft-border)" } : { c: "oklch(0.45 0.11 175)", bg: "oklch(0.95 0.04 175)", bd: "oklch(0.86 0.06 175)" });
   return (

@@ -735,7 +735,7 @@ function AuthorityStrip() {
   );
 }
 
-function Homepage({ page, layout, value, setValue, onSubmit, onPick, onResume, loggedIn, onLogin, onLogout, onNavigate, onNewChat, onRequireLogin, onOpenBasket, basketCount }) {
+function Homepage({ page, layout, value, setValue, onSubmit, onPick, onResume, loggedIn, onLogin, onLogout, onNavigate, onNewChat, onRequireLogin, onOpenBasket, basketCount, basketItems, onRemoveBasket, onClearBasket, conversations }) {
   const Comp =
     layout === "场景宫格" ? HomeGrid : layout === "助手人格" ? HomePersona : HomeConversation;
   const mobile = useIsMobile();
@@ -743,6 +743,16 @@ function Homepage({ page, layout, value, setValue, onSubmit, onPick, onResume, l
   const closeNav = () => setNavOpen(false);
   const navTo = (p) => { onNavigate(p); closeNav(); };
   const newChat = () => { onNewChat(); closeNav(); };
+  // desktop rail: collapsed = fully hidden + a slim expand button (matches the workspace
+  // 工作台 behavior), instead of shrinking to a 72px icon strip. Shares the same
+  // persisted key so the choice carries between 首页 and 场景工作台.
+  const [railOpen, setRailOpenState] = useState(() => localStorage.getItem("aida_rail_open") !== "0");
+  const setRailOpen = (v) => { setRailOpenState(v); try { localStorage.setItem("aida_rail_open", v ? "1" : "0"); } catch (e) {} };
+  const railIconBtn = { width: 32, height: 32, borderRadius: 9, border: "1px solid var(--line)", background: "var(--surface)", color: "var(--ink-2)", display: "grid", placeItems: "center", cursor: "pointer", flexShrink: 0 };
+  const railHoverFx = {
+    onMouseEnter: (e) => (e.currentTarget.style.background = "var(--surface-2)"),
+    onMouseLeave: (e) => (e.currentTarget.style.background = "var(--surface)"),
+  };
   const gate = (fn) => (loggedIn ? fn : onRequireLogin);
   const memProps = {
     onResume: loggedIn ? onResume : (() => onRequireLogin()),
@@ -753,21 +763,50 @@ function Homepage({ page, layout, value, setValue, onSubmit, onPick, onResume, l
   };
   return (
     <div style={{ height: "100dvh", display: "flex", overflow: "hidden" }}>
-      <LeftRail
-        page={page}
-        loggedIn={loggedIn}
-        onNavigate={navTo}
-        onNewChat={newChat}
-        onResume={(it) => { onResume && onResume(it); closeNav(); }}
-        onLogout={onLogout}
-        onRequireLogin={onRequireLogin}
-        mobile={mobile}
-        mobileOpen={navOpen}
-        onCloseMobile={closeNav}
-        onOpenBasket={() => { onOpenBasket && onOpenBasket(); closeNav(); }}
-        basketCount={basketCount}
-      />
-      <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column" }}>
+      {mobile ? (
+        <LeftRail
+          page={page}
+          loggedIn={loggedIn}
+          onNavigate={navTo}
+          onNewChat={newChat}
+          onResume={(it) => { onResume && onResume(it); closeNav(); }}
+          onLogout={onLogout}
+          onRequireLogin={onRequireLogin}
+          mobile={mobile}
+          mobileOpen={navOpen}
+          onCloseMobile={closeNav}
+          onOpenBasket={() => { onOpenBasket && onOpenBasket(); closeNav(); }}
+          basketCount={basketCount}
+          conversations={conversations}
+        />
+      ) : railOpen ? (
+        <LeftRail
+          page={page}
+          loggedIn={loggedIn}
+          onNavigate={navTo}
+          onNewChat={newChat}
+          onResume={(it) => { onResume && onResume(it); closeNav(); }}
+          onLogout={onLogout}
+          onRequireLogin={onRequireLogin}
+          mobile={mobile}
+          onOpenBasket={() => { onOpenBasket && onOpenBasket(); closeNav(); }}
+          basketCount={basketCount}
+          conversations={conversations}
+          forceOpen
+          onCollapse={() => setRailOpen(false)}
+        />
+      ) : null}
+      <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", position: "relative" }}>
+        {!mobile && !railOpen && (
+          <div style={{ position: "absolute", top: 14, left: 14, zIndex: 20, display: "inline-flex", gap: 6 }}>
+            <button onClick={() => setRailOpen(true)} data-tip="展开菜单" data-tip-pos="bottom-left" aria-label="展开菜单" style={railIconBtn} {...railHoverFx}>
+              <Icon name="panelExpand" size={17} />
+            </button>
+            <button onClick={newChat} data-tip="新对话" aria-label="新对话" style={railIconBtn} {...railHoverFx}>
+              <Icon name="plus" size={17} />
+            </button>
+          </div>
+        )}
         {mobile && (
           <div style={{ flexShrink: 0, display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", background: "var(--surface)", borderBottom: "1px solid var(--line)", zIndex: 5 }}>
             <button onClick={() => setNavOpen(true)} aria-label="打开菜单" style={{ width: 40, height: 40, flexShrink: 0, borderRadius: 11, border: "1px solid var(--line)", background: "var(--surface)", color: "var(--ink-2)", display: "grid", placeItems: "center", cursor: "pointer" }}>
@@ -791,7 +830,9 @@ function Homepage({ page, layout, value, setValue, onSubmit, onPick, onResume, l
           ) : loggedIn && page === "works" ? (
             <WorksPage onResume={onResume} onNewChat={onNewChat} />
           ) : loggedIn && page === "history" ? (
-            <HistoryPage onResume={onResume} onNewChat={onNewChat} />
+            <HistoryPage onResume={onResume} onNewChat={onNewChat} conversations={conversations} />
+          ) : loggedIn && page === "basket" ? (
+            <BasketPage items={basketItems || []} onRemove={onRemoveBasket} onClear={onClearBasket} onOpenContent={() => onNavigate("works")} onNewChat={onNewChat} onGoFind={() => onPick && onPick("find")} />
           ) : (
             <React.Fragment>
               <div style={{ margin: "auto 0", width: "100%" }}>
@@ -806,8 +847,9 @@ function Homepage({ page, layout, value, setValue, onSubmit, onPick, onResume, l
 }
 
 // ---------- Left navigation rail (always visible) ----------
-function LeftRail({ page, loggedIn, onNavigate, onNewChat, onResume, onLogout, onRequireLogin, mobile, mobileOpen, onCloseMobile, onOpenBasket, basketCount = 0, forceOpen, onCollapse }) {
+function LeftRail({ page, loggedIn, onNavigate, onNewChat, onResume, onLogout, onRequireLogin, mobile, mobileOpen, onCloseMobile, onOpenBasket, basketCount = 0, forceOpen, onCollapse, conversations }) {
   const M = window.AIDATA.USER_MEMORY;
+  const convs = conversations || M.conversations;
   const [openState, setOpen] = useState(() => localStorage.getItem("aida_rail_open") !== "0");
   const open = mobile ? true : forceOpen ? true : openState; // on mobile the drawer always shows full content
   const [acctMenu, setAcctMenu] = useState(false);
@@ -884,7 +926,7 @@ function LeftRail({ page, loggedIn, onNavigate, onNewChat, onResume, onLogout, o
       <div style={{ padding: open ? "8px 12px" : "8px 12px", display: "flex", flexDirection: "column", gap: 3 }}>
         <NavItem icon="spark" label="我的记忆" accent active={page === "memory"} onClick={() => go("memory")} />
         <NavItem icon="grid" label="我的内容" active={page === "works"} onClick={() => go("works")} />
-        <NavItem icon="basket" label={basketCount > 0 ? `资源篮 · ${basketCount}` : "资源篮"} onClick={() => (loggedIn ? onOpenBasket && onOpenBasket() : onRequireLogin())} />
+        <NavItem icon="basket" label={basketCount > 0 ? `资源篮 · ${basketCount}` : "资源篮"} active={page === "basket"} onClick={() => (loggedIn ? onNavigate("basket") : onRequireLogin())} />
         <a
           href={encodeURI("学科网智能搜索首页 (standalone).html")}
           target="_blank"
@@ -944,7 +986,7 @@ function LeftRail({ page, loggedIn, onNavigate, onNewChat, onResume, onLogout, o
           </div>
           {loggedIn ? (
             <div style={{ flex: 1, overflowY: "auto", padding: "0 10px 10px", display: "flex", flexDirection: "column", gap: 1 }}>
-              {M.conversations.map((c) => (
+              {convs.map((c) => (
                 <button
                   key={c.id}
                   onClick={() => onResume && onResume({ ...c, isConversation: true })}
@@ -1167,12 +1209,26 @@ function WorksPage({ onResume, onNewChat }) {
   const mobile = useIsMobile();
   const SOURCES = ["全部", "AI 生成", "学科网下载", "备课产品"];
   const [filter, setFilter] = useState("全部");
+  // list is the default view; teachers scan their library faster as a dense list,
+  // and switch to cards when they want the visual previews. choice persists.
+  const [view, setViewState] = useState(() => localStorage.getItem("aida_works_view") || "list");
+  const setView = (v) => { setViewState(v); try { localStorage.setItem("aida_works_view", v); } catch (e) {} };
   const items = M.works.filter((w) => filter === "全部" || w.source === filter);
   const srcStyle = (src) => {
     if (src === "AI 生成") return { c: "var(--brand-deep)", bg: "var(--brand-soft)", bd: "var(--brand-soft-border)", icon: "spark" };
     if (src === "学科网下载") return { c: "var(--auth-ink)", bg: "var(--auth-bg)", bd: "var(--auth-border)", icon: "download" };
     return { c: "oklch(0.5 0.13 45)", bg: "oklch(0.96 0.04 45)", bd: "oklch(0.88 0.06 45)", icon: "layers" };
   };
+  const ViewToggle = () => (
+    <div style={{ display: "inline-flex", padding: 3, gap: 2, borderRadius: 10, border: "1px solid var(--line)", background: "var(--surface)", flexShrink: 0 }}>
+      {[{ k: "list", ic: "list", t: "列表" }, { k: "card", ic: "grid", t: "卡片" }].map((o) => (
+        <button key={o.k} onClick={() => setView(o.k)} data-tip={o.t} aria-label={o.t}
+          style={{ width: 32, height: 28, borderRadius: 7, border: "none", cursor: "pointer", display: "grid", placeItems: "center", background: view === o.k ? "var(--brand-soft)" : "transparent", color: view === o.k ? "var(--brand-deep)" : "var(--ink-3)", transition: "background .15s, color .15s" }}>
+          <Icon name={o.ic} size={16} />
+        </button>
+      ))}
+    </div>
+  );
 
   return (
     <div className="home-fade" style={{ flex: 1, overflowY: "auto", padding: mobile ? "8px 16px 48px" : "10px 24px 60px" }}>
@@ -1191,14 +1247,45 @@ function WorksPage({ onResume, onNewChat }) {
           </button>
         </div>
 
-        {/* filter by source */}
-        <div style={{ display: "flex", gap: 8, marginBottom: 18, flexWrap: "wrap" }}>
+        {/* filter by source + view toggle */}
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 18, flexWrap: "wrap" }}>
           {SOURCES.map((k) => (
             <button key={k} onClick={() => setFilter(k)} style={{ padding: "7px 15px", borderRadius: 999, fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "var(--font-zh)", border: filter === k ? "1px solid var(--brand)" : "1px solid var(--line)", background: filter === k ? "var(--brand-soft)" : "var(--surface)", color: filter === k ? "var(--brand-deep)" : "var(--ink-2)", transition: "all .15s" }}>{k}</button>
           ))}
+          <div style={{ flex: 1 }} />
+          <ViewToggle />
         </div>
 
-        {/* grid */}
+        {/* list view (default) */}
+        {view === "list" ? (
+          <div style={{ border: "1px solid var(--line)", borderRadius: 14, overflow: "hidden", background: "var(--surface)" }}>
+            {items.map((w, i) => {
+              const ss = srcStyle(w.source);
+              return (
+                <div key={w.id} className="works-row" style={{ display: "flex", alignItems: "center", gap: 14, padding: "13px 16px", borderTop: i === 0 ? "none" : "1px solid var(--line)", transition: "background .14s" }}
+                  onMouseEnter={(e) => (e.currentTarget.style.background = "var(--surface-2)")}
+                  onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}>
+                  <ScenarioGlyph icon={w.icon} hue={w.hue} size={38} />
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                      <span style={{ fontSize: 14.5, fontWeight: 700, color: "var(--ink)", lineHeight: 1.4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "100%" }}>{w.title}</span>
+                      <span style={{ fontSize: 10, fontWeight: 700, color: `oklch(0.42 0.13 ${w.hue})`, background: `oklch(0.95 0.04 ${w.hue})`, border: `1px solid oklch(0.86 0.06 ${w.hue})`, padding: "1px 7px", borderRadius: 999, whiteSpace: "nowrap", flexShrink: 0 }}>{w.kind}</span>
+                    </div>
+                    <div style={{ fontSize: 11.5, color: "var(--ink-3)", marginTop: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{w.meta}</div>
+                  </div>
+                  <span style={{ display: "inline-flex", alignItems: "center", gap: 3, fontSize: 10.5, fontWeight: 700, color: ss.c, background: ss.bg, border: `1px solid ${ss.bd}`, padding: "2px 8px", borderRadius: 999, whiteSpace: "nowrap", flexShrink: 0 }}><Icon name={ss.icon} size={11} /> {w.source}</span>
+                  <span style={{ fontSize: 11.5, color: "var(--ink-3)", flexShrink: 0, width: 84, textAlign: "right" }}>{w.status === "draft" ? "草稿 · " : ""}{w.when}</span>
+                  <div style={{ display: "flex", alignItems: "center", gap: 7, flexShrink: 0 }}>
+                    <button title="预览" style={{ width: 30, height: 30, borderRadius: 8, border: "1px solid var(--line)", background: "var(--surface)", color: "var(--ink-2)", display: "grid", placeItems: "center", cursor: "pointer" }}><Icon name="eye" size={15} /></button>
+                    <button title="下载" style={{ width: 30, height: 30, borderRadius: 8, border: "1px solid var(--line)", background: "var(--surface)", color: "var(--ink-2)", display: "grid", placeItems: "center", cursor: "pointer" }}><Icon name="download" size={15} /></button>
+                    <button onClick={() => onResume && onResume(w)} style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "7px 12px", borderRadius: 9, border: "none", background: "var(--brand-soft)", color: "var(--brand-deep)", fontSize: 12.5, fontWeight: 700, cursor: "pointer", fontFamily: "var(--font-zh)" }}>{w.source === "AI 生成" ? "继续" : "打开"} <Icon name="arrow" size={14} /></button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+        /* card view */
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 16 }}>
           {items.map((w) => {
             const ss = srcStyle(w.source);
@@ -1226,15 +1313,28 @@ function WorksPage({ onResume, onNewChat }) {
             );
           })}
         </div>
+        )}
       </div>
     </div>
   );
 }
 
-// ---------- 历史对话 (all chat sessions) ----------
-function HistoryPage({ onResume, onNewChat }) {
+// ---------- 历史对话 (all chat sessions) — vertical timeline ----------
+function HistoryPage({ onResume, onNewChat, conversations }) {
   const M = window.AIDATA.USER_MEMORY;
   const mobile = useIsMobile();
+  const convs = conversations || M.conversations;
+  // group conversations into timeline milestones by their time bucket, preserving
+  // the newest-first order the list already carries.
+  const groups = [];
+  const seen = {};
+  convs.forEach((c) => {
+    const k = c.when || "更早";
+    if (!seen[k]) { seen[k] = { when: k, items: [] }; groups.push(seen[k]); }
+    seen[k].items.push(c);
+  });
+  const SPINE = 9; // x-center of the vertical rail
+
   return (
     <div className="home-fade" style={{ flex: 1, overflowY: "auto", padding: mobile ? "8px 16px 48px" : "10px 24px 60px" }}>
       <div style={{ maxWidth: 760, margin: "0 auto" }}>
@@ -1244,30 +1344,47 @@ function HistoryPage({ onResume, onNewChat }) {
           </span>
           <div style={{ flex: 1, minWidth: 0 }}>
             <h1 style={{ fontSize: 23, fontWeight: 800, color: "var(--ink)", margin: 0 }}>历史对话</h1>
-            <div style={{ fontSize: 13, color: "var(--ink-3)", fontWeight: 600, marginTop: 2 }}>你与小博士的每一次对话都已保存 · 点击任意一条继续</div>
+            <div style={{ fontSize: 13, color: "var(--ink-3)", fontWeight: 600, marginTop: 2 }}>你与小博士的每一次对话都已保存 · 共 {convs.length} 段，点击任意一条继续</div>
           </div>
           <button onClick={onNewChat} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "10px 16px", borderRadius: 11, border: "none", background: "var(--brand-grad)", backgroundColor: "var(--brand)", color: "#fff", fontSize: 13.5, fontWeight: 700, cursor: "pointer", fontFamily: "var(--font-zh)", flexShrink: 0, boxShadow: "0 4px 14px -6px var(--brand-glow)" }}>
             <Icon name="plus" size={16} sw={2.4} /> 新对话
           </button>
         </div>
 
-        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          {M.conversations.map((c) => (
-            <button
-              key={c.id}
-              onClick={() => onResume && onResume({ ...c, isConversation: true })}
-              style={{ display: "flex", alignItems: "center", gap: 14, padding: "14px 16px", borderRadius: 14, border: "1px solid var(--line)", background: "var(--surface)", cursor: "pointer", fontFamily: "var(--font-zh)", textAlign: "left", transition: "transform .15s, border-color .2s, box-shadow .2s" }}
-              onMouseEnter={(e) => { e.currentTarget.style.transform = "translateX(3px)"; e.currentTarget.style.borderColor = `oklch(0.8 0.08 ${c.hue})`; e.currentTarget.style.boxShadow = `0 10px 22px -14px oklch(0.6 0.14 ${c.hue} / .5)`; }}
-              onMouseLeave={(e) => { e.currentTarget.style.transform = "none"; e.currentTarget.style.borderColor = "var(--line)"; e.currentTarget.style.boxShadow = "none"; }}
-            >
-              <ScenarioGlyph icon={c.icon} hue={c.hue} size={40} />
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 14.5, fontWeight: 700, color: "var(--ink)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{c.title}</div>
-                <div style={{ fontSize: 12, color: "var(--ink-3)", marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>最近：{c.last}</div>
+        {/* timeline */}
+        <div style={{ position: "relative", paddingLeft: 30 }}>
+          {/* the spine */}
+          <div style={{ position: "absolute", left: SPINE - 1, top: 12, bottom: 14, width: 2, background: "var(--line)" }} />
+          {groups.map((g, gi) => (
+            <div key={gi} style={{ position: "relative" }}>
+              {/* milestone label */}
+              <div style={{ position: "relative", display: "flex", alignItems: "center", padding: gi === 0 ? "2px 0 10px" : "20px 0 10px" }}>
+                <span style={{ position: "absolute", left: SPINE - 30 - 5, top: "50%", marginTop: -5, width: 10, height: 10, borderRadius: 999, background: "var(--brand)", boxShadow: "0 0 0 4px var(--canvas)" }} />
+                <span style={{ fontSize: 12.5, fontWeight: 800, color: "var(--ink-2)", letterSpacing: ".02em" }}>{g.when}</span>
+                <span style={{ fontSize: 11, fontWeight: 700, color: "var(--ink-3)", marginLeft: 8, fontFamily: "var(--font-num)" }}>{g.items.length}</span>
               </div>
-              <span style={{ fontSize: 11.5, color: "var(--ink-3)", flexShrink: 0 }}>{c.when}</span>
-              <span style={{ color: "var(--ink-3)", flexShrink: 0 }}><Icon name="arrow" size={16} /></span>
-            </button>
+              {/* entries */}
+              <div style={{ display: "flex", flexDirection: "column", gap: 8, paddingBottom: 4 }}>
+                {g.items.map((c) => (
+                  <button
+                    key={c.id}
+                    onClick={() => onResume && onResume({ ...c, isConversation: true })}
+                    style={{ position: "relative", width: "100%", display: "flex", alignItems: "center", gap: 12, padding: "12px 14px", borderRadius: 13, border: "1px solid var(--line)", background: "var(--surface)", cursor: "pointer", fontFamily: "var(--font-zh)", textAlign: "left", transition: "transform .15s, border-color .2s, box-shadow .2s" }}
+                    onMouseEnter={(e) => { e.currentTarget.style.transform = "translateX(2px)"; e.currentTarget.style.borderColor = "var(--brand-soft-border)"; e.currentTarget.style.boxShadow = "0 8px 20px -16px rgba(0,0,0,.45)"; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.transform = "none"; e.currentTarget.style.borderColor = "var(--line)"; e.currentTarget.style.boxShadow = "none"; }}
+                  >
+                    {/* node on the spine */}
+                    <span style={{ position: "absolute", left: SPINE - 30 - 4, top: "50%", marginTop: -4, width: 9, height: 9, borderRadius: 999, background: "var(--canvas)", border: "2px solid var(--ink-4, var(--line))", boxShadow: "0 0 0 3px var(--canvas)" }} />
+                    <span style={{ width: 28, height: 28, display: "grid", placeItems: "center", color: "var(--ink-3)", flexShrink: 0 }}><Icon name={c.icon} size={18} /></span>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 14, fontWeight: 700, color: "var(--ink)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{c.title}</div>
+                      <div style={{ fontSize: 12, color: "var(--ink-3)", marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>最近：{c.last}</div>
+                    </div>
+                    <span style={{ color: "var(--ink-3)", flexShrink: 0, opacity: .55 }}><Icon name="chevronRight" size={16} /></span>
+                  </button>
+                ))}
+              </div>
+            </div>
           ))}
         </div>
       </div>
@@ -1276,6 +1393,76 @@ function HistoryPage({ onResume, onNewChat }) {
 }
 
 Object.assign(window, { MemoryPage, WorksPage, HistoryPage });
+
+// ---------- 资源篮 (resource basket) — full PAGE when opened from the menu ----------
+// (the right-side drawer form, BasketPanel, is kept for in-scenario quick access)
+function BasketPage({ items = [], onRemove, onClear, onOpenContent, onNewChat, onGoFind }) {
+  const mobile = useIsMobile();
+  return (
+    <div className="home-fade" style={{ flex: 1, overflowY: "auto", padding: mobile ? "8px 16px 48px" : "10px 24px 60px" }}>
+      <div style={{ maxWidth: 760, margin: "0 auto" }}>
+        {/* heading */}
+        <div style={{ display: "flex", alignItems: "center", gap: 14, padding: "8px 0 18px" }}>
+          <span style={{ width: 46, height: 46, borderRadius: 14, background: "var(--brand-soft)", border: "1px solid var(--brand-soft-border)", display: "grid", placeItems: "center", color: "var(--brand-deep)", flexShrink: 0 }}>
+            <Icon name="basket" size={21} />
+          </span>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <h1 style={{ fontSize: 23, fontWeight: 800, color: "var(--ink)", margin: 0 }}>资源篮</h1>
+            <div style={{ fontSize: 13, color: "var(--ink-3)", fontWeight: 600, marginTop: 2 }}>{items.length > 0 ? `已收集 ${items.length} 份资源 · 可一并下载，或送去出卷 / 备课` : "你跨场景收集的资源都会汇总到这里"}</div>
+          </div>
+          {items.length > 0 && (
+            <div style={{ display: "flex", alignItems: "center", gap: 9, flexShrink: 0 }}>
+              <button onClick={onClear} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "10px 14px", borderRadius: 11, border: "1px solid var(--line)", background: "var(--surface)", color: "var(--ink-3)", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "var(--font-zh)" }}>
+                <Icon name="trash" size={15} /> 清空
+              </button>
+              <button style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "10px 16px", borderRadius: 11, border: "none", background: "var(--brand-grad)", backgroundColor: "var(--brand)", color: "#fff", fontSize: 13.5, fontWeight: 700, cursor: "pointer", fontFamily: "var(--font-zh)", boxShadow: "0 4px 14px -6px var(--brand-glow)" }}>
+                <Icon name="download" size={16} /> 打包下载 {items.length} 份
+              </button>
+            </div>
+          )}
+        </div>
+
+        {items.length === 0 ? (
+          <div style={{ border: "1px dashed var(--line)", borderRadius: 16, padding: "56px 24px", textAlign: "center", background: "var(--surface)" }}>
+            <div style={{ display: "inline-flex", marginBottom: 14, color: "var(--line)" }}><Icon name="basket" size={52} sw={1.4} /></div>
+            <div style={{ fontSize: 16, fontWeight: 800, color: "var(--ink)", marginBottom: 7 }}>资源篮还是空的</div>
+            <div style={{ fontSize: 13.5, color: "var(--ink-3)", lineHeight: 1.7, maxWidth: 340, margin: "0 auto 18px" }}>在「找资源」里预览任意文档或视频，点<b style={{ color: "var(--brand-deep)" }}>加入资源篮</b>，就会出现在这里，随时取用。</div>
+            <button onClick={onGoFind} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "10px 18px", borderRadius: 11, border: "none", background: "var(--brand-soft)", color: "var(--brand-deep)", fontSize: 13.5, fontWeight: 700, cursor: "pointer", fontFamily: "var(--font-zh)" }}>
+              <Icon name="search" size={16} /> 去找资源
+            </button>
+          </div>
+        ) : (
+          <div style={{ border: "1px solid var(--line)", borderRadius: 14, overflow: "hidden", background: "var(--surface)" }}>
+            {items.map((it, i) => {
+              const isAlbum = /专辑|合集/.test(it.type || "");
+              const isVideo = /视频|微课|实验/.test(it.type || "");
+              const ic = isAlbum ? "layers" : isVideo ? "interactive" : "file";
+              const tint = isAlbum ? { c: "var(--brand-deep)", bg: "var(--brand-soft)", bd: "var(--brand-soft-border)" } : isVideo ? { c: "oklch(0.5 0.13 200)", bg: "oklch(0.95 0.04 200)", bd: "oklch(0.86 0.06 200)" } : { c: "var(--ink-3)", bg: "var(--surface-2)", bd: "var(--line)" };
+              return (
+                <div key={it.bid} className="basket-row" style={{ display: "flex", alignItems: "center", gap: 13, padding: "13px 16px", borderTop: i === 0 ? "none" : "1px solid var(--line)", transition: "background .14s" }}
+                  onMouseEnter={(e) => (e.currentTarget.style.background = "var(--surface-2)")}
+                  onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}>
+                  <span style={{ width: 38, height: 38, borderRadius: 10, background: tint.bg, border: "1px solid " + tint.bd, display: "grid", placeItems: "center", color: tint.c, flexShrink: 0 }}><Icon name={ic} size={18} /></span>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: "var(--ink)", lineHeight: 1.4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{it.title}</div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 7, marginTop: 3 }}>
+                      <span style={{ fontSize: 10.5, fontWeight: 800, color: tint.c, background: tint.bg, border: "1px solid " + tint.bd, padding: "1px 7px", borderRadius: 6, flexShrink: 0 }}>{it.type}</span>
+                      {it.meta && <span style={{ fontSize: 11.5, color: "var(--ink-3)", fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{it.meta}</span>}
+                    </div>
+                  </div>
+                  <button title="下载" style={{ width: 30, height: 30, borderRadius: 8, border: "1px solid var(--line)", background: "var(--surface)", color: "var(--ink-2)", display: "grid", placeItems: "center", cursor: "pointer", flexShrink: 0 }}><Icon name="download" size={15} /></button>
+                  <button onClick={() => onRemove && onRemove(it.bid)} title="移出资源篮" style={{ width: 30, height: 30, borderRadius: 8, border: "1px solid var(--line)", background: "var(--surface)", color: "var(--ink-3)", display: "grid", placeItems: "center", cursor: "pointer", flexShrink: 0 }}><Icon name="trash" size={15} /></button>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+Object.assign(window, { BasketPage });
 
 // ---------- Login modal (triggered by gated actions) ----------
 function LoginModal({ onClose, onLogin }) {

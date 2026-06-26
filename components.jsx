@@ -446,14 +446,55 @@ Object.assign(window, { useSmartSend, MemoryNote });
 // The assistant never "changes sides": when the teacher moves between scenarios
 // (找资源 → 出卷子 → …) the left chat keeps the whole thread. Only 新对话 /
 // returning home starts a fresh session (cleared by app.jsx).
+// distill a conversation title from the teacher's first message — prefer a 《…》
+// work title, else strip polite lead-ins and clip to a scannable length.
+function distillConvTitle(text) {
+  let t = (text || "").replace(/[\n\r]+/g, " ").trim();
+  const m = t.match(/《(.+?)》/);
+  if (m) {
+    const after = t.slice(t.indexOf(m[0]) + m[0].length).replace(/^[，,。·\s的]+/, "");
+    const kind = (after.match(/(随堂练习卷|练习卷|单元卷|检测卷|试卷|教学设计|教案|课件|微课|思维导图|导图|答案|讲解|复习)/) || [])[0];
+    return "《" + m[1] + "》" + (kind || "");
+  }
+  t = t.replace(/^(请帮我|帮我一下|帮我|请|帮忙|麻烦|我想要|我想|我要|给我|据|根据|按照|结合)/, "").trim();
+  return t ? (t.length > 18 ? t.slice(0, 18) + "…" : t) : "新对话";
+}
+
 const ChatSession = {
   log: [],
   scratch: {},           // per-scenario live state (rounds, configs…) that survives switches
   pendingArtifact: null, // set when the teacher clicks an artifact chip from another scenario
   handoffRef: null,      // set when a resource-detail 「据此出卷/教案」 hands off — the target seeds a reference card
+  artifactTimes: {},     // { artifactKey → first-seen timestamp } so the 成果 menu can show 创建时间
+  sessionId: "s" + Date.now(), // one id per conversation; resets on 新对话 / 回首页
+  suppressHistory: false,      // true when resuming an existing item (don't log a NEW history record)
+  activeScenario: null,        // {id, icon, hue, name} of the workspace currently in view
+  _convTitle: null,            // cached distilled title for this session
   take() { return this.log.slice(); },
-  save(msgs) { this.log = msgs || []; },
-  clear() { this.log = []; this.scratch = {}; this.pendingArtifact = null; this.handoffRef = null; },
+  save(msgs) {
+    this.log = msgs || [];
+    // once a session produces a real round (the teacher sent something), log/refresh
+    // a single history record named from the FIRST message of the conversation.
+    try {
+      if (window.recordConversation && !this.suppressHistory && this.activeScenario) {
+        const users = this.log.filter((m) => m && m.role === "user" && (m.text || "").trim());
+        if (users.length) {
+          if (!this._convTitle) this._convTitle = distillConvTitle(users[0].text);
+          const sc = this.activeScenario;
+          window.recordConversation({
+            sid: this.sessionId,
+            scenario: sc.id, icon: sc.icon || "chat", hue: sc.hue || 230,
+            title: this._convTitle,
+            last: (users[users.length - 1].text || "").trim(),
+          });
+        }
+      }
+    } catch (e) {}
+  },
+  clear() {
+    this.log = []; this.scratch = {}; this.pendingArtifact = null; this.handoffRef = null; this.artifactTimes = {};
+    this.sessionId = "s" + Date.now(); this.suppressHistory = false; this._convTitle = null;
+  },
   // build the seeded user bubble for a handed-off query, attaching (and consuming) any handoffRef
   seedUser(q) { const r = this.handoffRef; this.handoffRef = null; return r ? { role: "user", text: q, ref: { title: r.title, type: r.type }, refItem: r.item } : { role: "user", text: q }; },
   echoed(q) {
@@ -473,8 +514,16 @@ function freezeChat(msgs) {
         if (m.intent) return { role: "ai", wide: true, node: <InlineIntent query={m.intent} instant /> };
         return null; // live setup widgets don't carry across scenarios
       }
+      if (m.card) {
+        return { role: "ai", node: window.KnowledgeCardImage ? <div style={{ maxWidth: 460 }}><window.KnowledgeCardImage card={m.card} compact /></div> : <span>已生成知识卡片（见「问教材」）。</span> };
+      }
       if (m.answer || m.compare) {
-        return { role: "ai", artifact: m.artifact, node: <span>已依据教材原文作答（出处标注见「问教材」场景）。</span> };
+        // 「一条贯穿会话」：把问教材回答冻结成可在任意场景渲染的静态快照，
+        // 切到出卷子/做课件后，左侧对话里的回答依然完整可见。
+        const node = m.compare
+          ? (window.FrozenTbCompare ? <window.FrozenTbCompare cmp={m.cmp} /> : <span>已依据教材原文作答（见「问教材」）。</span>)
+          : (window.FrozenTbAnswer ? <window.FrozenTbAnswer ans={m.ans} /> : <span>已依据教材原文作答（见「问教材」）。</span>);
+        return { role: "ai", artifact: m.artifact, node };
       }
       const { roundId, ...rest } = m;
       return rest;

@@ -686,4 +686,122 @@ function DynamicAnswer({ ans, activeCite, setActiveCite, onFollow, grouped }) {
   );
 }
 
-Object.assign(window, { classifyQuestion, buildTbAnswer, DynamicAnswer, TYPE_META });
+Object.assign(window, { classifyQuestion, buildTbAnswer, buildTbFollow, buildKnowledgeCard, DynamicAnswer, TYPE_META, FrozenTbAnswer, FrozenTbCompare });
+
+// ── 后续动作的"上下文回答"（继承当前回答，不重新发散）──
+// 举例 / 展开 等留在问教材内的二次加工：必须紧扣当前回答的主题与依据。
+function buildTbFollow(action, ans, q, book) {
+  const isExample = /举|例/.test(action || "");
+  const t = (q || "") + " " + ((ans && ans.blocks && ans.blocks[0] && ans.blocks[0].text) || "");
+  const photo = /光合|光反应|暗反应|叶绿体/.test(t);
+  const faraday = /感应电流|电磁感应|磁通量|楞次/.test(t);
+  const inherit = { basis: ans && ans.basis, citations: (ans && ans.citations) || [] };
+
+  if (photo) {
+    if (isExample) return {
+      type: "application",
+      blocks: [
+        { kind: "answer", text: "用「一片水稻叶子一天里的变化」来体会光反应与暗反应怎样衔接、又怎样不同：" },
+        { kind: "example", text: "正午强光下：类囊体薄膜上的光反应把光能转成 ATP 和 [H]，水被光解、放出 O₂；这些 ATP 和 [H] 立刻被基质中的暗反应拿去，把 CO₂ 固定、还原成糖。两阶段一供一耗，环环相扣。" },
+        { kind: "scene", title: "再看一个对照", items: ["傍晚突然遮光：光反应停了、ATP 和 [H] 断供，暗反应里 C₃ 来不及被还原而积累、C₅ 减少，糖的生成很快减慢——这正说明暗反应虽不直接需要光，却依赖光反应的产物。"] },
+        { kind: "note", text: "一句话：光反应「捕光产能」，暗反应「用能固碳」，例子里的 ATP/[H] 就是连接两阶段的纽带。" },
+      ],
+      ...inherit, follow: ["再展开讲讲", "出几道练习题", "生成知识卡片"],
+    };
+    return {
+      type: "mechanism",
+      blocks: [
+        { kind: "answer", text: "顺着上面的对比，把两个阶段按「场所—物质—能量」再展开讲清楚：" },
+        { kind: "chain", title: "光反应（类囊体薄膜上）", steps: ["色素吸收光能，水被光解：2H₂O → 4H⁺ + 4e⁻ + O₂↑。", "经电子传递把光能转为活跃化学能，生成 ATP 和 [H]（NADPH）。"] },
+        { kind: "chain", title: "暗反应（叶绿体基质中）", steps: ["CO₂ 被 C₅ 固定生成 C₃（CO₂ 的固定）。", "C₃ 在 ATP、[H] 作用下被还原成有机物，并再生 C₅（C₃ 的还原）。"] },
+        { kind: "note", text: "能量主线：光能 → ATP/[H] 中活跃化学能 → 有机物中稳定化学能；这与上面表格的「能量变化」一栏对应。" },
+      ],
+      ...inherit, follow: ["举个例子", "出几道练习题", "生成知识卡片"],
+    };
+  }
+  if (faraday) {
+    if (isExample) return {
+      type: "application",
+      blocks: [
+        { kind: "answer", text: "用「条形磁铁进出线圈」这个最经典的例子，体会“磁通量变化才有感应电流”：" },
+        { kind: "example", text: "把磁铁快速插入线圈，电流计指针偏转；停在线圈中不动，指针回零；再拔出，指针向相反方向偏转。插入和拔出磁通量分别增大、减小，方向相反，电流方向也相反。" },
+        { kind: "note", text: "关键不在“有没有磁场”，而在“磁通量是否在变化”，且变化越快电流越大。" },
+      ],
+      ...inherit, follow: ["再展开讲讲", "出几道练习题", "生成知识卡片"],
+    };
+    return {
+      type: "mechanism",
+      blocks: [
+        { kind: "answer", text: "把产生感应电流的原因链顺着上面的回答再展开：" },
+        { kind: "chain", title: "原因链条", steps: ["磁通量 Φ=B·S·cosθ 发生变化（B、S 或 θ 任一改变）。", "由 E=n·ΔΦ/Δt，产生感应电动势，与磁通量变化率成正比。", "回路闭合则由 E 驱动产生感应电流，方向由楞次定律判定。"] },
+        { kind: "note", text: "楞次定律的本质是“阻碍磁通量的变化”，而不是阻碍磁通量本身。" },
+      ],
+      ...inherit, follow: ["举个例子", "出几道练习题", "生成知识卡片"],
+    };
+  }
+  // 通用兜底：仍紧扣当前主题与依据，不另起炉灶
+  const lead = ans && ans.blocks && ans.blocks.find((b) => b.kind === "answer");
+  const topicName = (q || "这个知识点").replace(/[？?。.！!，,]/g, "").replace(/^(什么是|请问|老师|为什么|怎么|如何|有哪些|说说|讲讲)/, "").slice(0, 18);
+  if (isExample) return {
+    type: "application",
+    blocks: [
+      { kind: "answer", text: `结合上面的回答，给「${topicName}」举一个贴近实际的例子：` },
+      { kind: "example", text: `${lead ? lead.text.replace(/^[^，。]*[:：]/, "").slice(0, 46) + "……" : ""}把这个结论放进一个真实情境或一组具体数据里走一遍，学生更容易抓住要点。` },
+      { kind: "note", text: "示例只是把上面的结论具体化，结论与依据保持一致。" },
+    ],
+    ...inherit, follow: ["再展开讲讲", "出几道练习题", "生成知识卡片"],
+  };
+  return {
+    type: "concept",
+    blocks: [
+      { kind: "answer", text: `围绕「${topicName}」，在上面回答的基础上再展开说明，方便课堂讲解：` },
+      ...(lead ? [{ kind: "answer", text: lead.text }] : []),
+      { kind: "note", text: "展开内容与上面的结论、依据保持一致，不另作发散。" },
+    ],
+    ...inherit, follow: ["举个例子", "出几道练习题", "生成知识卡片"],
+  };
+}
+
+// ── 跨场景的"问教材回答"静态快照 ──
+// 「一条贯穿会话」：把鲜活的问教材回答冻结成一张可在任意场景渲染的静态卡片，
+// 这样切到出卷子/做课件后，左侧对话里的回答依然完整可见，不会塌缩成一句话。
+function FrozenTbAnswer({ ans }) {
+  if (!ans) return <span>已依据教材原文作答（见「问教材」）。</span>;
+  const meta = TYPE_META[ans.type] || TYPE_META.concept;
+  const NoCite = () => null; // 静态快照不带可交互的引用角标
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 7, flexWrap: "wrap" }}>
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "3px 9px", borderRadius: 999, background: `oklch(0.96 0.03 ${meta.hue})`, border: `1px solid oklch(0.88 0.06 ${meta.hue})`, color: `oklch(0.45 0.12 ${meta.hue})`, fontSize: 11, fontWeight: 800 }}>
+          <Icon name={meta.icon} size={12} /> {meta.label}
+        </span>
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 11, color: "var(--ink-3)", fontWeight: 700 }}>
+          <Icon name="book" size={12} /> 问教材回答 · 已留存
+        </span>
+      </div>
+      <TbAnsBlocks blocks={ans.blocks} CiteMark={NoCite} />
+      {ans.citations && ans.citations.length > 0 && (
+        <div style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 11, color: "var(--auth-ink)", fontWeight: 700 }}>
+          <Icon name="shield" size={12} /> 依据教材原文 {ans.citations.length} 处（出处见「问教材」）
+        </div>
+      )}
+    </div>
+  );
+}
+
+// 跨教材对比的静态快照（多本对比回答）
+function FrozenTbCompare({ cmp }) {
+  const C = cmp || (window.AIDATA && window.AIDATA.TEXTBOOK_COMPARE) || {};
+  const topic = C.topic || "跨教材对比";
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 9 }}>
+      <span style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "3px 9px", borderRadius: 999, background: "var(--brand-soft)", border: "1px solid var(--brand-soft-border)", color: "var(--brand-deep)", fontSize: 11, fontWeight: 800, alignSelf: "flex-start" }}>
+        <Icon name="layers" size={12} /> 跨教材对比 · {topic}
+      </span>
+      {C.summary && <p style={{ margin: 0, fontSize: 13, lineHeight: 1.7, color: "var(--ink-2)" }}>{C.summary}</p>}
+      <span style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 11, color: "var(--auth-ink)", fontWeight: 700 }}>
+        <Icon name="book" size={12} /> 问教材回答 · 已留存
+      </span>
+    </div>
+  );
+}

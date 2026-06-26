@@ -152,6 +152,11 @@ function Icon({ name, size = 24, sw = 1.8 }) {
         <path d="M15 6l-6 6 6 6" />
       </g>
     ),
+    chevronDown: (
+      <g>
+        <path d="M6 9l6 6 6-6" />
+      </g>
+    ),
     plus: (
       <g>
         <line x1="12" y1="5" x2="12" y2="19" />
@@ -258,6 +263,12 @@ function Icon({ name, size = 24, sw = 1.8 }) {
       <g>
         <rect x="3.5" y="5" width="17" height="14" rx="2.2" />
         <line x1="9.5" y1="5" x2="9.5" y2="19" />
+      </g>
+    ),
+    artifacts: (
+      <g>
+        <rect x="4" y="3.5" width="16" height="17" rx="3.4" />
+        <line x1="8" y1="9" x2="14" y2="9" />
       </g>
     ),
     panelCollapse: (

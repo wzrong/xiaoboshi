@@ -31,6 +31,25 @@ function App() {
   const [basketOpen, setBasketOpen] = aS(false);
   const [contentOpen, setContentOpen] = aS(false);
   const [wsNonce, setWsNonce] = aS(0); // bumped when an artifact chip is clicked → forces the stage to re-open it
+  // 历史对话 — live list seeded from mock; a new record is logged the moment a fresh
+  // conversation produces its first round (see window.recordConversation below).
+  const [convs, setConvs] = aS(() => window.AIDATA.USER_MEMORY.conversations.slice());
+  aE(() => {
+    window.recordConversation = (c) => {
+      setConvs((list) => {
+        const idx = list.findIndex((x) => x.sid === c.sid);
+        if (idx >= 0) {
+          const ex = list[idx];
+          if (ex.last === c.last && ex.title === c.title) return list; // nothing changed
+          const updated = { ...ex, title: c.title, last: c.last, when: "刚刚" };
+          const next = list.slice(); next.splice(idx, 1);
+          return [updated, ...next]; // bubble the active conversation to the top
+        }
+        return [{ id: c.sid, sid: c.sid, scenario: c.scenario, icon: c.icon, hue: c.hue, title: c.title, last: c.last, when: "刚刚" }, ...list];
+      });
+    };
+    return () => { delete window.recordConversation; };
+  }, []);
   aE(() => { try { localStorage.setItem("aida_basket", JSON.stringify(basket)); } catch (e) {} }, [basket]);
   const addToBasket = (item) => {
     const bid = item.id || item.title;
@@ -88,6 +107,7 @@ function App() {
   // resume a finished past creation → open its workspace in the COMPLETED state
   const resumeCreation = (item) => {
     window.ChatSession && window.ChatSession.clear();
+    if (window.ChatSession) window.ChatSession.suppressHistory = true; // resuming an existing item — don't log a new record
     setScenarioId(item.scenario);
     setQuery(item.title);
     setFromIntent(false);
@@ -95,7 +115,15 @@ function App() {
     setScreen("workspace");
   };
 
-  const isHomeShell = screen === "home" || screen === "memory" || screen === "works" || screen === "history";
+  const isHomeShell = screen === "home" || screen === "memory" || screen === "works" || screen === "history" || screen === "basket";
+
+  // tell ChatSession which workspace is in view, so a logged history record can carry
+  // the right scenario icon/hue and the 成果 menu the right glyph.
+  aE(() => {
+    if (screen === "workspace" && scenario) {
+      window.ChatSession.activeScenario = { id: scenario.id, icon: scenario.icon, hue: scenario.hue, name: scenario.name };
+    }
+  }, [screen, scenarioId]);
 
   // clicking an artifact chip in the chat reopens that round/creation — even from another scenario
   aE(() => {
@@ -137,6 +165,7 @@ function App() {
     onRequireLogin: () => setLoginOpen(true),
     onOpenBasket: () => setBasketOpen(true),
     basketCount: basket.length,
+    conversations: convs,
   };
 
   let view;
@@ -158,6 +187,10 @@ function App() {
         onRequireLogin={() => setLoginOpen(true)}
         onOpenBasket={() => setBasketOpen(true)}
         basketCount={basket.length}
+        basketItems={basket}
+        onRemoveBasket={removeFromBasket}
+        onClearBasket={() => setBasket([])}
+        conversations={convs}
       />
     );
   } else {

@@ -122,6 +122,8 @@ function WorkspaceShell({ scenario, onHome, onSwitch, children, right, afterTitl
   const [stageFull, setStageFull] = React.useState(false);
   const kids = React.Children.toArray(children);
   const isChatLed = chatLed || (kids.length >= 2 && kids[0] && kids[0].type === ChatPanel);
+  // live messages of the chat column — drives the 成果 (artifacts) quick-menu in the header
+  const chatMsgs = (isChatLed && kids[0] && kids[0].props && kids[0].props.messages) || [];
   // mobile: auto-slide the content sheet up when the result pane becomes ready
   // or the user opens a specific item (key changes). Never auto-opens twice for
   // the same state, so it stays out of the way once dismissed.
@@ -211,7 +213,9 @@ function WorkspaceShell({ scenario, onHome, onSwitch, children, right, afterTitl
         </span>
       )}
       {titleMeta}
-      {rightSlot && <React.Fragment><div style={{ flex: 1 }} />{rightSlot}</React.Fragment>}
+      <div style={{ flex: 1 }} />
+      {!showRec && <SessionArtifactsMenu messages={chatMsgs} />}
+      {rightSlot}
     </div>
   );
   const chatHeader = makeChatHeader(null);
@@ -268,6 +272,7 @@ function WorkspaceShell({ scenario, onHome, onSwitch, children, right, afterTitl
               </button>
             )}
             {identity(true)}
+            {!showRec && isChatLed && <SessionArtifactsMenu messages={chatMsgs} />}
             {!showRec && (isChatLed ? <SheetPill label={mobilePanelLabel} icon={mobilePanelIcon} onClick={() => setSheetOpen(true)} /> : right)}
           </header>
         )}
@@ -328,15 +333,20 @@ function RecognizingPanel() {
 // Surfaces an in-progress 出卷子/写教案 task started this session, so a teacher who
 // jumped here (e.g. tapped a 引用 card) always has a fixed way back to their draft.
 // Two visual states: 草稿条 (dashed/muted, draft in progress) → 结果条 (solid/brand, built).
-function deriveSessionTask() {
+// The bar is a "you left something elsewhere" anchor — gated on POSITION, not progress:
+// only surfaces a task whose home scenario ≠ where the teacher currently is. So while
+// you're inside 出卷子 it never points at the卷子 in front of you (which also sidesteps
+// 出卷子 having no guided empty-state — its config screen would otherwise read as a draft
+// the instant you arrive). built only toggles the wording (查看成品 vs 继续编辑).
+function deriveSessionTask(currentScenario) {
   const clean = (s) => (s || "").replace(/[《》]/g, "").trim();
   const p = window.ChatSession.scratch.paper2;
-  if (p && (p.q || p.paper)) {
+  if (p && (p.q || p.paper) && currentScenario !== "paper") {
     const topic = clean((p.paper && p.paper.meta && p.paper.meta.topic) || ((p.q || "").match(/《(.+?)》/) || [])[1] || (p.q || "").replace(/^据/, "").slice(0, 12) || "卷子");
     return { scenario: "paper", icon: "paper", kind: "卷子", topic, built: !!p.paper };
   }
   const l = window.ChatSession.scratch.lesson;
-  if (l && (l.q || l.doc)) {
+  if (l && (l.q || l.doc) && currentScenario !== "lesson") {
     const topic = clean((l.doc && l.doc.topic) || ((l.q || "").match(/《(.+?)》/) || [])[1] || (l.q || "").replace(/^据/, "").slice(0, 12) || "教案");
     return { scenario: "lesson", icon: "lesson", kind: "教案", topic, built: !!l.doc };
   }
@@ -563,6 +573,106 @@ function ArtifactChip({ a }) {
     </button>
   );
 }
+
+// ── Session 成果 (consolidated artifacts) ──────────────────────────────────
+// Across a single conversation the assistant freezes finished outputs (matched
+// resources, papers, lessons, courseware, mind-maps…). They scroll away in the
+// thread, so the chat header carries a quick-access menu listing every one with
+// its creation time — click to reopen that round in its workspace.
+function sessionArtifacts(liveMsgs) {
+  const times = window.ChatSession.artifactTimes || (window.ChatSession.artifactTimes = {});
+  // Pull from BOTH the frozen global log (carries artifacts from every scenario the
+  // teacher has been through this session) and the live current-workspace messages
+  // (newest artifacts not yet flushed to the log). Dedupe by stable key.
+  const sources = [].concat(window.ChatSession.take() || [], liveMsgs || []);
+  const seen = new Set();
+  const out = [];
+  sources.forEach((m, i) => {
+    if (m && m.artifact && m.artifact.scenario) {
+      const a = m.artifact;
+      const key = a.scenario + ":" + (a.id || a.title || i);
+      if (seen.has(key)) return;
+      seen.add(key);
+      if (!times[key]) times[key] = Date.now();
+      out.push({ ...a, _key: key, ts: times[key] });
+    }
+  });
+  return out;
+}
+
+function ArtifactsPopover({ items, onClose }) {
+  const fmt = (ts) => { const d = new Date(ts); const p = (n) => String(n).padStart(2, "0"); return `${p(d.getHours())}:${p(d.getMinutes())}`; };
+  return (
+    <div className="drawer-pop" style={{ position: "absolute", top: "calc(100% + 9px)", right: 0, width: 304, maxHeight: 392, overflowY: "auto", background: "var(--surface)", border: "1px solid var(--line)", borderRadius: 15, boxShadow: "var(--shadow-card)", zIndex: 320, padding: 8 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "4px 8px 9px" }}>
+        <Icon name="artifacts" size={14} />
+        <span style={{ fontSize: 12.5, fontWeight: 800, color: "var(--ink)" }}>本次对话的成果</span>
+        <span style={{ fontSize: 11, fontWeight: 800, color: "var(--ink-3)", fontFamily: "var(--font-num)" }}>{items.length}</span>
+      </div>
+      {items.length === 0 ? (
+        <div style={{ padding: "16px 14px 22px", textAlign: "center", fontSize: 12, color: "var(--ink-3)", lineHeight: 1.75 }}>
+          本次对话还没有固化的成果。<br />生成卷子、教案、课件等结果后，会自动出现在这里。
+        </div>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+          {items.slice().reverse().map((a) => {
+            const S = (window.AIDATA.SCENARIOS.find((s) => s.id === a.scenario)) || window.AIDATA.GENERAL;
+            return (
+              <button
+                key={a._key}
+                onClick={() => { onClose(); window.openSessionArtifact && window.openSessionArtifact(a); }}
+                title={"重新打开：" + a.title}
+                style={{ width: "100%", display: "flex", alignItems: "center", gap: 10, textAlign: "left", padding: "8px 9px", borderRadius: 11, border: "1px solid transparent", background: "transparent", cursor: "pointer", fontFamily: "var(--font-zh)", transition: "background .14s, border-color .14s" }}
+                onMouseEnter={(e) => { e.currentTarget.style.background = "var(--surface-2)"; e.currentTarget.style.borderColor = "var(--line)"; }}
+                onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.borderColor = "transparent"; }}
+              >
+                <ScenarioGlyph icon={a.icon || S.icon} hue={S.hue} size={32} />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 12.5, fontWeight: 700, color: "var(--ink)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{a.title}</div>
+                  <div style={{ fontSize: 10.5, color: "var(--ink-3)", fontWeight: 600, marginTop: 2 }}>创建时间：{fmt(a.ts)}</div>
+                </div>
+                <Icon name="chevronRight" size={15} />
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// trigger button (+ count badge) that lives at the top-right of the chat column
+function SessionArtifactsMenu({ messages }) {
+  const items = sessionArtifacts(messages);
+  const [open, setOpen] = React.useState(false);
+  const wrapRef = React.useRef(null);
+  React.useEffect(() => {
+    if (!open) return;
+    const onDoc = (e) => { if (wrapRef.current && !wrapRef.current.contains(e.target)) setOpen(false); };
+    const onKey = (e) => { if (e.key === "Escape") setOpen(false); };
+    document.addEventListener("mousedown", onDoc);
+    document.addEventListener("keydown", onKey);
+    return () => { document.removeEventListener("mousedown", onDoc); document.removeEventListener("keydown", onKey); };
+  }, [open]);
+  const count = items.length;
+  if (count === 0) return null; // nothing frozen yet → no empty button cluttering the header
+  return (
+    <div ref={wrapRef} style={{ position: "relative", flexShrink: 0 }}>
+      <button
+        onClick={() => setOpen((v) => !v)}
+        data-tip="本次对话的成果" data-tip-pos="bottom-right" aria-label="本次对话的成果"
+        style={{ display: "inline-flex", alignItems: "center", gap: 5, height: 30, padding: "0 8px", borderRadius: 8, border: "1px solid " + (open ? "var(--brand-soft-border)" : "var(--line)"), background: open ? "var(--brand-soft)" : "var(--surface)", color: open ? "var(--brand-deep)" : (count ? "var(--ink-2)" : "var(--ink-3)"), cursor: "pointer", fontFamily: "var(--font-zh)", transition: "background .14s, color .14s, border-color .14s" }}
+        onMouseEnter={(e) => { if (!open) e.currentTarget.style.background = "var(--surface-2)"; }}
+        onMouseLeave={(e) => { if (!open) e.currentTarget.style.background = "var(--surface)"; }}
+      >
+        <Icon name="artifacts" size={16} />
+        <span style={{ fontSize: 12, fontWeight: 800, fontFamily: "var(--font-num)", minWidth: 7, textAlign: "center" }}>{count}</span>
+      </button>
+      {open && <ArtifactsPopover items={items} onClose={() => setOpen(false)} />}
+    </div>
+  );
+}
+Object.assign(window, { SessionArtifactsMenu });
 
 function Bubble({ m, round, active, onOpenRound, grouped, onOpenRef, onViewFile }) {
   // slim system marker — scenario switches etc. A divider, not a chat bubble.
@@ -1431,7 +1541,7 @@ function FindWorkspace({ scenario, query, onHome, onSwitch, fromIntent, resume, 
 
   return (
     <WorkspaceShell scenario={scenario} onHome={onHome} onSwitch={onSwitch} nav={nav} headerRecognizing={headerRecognizing} mobilePanelLabel="资源" mobilePanelIcon="search" openSheetKey={sheetKey}>
-      <ChatPanel messages={messages} onSend={send} suggestions={suggestions} placeholder="例如：只看实验视频 / 整套打包下载" roundsById={roundsById} shownId={shownId} retrieving={retrieving} onOpenRound={openRound} onOpenRef={openRef} clarify={clarify} onResolveClarify={resolveClarify} onSkipClarify={skipClarify} taskBar={(() => { const t = deriveSessionTask(); return t ? <SessionTaskBar task={t} onOpen={() => onSwitch && onSwitch(t.scenario, "")} /> : null; })()} />
+      <ChatPanel messages={messages} onSend={send} suggestions={suggestions} placeholder="例如：只看实验视频 / 整套打包下载" roundsById={roundsById} shownId={shownId} retrieving={retrieving} onOpenRound={openRound} onOpenRef={openRef} clarify={clarify} onResolveClarify={resolveClarify} onSkipClarify={skipClarify} taskBar={(() => { const t = deriveSessionTask(scenario && scenario.id); return t ? <SessionTaskBar task={t} onOpen={() => onSwitch && onSwitch(t.scenario, "")} /> : null; })()} />
       {/* results */}
       <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", position: "relative" }}>
         {!rounds.length && !retrieving && <FindColdStart loggedIn={!resume && loggedIn} onPick={(q) => handleSend(q)} />}
