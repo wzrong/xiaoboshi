@@ -71,14 +71,57 @@ const ALL_TYPES_P = [
   { type: "composition", label: "作文题", short: "作文", defEach: 30 },
 ];
 function defaultStructure() {
+  // sums to exactly 100 so the teacher never lands on a mismatched total
   return [
-    { type: "choice", count: 10, each: 3 },
-    { type: "blank", count: 5, each: 4 },
-    { type: "solve", count: 4, each: 10 },
+    { type: "choice", count: 10, each: 3 }, // 30
+    { type: "blank", count: 5, each: 4 },   // 20
+    { type: "solve", count: 5, each: 10 },  // 50
+  ];
+}
+// a lighter set for 「据此出一份同类练习」 handoffs (≈60 分, derived not constrained)
+function practiceStructure() {
+  return [
+    { type: "choice", count: 8, each: 3 }, // 24
+    { type: "blank", count: 4, each: 3 },  // 12
+    { type: "solve", count: 3, each: 8 },  // 24
   ];
 }
 function structureScore(structure) {
   return structure.reduce((s, r) => s + r.count * r.each, 0);
+}
+// 一键配平：保留各题型题量，给定目标分，调「解答题每题分」（无解答题则调末行）兜到目标
+function balanceToTotal(structure, target) {
+  const rows = structure.map((r) => ({ ...r }));
+  rows.forEach((r) => { const m = ALL_TYPES_P.find((t) => t.type === r.type); if (m && r.type !== "solve") r.each = m.defEach; });
+  const absorber = rows.find((r) => r.type === "solve" && r.count > 0) || [...rows].reverse().find((r) => r.count > 0);
+  if (absorber) {
+    const others = rows.reduce((s, r) => s + (r === absorber ? 0 : r.count * r.each), 0);
+    absorber.each = Math.max(1, Math.round((target - others) / absorber.count));
+  }
+  return rows;
+}
+// 教材信息可选项
+const EDITION_OPTS = ["人教版", "北师大版", "部编版", "统编版", "苏教版", "湘教版", "沪科版", "外研社", "通用"];
+const GRADE_OPTS = ["一年级", "二年级", "三年级", "四年级", "五年级", "六年级", "七年级", "八年级", "九年级", "高一", "高二", "高三"];
+const SUBJECT_OPTS = ["语文", "数学", "英语", "物理", "化学", "生物", "政治", "历史", "地理", "科学", "道德与法治"];
+
+function normalizeTopic(t) { return /有理数/.test(t || "") ? "有理数" : (t || "有理数"); }
+// 从找资源 handoff 的源资源继承教材信息与难度
+function metaFromItem(item, q, mem) {
+  const base = paperMeta(q, mem);
+  const topic = normalizeTopic((item.title.match(/《(.+?)》/) || [])[1] || base.topic);
+  return {
+    topic,
+    edition: item.edition && item.edition !== "通用" ? item.edition : base.edition,
+    grade: item.grade && item.grade !== "全学段" ? item.grade : base.grade,
+    subject: item.subject && item.subject !== "通用" ? item.subject : base.subject,
+  };
+}
+function diffFromItem(item) {
+  const d = item.diff || "";
+  if (/基础|简单|易|入门/.test(d)) return "easy";
+  if (/拔高|培优|难|较难|挑战/.test(d)) return "hard";
+  return "mid";
 }
 
 // 从题库取题（不足则用通用模板兜底），按难度由易到难排序
@@ -127,7 +170,36 @@ const DIFFS = [{ k: "easy", label: "偏易" }, { k: "mid", label: "适中" }, { 
 const SCOPE_OPTS = ["全章复习", "1.1 正数和负数", "1.2 有理数", "1.3 有理数的加减", "1.4 有理数的乘除", "1.5 有理数的乘方"];
 const SCENE_OPTS = ["随堂练习", "周测", "月考", "期中考试", "期末考试", "模拟考试", "中考真题", "高考真题"];
 
-function PaperSetup({ meta, setMeta, structure, setStructure, diff, setDiff, scope, setScope, scene, setScene, targetScore, setTargetScore, onBuild, mobile }) {
+function MetaDropdown({ label, value, options, onChange }) {
+  const [open, setOpen] = pS(false);
+  const ref = pR(null);
+  pE(() => {
+    if (!open) return;
+    const h = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    document.addEventListener("mousedown", h);
+    return () => document.removeEventListener("mousedown", h);
+  }, [open]);
+  return (
+    <div ref={ref} style={{ position: "relative" }}>
+      <button onClick={() => setOpen((o) => !o)} style={{ display: "inline-flex", alignItems: "center", gap: 7, padding: "7px 11px 7px 12px", borderRadius: 9, border: "1px solid " + (open ? "var(--brand)" : "var(--line)"), background: open ? "var(--brand-soft)" : "var(--surface)", color: "var(--ink)", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "var(--font-zh)", transition: "all .15s" }}>
+        {label && <span style={{ fontSize: 11, fontWeight: 600, color: "var(--ink-3)" }}>{label}</span>}
+        {value}
+        <Icon name="chevronDown" size={13} />
+      </button>
+      {open && (
+        <div className="drawer-pop" style={{ position: "absolute", top: "calc(100% + 5px)", left: 0, zIndex: 30, minWidth: "100%", maxHeight: 244, overflowY: "auto", background: "var(--surface)", border: "1px solid var(--line)", borderRadius: 11, boxShadow: "var(--shadow-card)", padding: 5 }}>
+          {options.map((o) => (
+            <button key={o} onClick={() => { onChange(o); setOpen(false); }} style={{ display: "block", width: "100%", textAlign: "left", padding: "8px 11px", borderRadius: 8, border: "none", background: o === value ? "var(--brand-soft)" : "transparent", color: o === value ? "var(--brand-deep)" : "var(--ink-2)", fontSize: 13, fontWeight: o === value ? 700 : 600, cursor: "pointer", fontFamily: "var(--font-zh)", whiteSpace: "nowrap" }}
+              onMouseEnter={(e) => { if (o !== value) e.currentTarget.style.background = "var(--surface-2)"; }}
+              onMouseLeave={(e) => { if (o !== value) e.currentTarget.style.background = "transparent"; }}>{o}</button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function PaperSetup({ meta, setMeta, structure, setStructure, diff, setDiff, scope, setScope, scene, setScene, targetScore, setTargetScore, onBuild, mobile, fromHandoff }) {
   const total = structureScore(structure);
   const qCount = structure.reduce((s, r) => s + r.count, 0);
   const setRow = (type, patch) => setStructure((st) => st.map((r) => (r.type === type ? { ...r, ...patch } : r)));
@@ -139,6 +211,7 @@ function PaperSetup({ meta, setMeta, structure, setStructure, diff, setDiff, sco
     if (meta) setStructure((st) => [...st, { type, count: 3, each: meta.defEach }]);
   };
   const [showAddType, setShowAddType] = pS(false);
+  const applyTemplate = (n) => { setStructure((st) => balanceToTotal(st, n)); setTargetScore(n); };
 
   const Stepper = ({ value, min = 0, max = 30, onChange }) => (
     <div style={{ display: "inline-flex", alignItems: "center", gap: 0, border: "1px solid var(--line)", borderRadius: 9, overflow: "hidden", background: "var(--surface)" }}>
@@ -148,21 +221,26 @@ function PaperSetup({ meta, setMeta, structure, setStructure, diff, setDiff, sco
     </div>
   );
 
-  const scoreDelta = total - targetScore;
-
   return (
     <div style={{ maxWidth: 680, margin: "0 auto" }}>
       <div style={{ display: "flex", alignItems: "flex-start", gap: 12, marginBottom: 20 }}>
         <span style={{ width: 40, height: 40, borderRadius: 12, background: "var(--brand-soft)", border: "1px solid var(--brand-soft-border)", color: "var(--brand-deep)", display: "grid", placeItems: "center", flexShrink: 0 }}><Icon name="paper" size={20} /></span>
         <div style={{ flex: 1, minWidth: 0 }}>
           <h2 style={{ margin: "0 0 4px", fontSize: 18, fontWeight: 800, color: "var(--ink)" }}>组卷配置</h2>
-          <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-            {[meta.edition, meta.subject, meta.grade].map((c, i) => (
-              <span key={i} style={{ padding: "2px 9px", borderRadius: 999, background: "var(--surface-2)", border: "1px solid var(--line)", fontSize: 11, fontWeight: 700, color: "var(--ink-2)" }}>{c}</span>
-            ))}
+          <div style={{ fontSize: 12.5, color: "var(--ink-3)", fontWeight: 600 }}>
+            {fromHandoff ? <span>已按所选资源预填——<b style={{ color: "var(--brand-deep)" }}>确认或微调</b>即可生成</span> : <span>《{meta.topic}》· 题目来自学科网权威题库</span>}
           </div>
         </div>
       </div>
+
+      {/* 教材信息（可选） */}
+      <SetupBlock icon="book" title="教材信息">
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
+          <MetaDropdown label="版本" value={meta.edition} options={EDITION_OPTS} onChange={(v) => setMeta({ ...meta, edition: v })} />
+          <MetaDropdown label="学段" value={meta.grade} options={GRADE_OPTS} onChange={(v) => setMeta({ ...meta, grade: v })} />
+          <MetaDropdown label="学科" value={meta.subject} options={SUBJECT_OPTS} onChange={(v) => setMeta({ ...meta, subject: v })} />
+        </div>
+      </SetupBlock>
 
       {/* 考试场景 */}
       <SetupBlock icon="target" title="考试场景">
@@ -193,19 +271,16 @@ function PaperSetup({ meta, setMeta, structure, setStructure, diff, setDiff, sco
         </div>
       </SetupBlock>
 
-      {/* 目标总分 */}
-      <SetupBlock icon="target" title="目标总分">
-        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-          {[100, 120, 150].map((s) => {
-            const on = targetScore === s;
-            return <button key={s} onClick={() => setTargetScore(s)} style={{ padding: "8px 16px", borderRadius: 9, fontSize: 13.5, fontWeight: 700, cursor: "pointer", fontFamily: "var(--font-num)", border: on ? "1px solid var(--brand)" : "1px solid var(--line)", background: on ? "var(--brand-soft)" : "var(--surface)", color: on ? "var(--brand-deep)" : "var(--ink-2)", transition: "all .15s" }}>{s} 分</button>;
-          })}
-          <Stepper value={targetScore} min={20} max={300} onChange={setTargetScore} />
-        </div>
-      </SetupBlock>
-
-      {/* 题型与题量 */}
+      {/* 题型与题量（总分实时合计，所见即所得） */}
       <SetupBlock icon="list" title="题型与题量">
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14, flexWrap: "wrap" }}>
+          <span style={{ fontSize: 12, color: "var(--ink-3)", fontWeight: 600 }}>快速套用：</span>
+          {[100, 120, 150].map((s) => {
+            const on = total === s;
+            return <button key={s} onClick={() => applyTemplate(s)} style={{ padding: "6px 13px", borderRadius: 8, fontSize: 12.5, fontWeight: 700, cursor: "pointer", fontFamily: "var(--font-num)", border: on ? "1px solid var(--brand)" : "1px solid var(--line)", background: on ? "var(--brand-soft)" : "var(--surface)", color: on ? "var(--brand-deep)" : "var(--ink-2)", transition: "all .15s" }}>{s} 分卷</button>;
+          })}
+          <span style={{ fontSize: 11, color: "var(--ink-4)" }}>一键配平到该分值</span>
+        </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           {structure.map((r) => {
             const tm = ALL_TYPES_P.find((t) => t.type === r.type) || { label: r.type };
@@ -250,11 +325,6 @@ function PaperSetup({ meta, setMeta, structure, setStructure, diff, setDiff, sco
             )}
           </div>
         )}
-        {scoreDelta !== 0 && (
-          <div style={{ marginTop: 10, padding: "8px 12px", borderRadius: 9, background: scoreDelta > 0 ? "oklch(0.96 0.04 75)" : "oklch(0.96 0.04 25)", border: `1px solid ${scoreDelta > 0 ? "oklch(0.88 0.08 75)" : "oklch(0.88 0.08 25)"}`, fontSize: 12, fontWeight: 600, color: scoreDelta > 0 ? "oklch(0.45 0.12 75)" : "oklch(0.45 0.12 25)" }}>
-            当前合计 {total} 分，{scoreDelta > 0 ? `超出目标 ${scoreDelta} 分` : `差 ${-scoreDelta} 分`}。可调整题量或每题分值以匹配 {targetScore} 分。
-          </div>
-        )}
       </SetupBlock>
 
       {/* 难度 */}
@@ -274,7 +344,7 @@ function PaperSetup({ meta, setMeta, structure, setStructure, diff, setDiff, sco
       <div style={{ display: "flex", alignItems: "center", gap: 16, marginTop: 18, padding: "14px 18px", borderRadius: 14, background: "var(--brand-soft)", border: "1px solid var(--brand-soft-border)" }}>
         <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
           <span style={{ fontSize: 11.5, color: "var(--ink-3)", fontWeight: 700 }}>共 {qCount} 题 · {structure.length} 种题型</span>
-          <span style={{ fontSize: 22, fontWeight: 800, color: total === targetScore ? "var(--brand-deep)" : "oklch(0.55 0.15 25)", fontFamily: "var(--font-num)", lineHeight: 1 }}>{total} <span style={{ fontSize: 13 }}>/ {targetScore} 分</span></span>
+          <span style={{ fontSize: 22, fontWeight: 800, color: "var(--brand-deep)", fontFamily: "var(--font-num)", lineHeight: 1 }}>{total} <span style={{ fontSize: 13 }}>分</span></span>
         </div>
         <div style={{ flex: 1 }} />
         <button onClick={onBuild} style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "13px 24px", borderRadius: 13, border: "none", background: "var(--brand-grad)", backgroundColor: "var(--brand)", color: "#fff", fontSize: 14.5, fontWeight: 800, cursor: "pointer", fontFamily: "var(--font-zh)", boxShadow: "0 10px 26px -12px var(--brand-glow)" }}>
@@ -388,10 +458,16 @@ function PaperWorkspace({ scenario, query, onHome, onSwitch, fromIntent, resume,
   const isResume = !!resume;
   const initialQ = query || (isResume ? resume.title : "") || stored.q || "";
   const freshQuery = !isResume && !stored.paper && !!initialQ;
+  // 找资源「据此出一份同类卷子/练习」handoff：继承源资源的教材信息与难度，
+  // 并照它的形态预填题型题量 —— 配置面板从「空白填写」变成「确认/微调」。
+  const handoffRef0 = pR(window.ChatSession.handoffRef);
+  const handoffItem = handoffRef0.current && handoffRef0.current.item;
+  const seedFromHandoff = !!handoffItem && !stored.paper && !isResume;
+  const isPractice = /练习|训练|作业/.test(initialQ) || (handoffItem && /练习|作业|训练|专项/.test(handoffItem.type || ""));
 
-  const [meta, setMeta] = pS(() => paperMeta(initialQ || (mem ? "" : "有理数"), mem));
-  const [structure, setStructure] = pS(stored.structure || defaultStructure());
-  const [diff, setDiff] = pS(stored.diff || "mid");
+  const [meta, setMeta] = pS(() => seedFromHandoff ? metaFromItem(handoffItem, initialQ, mem) : paperMeta(initialQ || (mem ? "" : "有理数"), mem));
+  const [structure, setStructure] = pS(stored.structure || (seedFromHandoff ? (isPractice ? practiceStructure() : defaultStructure()) : defaultStructure()));
+  const [diff, setDiff] = pS(stored.diff || (seedFromHandoff ? diffFromItem(handoffItem) : "mid"));
   const [scope, setScope] = pS(stored.scope || ["全章复习"]);
   const [scene, setScene] = pS(stored.scene || "期中考试");
   const [targetScore, setTargetScore] = pS(stored.targetScore || 100);
@@ -405,6 +481,7 @@ function PaperWorkspace({ scenario, query, onHome, onSwitch, fromIntent, resume,
 
   const greet = <span>我来帮你<b style={{ color: "var(--brand-deep)" }}>出一份卷子</b>。右侧先配置题型、题量和难度——题目都从<b style={{ color: "var(--auth-ink)" }}>学科网权威题库</b>选取。确认后我就组卷，每道题都带答案与解析。</span>;
   const setupNote = (m) => <span>好的，按 <b>{m.edition} {m.grade}{m.subject} ·《{m.topic}》</b> 来出卷。右侧已经摆好了<b>组卷配置</b>——题型、题量、难度都可以调，调好点<b style={{ color: "var(--brand-deep)" }}>「生成试卷」</b>，我就从题库组卷。</span>;
+  const handoffNote = (m, item, practice) => <span>好，就按《{(item.title || "").replace(/[《》]/g, "").slice(0, 18)}》来{practice ? "出一份同类练习" : "出一份同类卷子"}。我已经<b style={{ color: "var(--brand-deep)" }}>沿用它的 {m.edition} {m.grade}{m.subject} 和难度</b>，并照它的形态摆好了题型题量——右侧<b>确认或微调</b>，点「生成试卷」即可。</span>;
 
   const [messages, setMessages] = pS(() => {
     if (isResume) return [{ role: "ai", node: <span>已为你恢复 <b>{resume.when}</b> 出的《{(resume.title || "").replace(/[《》]/g, "")}》，右侧就是当时的卷子，接着改就行。</span> }];
@@ -416,7 +493,7 @@ function PaperWorkspace({ scenario, query, onHome, onSwitch, fromIntent, resume,
         { role: "ai", wide: true, intent: query, render: () => <InlineIntent query={query} onDone={() => { const m = paperMeta(query, mem); setMeta(m); setMessages((ms) => [...ms, { role: "ai", node: setupNote(m) }]); }} /> },
       ];
     }
-    if (freshQuery) { const m = paperMeta(initialQ, mem); return [...window.ChatSession.take(), ...(window.ChatSession.echoed(query) ? [] : [window.ChatSession.seedUser(query)]), { role: "ai", node: setupNote(m) }]; }
+    if (freshQuery) { const m = seedFromHandoff ? metaFromItem(handoffItem, initialQ, mem) : paperMeta(initialQ, mem); const note = seedFromHandoff ? handoffNote(m, handoffItem, isPractice) : setupNote(m); return [...window.ChatSession.take(), ...(window.ChatSession.echoed(query) ? [] : [window.ChatSession.seedUser(query)]), { role: "ai", node: note }]; }
     return window.enterThread(scenario, greet);
   });
   const PAPER_SUGS = ["再难一点", "解答题加到 6 道", "第 1 题换一道", "附上答案与解析"];
@@ -539,7 +616,7 @@ function PaperWorkspace({ scenario, query, onHome, onSwitch, fromIntent, resume,
           ) : phase === "paper" && paper ? (
             <PaperView paper={paper} showAnswer={showAnswer} onSwap={onSwap} onDelete={onDelete} mobile={mobile} />
           ) : (
-            <PaperSetup meta={meta} setMeta={setMeta} structure={structure} setStructure={setStructure} diff={diff} setDiff={setDiff} scope={scope} setScope={setScope} scene={scene} setScene={setScene} targetScore={targetScore} setTargetScore={setTargetScore} onBuild={build} mobile={mobile} />
+            <PaperSetup meta={meta} setMeta={setMeta} structure={structure} setStructure={setStructure} diff={diff} setDiff={setDiff} scope={scope} setScope={setScope} scene={scene} setScene={setScene} targetScore={targetScore} setTargetScore={setTargetScore} onBuild={build} mobile={mobile} fromHandoff={seedFromHandoff} />
           )}
         </div>
         {toast && (

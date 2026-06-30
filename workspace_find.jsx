@@ -1480,7 +1480,9 @@ function FindWorkspace({ scenario, query, onHome, onSwitch, fromIntent, resume, 
       window.ChatSession.handoffRef = { title: item.title, type: refLabel(item), item };
       // strip any existing 《》 from the title so we don't double-wrap (e.g. 据《《有理数》…》)
       const cleanTitle = (item.title || "").replace(/[《》]/g, "").slice(0, 16);
-      onSwitch && onSwitch(to, `据《${cleanTitle}》${to === "lesson" ? "生成配套教案" : "出一份同类卷子"}`);
+      // honor the question's own verb (同类练习 vs 同类卷子) so the target seeds the right form
+      const verb = to === "lesson" ? "生成配套教案" : /练习/.test(text || "") ? "出一份同类练习" : "出一份同类卷子";
+      onSwitch && onSwitch(to, `据《${cleanTitle}》${verb}`);
       return;
     }
     setMessages((m) => [...m, { role: "user", text, ref, refItem: item }, { role: "ai", typing: true }]);
