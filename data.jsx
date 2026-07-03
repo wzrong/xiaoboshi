@@ -519,7 +519,7 @@ const USER_MEMORY = {
   conversations: [
     { id: "v1", scenario: "paper", icon: "paper", hue: 25, title: "《有理数》随堂练习卷", last: "再把第 5 题换成应用题", when: "今天" },
     { id: "v2", scenario: "courseware", icon: "slides", hue: 255, title: "《整式的加减》互动课件", last: "加一个抢答环节", when: "昨天" },
-    { id: "v3", scenario: "textbook", icon: "book", hue: 210, title: "问：光反应和暗反应的区别", last: "已标注教材 P103–104", when: "3 天前" },
+    { id: "v3", scenario: "textbook", icon: "book", hue: 200, title: "问：光反应和暗反应的区别", last: "已标注教材 P103–104", when: "3 天前" },
     { id: "v4", scenario: "find", icon: "search", hue: 150, title: "一元一次方程 同步微课", last: "收藏了 5 个资源", when: "上周" },
     { id: "v5", scenario: "lesson", icon: "lesson", hue: 320, title: "《数轴》教案（情境导入）", last: "导出为 Word", when: "上周" },
   ],
@@ -531,7 +531,7 @@ const USER_MEMORY = {
     { id: "w7", scenario: "find", icon: "slides", hue: 210, title: "《一元一次方程》名师同步课件", kind: "课件", source: "找资源下载", meta: "人教版 · 七年级 · 来自资源库", when: "上周", status: "saved" },
     { id: "w4", scenario: "paper", icon: "paper", hue: 25, title: "第一单元《有理数》单元测试", kind: "试卷", source: "找资源下载", meta: "人教版 · 七年级 · 中等 · 24 题", when: "上周", status: "saved" },
     { id: "w5", scenario: "courseware", icon: "slides", hue: 255, title: "《正数和负数》导入课件", kind: "PPT 课件", source: "AI 生成", meta: "人教版 · 七年级 · 12 页", when: "2 周前", status: "draft" },
-    { id: "w6", scenario: "mindmap", icon: "mindmap", hue: 175, title: "《有理数》知识网络图", kind: "思维导图", source: "AI 生成", meta: "人教版 · 七年级 · 一章", when: "2 周前", status: "done" },
+    { id: "w6", scenario: "mindmap", icon: "mindmap", hue: 95, title: "《有理数》知识网络图", kind: "思维导图", source: "AI 生成", meta: "人教版 · 七年级 · 一章", when: "2 周前", status: "done" },
   ],
 };
 

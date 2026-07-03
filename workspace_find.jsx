@@ -1486,10 +1486,12 @@ function FindWorkspace({ scenario, query, onHome, onSwitch, fromIntent, resume, 
       return;
     }
     setMessages((m) => [...m, { role: "user", text, ref, refItem: item }, { role: "ai", typing: true }]);
-    // surface the conversation: close the open detail and bump the anchor so the shell
-    // auto-reveals (and exits fullscreen) — otherwise the reply is hidden behind the detail
-    setPreview(null); setPlayer(null); setAlbum(null);
-    setSheetAnchor("ask#" + (sheetSeqRef.current++));
+    // 场景区保持不变：桌面端详情（预览/播放器/专辑）留在原位，回答只进入左侧对话区；
+    // 也不 bump anchor（否则会退出全屏/展开面板）。移动端无双栏，仍关闭详情并提示对话。
+    if (mobile) {
+      setPreview(null); setPlayer(null); setAlbum(null);
+      setSheetAnchor("ask#" + (sheetSeqRef.current++));
+    }
     setTimeout(() => {
       setMessages((m) => [...m.slice(0, -1), { role: "ai", node: replyForResource(text, item) }]);
     }, 750);
@@ -1514,8 +1516,16 @@ function FindWorkspace({ scenario, query, onHome, onSwitch, fromIntent, resume, 
   const playItem = (it) => setPlayer({ title: it.title, cat: "微课", subject: album ? album.subject : "", grade: album ? album.grade : "", edition: album ? album.edition : "", duration: it.dur || "08:00", quality: "1080P", plays: "—", updated: album ? album.updated : "2025", chapters: [{ t: "00:00", name: "精讲开始" }, { t: "03:00", name: "重点解析" }, { t: "06:00", name: "小结" }] });
 
   const addBasket = (item) => {
+    // PRD FE-20：未登录时收藏被拦截并引导登录
+    if (!loggedIn) { nav && nav.onRequireLogin && nav.onRequireLogin(); return; }
     const ok = onAddBasket ? onAddBasket(item) : true;
     showToast(ok ? "已加入资源篮" : "已在资源篮中");
+  };
+
+  // PRD §3.2：找资源的登录时机是「操作触发」—— 点击下载时拦截引导登录
+  const guardDownload = (msg) => {
+    if (!loggedIn) { nav && nav.onRequireLogin && nav.onRequireLogin(); return; }
+    showToast(msg);
   };
 
   // which round is shown on the right (explicit selection, else the latest)
@@ -1523,14 +1533,17 @@ function FindWorkspace({ scenario, query, onHome, onSwitch, fromIntent, resume, 
   const shownRound = (activeRound != null ? roundsById[activeRound] : null) || (rounds.length ? rounds[rounds.length - 1] : null);
   const shownId = shownRound ? shownRound.id : null;
 
-  // mobile: which thing the sheet should reveal (open item overrides the round anchor)
-  const sheetKey = preview ? "p:" + preview.title : player ? "v:" + player.title : album ? "a:" + (album.id || album.title) : sheetAnchor;
+  // mobile: which thing the sheet should reveal (open item overrides the round anchor).
+  // 桌面端只传检索轮次锚点 —— 打开/关闭详情不得触发 shell 的「新内容展开 + 退出全屏」逻辑（全屏下关详情应保持全屏）
+  const sheetKey = mobile
+    ? (preview ? "p:" + preview.title : player ? "v:" + player.title : album ? "a:" + (album.id || album.title) : sheetAnchor)
+    : sheetAnchor;
 
   const renderItem = (it, idx) => {
     const key = it._kind + "_" + (it.id || it.title) + "_" + idx;
-    if (it._kind === "video") return <VideoCard key={key} v={it} source={it._source} onPlay={() => setPlayer(it)} onDownload={() => showToast(`已开始下载《${(it.title || "").slice(0, 12)}…》`)} />;
+    if (it._kind === "video") return <VideoCard key={key} v={it} source={it._source} onPlay={() => setPlayer(it)} onDownload={() => guardDownload(`已开始下载《${(it.title || "").slice(0, 12)}…》`)} />;
     if (it._kind === "album") return <AlbumCard key={key} a={it} source={it._source} onOpen={() => setAlbum(it)} />;
-    return <ResourceCard key={key} r={it} source={it._source} onPreview={() => setPreview(it)} onDownload={() => showToast(`已开始下载《${(it.title || "").slice(0, 12)}…》`)} />;
+    return <ResourceCard key={key} r={it} source={it._source} onPreview={() => setPreview(it)} onDownload={() => guardDownload(`已开始下载《${(it.title || "").slice(0, 12)}…》`)} />;
   };
 
   const items = shownRound ? shownRound.items : [];
@@ -1546,7 +1559,7 @@ function FindWorkspace({ scenario, query, onHome, onSwitch, fromIntent, resume, 
       <ChatPanel messages={messages} onSend={send} suggestions={suggestions} placeholder="例如：只看实验视频 / 整套打包下载" roundsById={roundsById} shownId={shownId} retrieving={retrieving} onOpenRound={openRound} onOpenRef={openRef} clarify={clarify} onResolveClarify={resolveClarify} onSkipClarify={skipClarify} taskBar={(() => { const t = deriveSessionTask(scenario && scenario.id); return t ? <SessionTaskBar task={t} onOpen={() => onSwitch && onSwitch(t.scenario, "")} /> : null; })()} />
       {/* results */}
       <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", position: "relative" }}>
-        {!rounds.length && !retrieving && <FindColdStart loggedIn={!resume && loggedIn} onPick={(q) => handleSend(q)} />}
+        {!rounds.length && !retrieving && <FindColdStart loggedIn={!resume && loggedIn} onPick={(q) => handleSend(q)} onLogin={() => nav && nav.onRequireLogin && nav.onRequireLogin()} />}
         {retrieving && <RetrievingPanel />}
         {!retrieving && shownRound && (
           <React.Fragment>
@@ -1567,9 +1580,9 @@ function FindWorkspace({ scenario, query, onHome, onSwitch, fromIntent, resume, 
           </React.Fragment>
         )}
 
-        {album && <AlbumPage a={album} loggedIn={loggedIn} onAsk={askAbout} onClose={() => setAlbum(null)} onPreviewItem={previewItem} onPlayItem={playItem} onDownload={(msg) => showToast(msg)} onAddBasket={addBasket} />}
-        {preview && <PreviewDrawer r={preview} loggedIn={loggedIn} onClose={() => setPreview(null)} onAsk={askAbout} onAddBasket={addBasket} onDownload={() => showToast("已开始下载，可在「资源篮」查看")} />}
-        {player && <VideoPlayer v={player} loggedIn={loggedIn} onClose={() => setPlayer(null)} onAsk={askAbout} onAddBasket={addBasket} onDownload={() => showToast(`已开始下载视频《${player.title.slice(0, 12)}…》`)} />}
+        {album && <AlbumPage a={album} loggedIn={loggedIn} onAsk={askAbout} onClose={() => setAlbum(null)} onPreviewItem={previewItem} onPlayItem={playItem} onDownload={(msg) => guardDownload(msg)} onAddBasket={addBasket} />}
+        {preview && <PreviewDrawer r={preview} loggedIn={loggedIn} onClose={() => setPreview(null)} onAsk={askAbout} onAddBasket={addBasket} onDownload={() => guardDownload("已开始下载，可在「资源篮」查看")} />}
+        {player && <VideoPlayer v={player} loggedIn={loggedIn} onClose={() => setPlayer(null)} onAsk={askAbout} onAddBasket={addBasket} onDownload={() => guardDownload(`已开始下载视频《${player.title.slice(0, 12)}…》`)} />}
         {toast && (
           <div className="enter-pop" style={{ position: "absolute", bottom: 22, left: "50%", transform: "translateX(-50%)", background: "var(--ink)", color: "var(--surface)", padding: "11px 18px", borderRadius: 12, fontSize: 13.5, fontWeight: 600, boxShadow: "0 12px 30px -12px rgba(0,0,0,.5)", display: "inline-flex", alignItems: "center", gap: 8, zIndex: 60 }}>
             <Icon name="check" size={16} sw={2.6} /> {toast}
@@ -1610,7 +1623,7 @@ function HandoffBar({ topic, onSwitch, query }) {
 }
 
 // cold-start panel: shown when teacher entered 找资源 without any input
-function FindColdStart({ onPick, loggedIn }) {
+function FindColdStart({ onPick, loggedIn, onLogin }) {
   const M = window.AIDATA.USER_MEMORY;
   const mobile = useIsMobile();
   // memory-driven personalization (logged-in teacher with a profile)
@@ -1653,6 +1666,9 @@ function FindColdStart({ onPick, loggedIn }) {
             <div style={{ flex: 1, minWidth: 0, fontSize: 12.5, color: "var(--ink-3)", lineHeight: 1.55 }}>
               登录后，小博士会记住你的学段学科，把推荐变得更懂你。现在先看看大家都在找什么 ——
             </div>
+            {onLogin && (
+              <button onClick={onLogin} style={{ flexShrink: 0, padding: "7px 14px", borderRadius: 9, border: "1px solid var(--brand-soft-border)", background: "var(--brand-soft)", color: "var(--brand-deep)", fontSize: 12.5, fontWeight: 700, cursor: "pointer", fontFamily: "var(--font-zh)" }}>登录</button>
+            )}
           </div>
         )}
 
@@ -1784,4 +1800,4 @@ function PreviewDrawer({ r, onClose, onDownload, onAsk, onAddBasket, loggedIn })
   );
 }
 
-Object.assign(window, { FindWorkspace, WorkspaceShell, ChatPanel, Bubble, RecognizingPanel });
+Object.assign(window, { FindWorkspace, WorkspaceShell, ChatPanel, Bubble, RecognizingPanel, SourceTag, AskBar, buildResourceAsks });

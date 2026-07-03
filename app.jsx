@@ -26,6 +26,7 @@ function App() {
   const [resume, setResume] = aS(null); // {scenario,title} when resuming a past creation
   const [loggedIn, setLoggedIn] = aS(true);
   const [loginOpen, setLoginOpen] = aS(false);
+  const [pendingPick, setPendingPick] = aS(null); // 登录后继续进入的场景（出卷子登录拦截）
   // 资源篮 — a teacher's collected resources, persisted across the session
   const [basket, setBasket] = aS(() => { try { return JSON.parse(localStorage.getItem("aida_basket") || "[]"); } catch (e) { return []; } });
   const [basketOpen, setBasketOpen] = aS(false);
@@ -81,6 +82,11 @@ function App() {
     setScreen("workspace");
   };
   const pickScenario = (id) => {
+    // 首页PRD §3.2：出卷子为「立即登录」档 —— 未登录点击先弹登录窗，登录后继续进入
+    if (id === "paper" && !loggedIn) { setPendingPick(id); setLoginOpen(true); return; }
+    doPick(id);
+  };
+  const doPick = (id) => {
     window.ChatSession && window.ChatSession.clear();
     setScenarioId(id);
     setQuery(draft.trim());
@@ -210,7 +216,7 @@ function App() {
   return (
     <React.Fragment>
       {view}
-      {loginOpen && <LoginModal onClose={() => setLoginOpen(false)} onLogin={() => { setLoggedIn(true); setLoginOpen(false); }} />}
+      {loginOpen && <LoginModal onClose={() => { setLoginOpen(false); setPendingPick(null); }} onLogin={() => { setLoggedIn(true); setLoginOpen(false); if (pendingPick) { const id = pendingPick; setPendingPick(null); doPick(id); } }} />}
       <BasketPanel open={basketOpen} items={basket} onClose={() => setBasketOpen(false)} onRemove={removeFromBasket} onClear={() => setBasket([])} onOpenContent={() => { setBasketOpen(false); setScreen("works"); }} />
       <ContentPanel open={contentOpen} onClose={() => setContentOpen(false)} onResume={(item) => { setContentOpen(false); resumeCreation(item); }} />
       <TweaksPanel>

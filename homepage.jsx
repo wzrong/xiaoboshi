@@ -938,7 +938,7 @@ function LeftRail({ page, loggedIn, onNavigate, onNewChat, onResume, onLogout, o
           )}
         </a>
         <a
-          href="https://wzrong.me/xiaoboshi/docs/产品设计文档.html"
+          href={encodeURI("docs/产品设计文档.html")}
           target="_blank"
           rel="noopener noreferrer"
           title="产品文档"
