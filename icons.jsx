@@ -375,6 +375,27 @@ function Icon({ name, size = 24, sw = 1.8 }) {
         <circle cx="15" cy="16" r="2.2" />
       </g>
     ),
+    feedback: (
+      <g>
+        <path d="M5 5h14a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H9l-4 3V6a1 1 0 0 1 1-1z" />
+        <line x1="8.5" y1="10" x2="8.5" y2="10.01" />
+        <line x1="12" y1="10" x2="12" y2="10.01" />
+        <line x1="15.5" y1="10" x2="15.5" y2="10.01" />
+      </g>
+    ),
+    help: (
+      <g>
+        <circle cx="12" cy="12" r="8.5" />
+        <path d="M9.5 9.3a2.5 2.5 0 1 1 3.7 2.2c-.8.5-1.2 1-1.2 2.1" />
+        <line x1="12" y1="16.6" x2="12" y2="16.62" />
+      </g>
+    ),
+    megaphone: (
+      <g>
+        <path d="M4 10v4a1 1 0 0 0 1 1h2l7 4V5l-7 4H5a1 1 0 0 0-1 1z" />
+        <path d="M18 9a4 4 0 0 1 0 6" />
+      </g>
+    ),
   };
   return <svg {...common}>{paths[name] || paths.spark}</svg>;
 }

@@ -523,16 +523,15 @@ const USER_MEMORY = {
     { id: "v4", scenario: "find", icon: "search", hue: 150, title: "一元一次方程 同步微课", last: "收藏了 5 个资源", when: "上周" },
     { id: "v5", scenario: "lesson", icon: "lesson", hue: 320, title: "《数轴》教案（情境导入）", last: "导出为 Word", when: "上周" },
   ],
-  // 我的内容 — everything the teacher has: AI-generated, downloaded from 学科网, 备课组件…
+  // 我的内容 — everything the teacher has: AI-generated, or downloaded from 找资源…
   works: [
     { id: "w1", scenario: "paper", icon: "paper", hue: 25, title: "《有理数》随堂练习卷", kind: "试卷", source: "AI 生成", meta: "人教版 · 七年级 · 中等 · 12 题", when: "昨天", status: "done" },
     { id: "w2", scenario: "courseware", icon: "slides", hue: 255, title: "《整式的加减》互动课件", kind: "互动课件", source: "AI 生成", meta: "人教版 · 七年级 · 18 页 · 2 课时", when: "3 天前", status: "done" },
     { id: "w3", scenario: "lesson", icon: "lesson", hue: 320, title: "《数轴》教学设计", kind: "教案", source: "AI 生成", meta: "人教版 · 七年级 · 情境导入", when: "上周", status: "done" },
-    { id: "w7", scenario: "find", icon: "slides", hue: 210, title: "《一元一次方程》名师同步课件", kind: "课件", source: "学科网下载", meta: "人教版 · 七年级 · 来自资源库", when: "上周", status: "saved" },
-    { id: "w4", scenario: "paper", icon: "paper", hue: 25, title: "第一单元《有理数》单元测试", kind: "试卷", source: "学科网下载", meta: "人教版 · 七年级 · 中等 · 24 题", when: "上周", status: "saved" },
+    { id: "w7", scenario: "find", icon: "slides", hue: 210, title: "《一元一次方程》名师同步课件", kind: "课件", source: "找资源下载", meta: "人教版 · 七年级 · 来自资源库", when: "上周", status: "saved" },
+    { id: "w4", scenario: "paper", icon: "paper", hue: 25, title: "第一单元《有理数》单元测试", kind: "试卷", source: "找资源下载", meta: "人教版 · 七年级 · 中等 · 24 题", when: "上周", status: "saved" },
     { id: "w5", scenario: "courseware", icon: "slides", hue: 255, title: "《正数和负数》导入课件", kind: "PPT 课件", source: "AI 生成", meta: "人教版 · 七年级 · 12 页", when: "2 周前", status: "draft" },
     { id: "w6", scenario: "mindmap", icon: "mindmap", hue: 175, title: "《有理数》知识网络图", kind: "思维导图", source: "AI 生成", meta: "人教版 · 七年级 · 一章", when: "2 周前", status: "done" },
-    { id: "w8", scenario: "find", icon: "interactive", hue: 45, title: "《有理数运算》闯关备课组件", kind: "备课组件", source: "备课产品", meta: "人教版 · 七年级 · 课堂活动", when: "2 周前", status: "saved" },
   ],
 };
 

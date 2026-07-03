@@ -315,25 +315,12 @@ function MemoryPanel({ onResume, onManageMemory, onOpenWorks }) {
   const M = window.AIDATA.USER_MEMORY;
   const S = window.AIDATA.SCENARIOS;
   const mobile = useIsMobile();
-  const [dismissed, setDismissed] = useState(() => localStorage.getItem("aida_mem_floor") === "0");
-  useEffect(() => { try { localStorage.setItem("aida_mem_floor", dismissed ? "0" : "1"); } catch (e) {} }, [dismissed]);
-
-  // collapsed → a slim, unobtrusive strip that explains where memory now lives
-  if (dismissed) {
-    return (
-      <div className="mem-card" style={{ marginTop: 22, maxWidth: 920, marginLeft: "auto", marginRight: "auto", display: "flex", alignItems: "center", gap: 11, padding: "11px 16px", borderRadius: 14, border: "1px dashed var(--line)", background: "var(--surface)", textAlign: "left" }}>
-        <span style={{ width: 26, height: 26, borderRadius: 8, background: "var(--brand-soft)", border: "1px solid var(--brand-soft-border)", display: "grid", placeItems: "center", color: "var(--brand-deep)", flexShrink: 0 }}>
-          <Icon name="spark" size={14} />
-        </span>
-        <div style={{ flex: 1, minWidth: 0, fontSize: 12.5, color: "var(--ink-3)", lineHeight: 1.5 }}>
-          记忆面板已收起 —— 小博士仍在为你记忆，随时可在左侧 <b style={{ color: "var(--ink-2)" }}>「我的记忆」</b> 查看。
-        </div>
-        <button onClick={() => setDismissed(false)} style={{ flexShrink: 0, display: "inline-flex", alignItems: "center", gap: 5, padding: "6px 11px", borderRadius: 9, border: "1px solid var(--line)", background: "var(--surface)", color: "var(--brand-deep)", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "var(--font-zh)" }}>
-          展开
-        </button>
-      </div>
-    );
-  }
+  // closed → the panel is gone for the rest of this session (not collapsed to a strip),
+  // but resets on page refresh so the flow stays testable. teachers can still reach
+  // memory anytime via the sidebar「我的记忆」entry.
+  const [hidden, setHidden] = useState(false);
+  if (hidden) return null;
+  const dismiss = () => setHidden(true);
 
   return (
     <div
@@ -370,8 +357,8 @@ function MemoryPanel({ onResume, onManageMemory, onOpenWorks }) {
           <Icon name="filter" size={13} /> 管理记忆
         </button>
         <button
-          onClick={() => setDismissed(true)}
-          title="收起记忆面板"
+          onClick={dismiss}
+          title="关闭记忆面板"
           style={{ width: 28, height: 28, borderRadius: 8, border: "1px solid var(--brand-soft-border)", background: "var(--surface)", color: "var(--ink-3)", display: "grid", placeItems: "center", cursor: "pointer", flexShrink: 0 }}
         >
           <Icon name="close" size={14} sw={2.4} />
@@ -833,6 +820,12 @@ function Homepage({ page, layout, value, setValue, onSubmit, onPick, onResume, l
             <HistoryPage onResume={onResume} onNewChat={onNewChat} conversations={conversations} />
           ) : loggedIn && page === "basket" ? (
             <BasketPage items={basketItems || []} onRemove={onRemoveBasket} onClear={onClearBasket} onOpenContent={() => onNavigate("works")} onNewChat={onNewChat} onGoFind={() => onPick && onPick("find")} />
+          ) : page === "feedback" ? (
+            <FeedbackPage loggedIn={loggedIn} onRequireLogin={onRequireLogin} />
+          ) : page === "help" ? (
+            <HelpPage onNavigate={onNavigate} />
+          ) : page === "changelog" ? (
+            <ChangelogPage />
           ) : (
             <React.Fragment>
               <div style={{ margin: "auto 0", width: "100%" }}>
@@ -1037,9 +1030,9 @@ function LeftRail({ page, loggedIn, onNavigate, onNewChat, onResume, onLogout, o
               <React.Fragment>
                 <div onClick={() => setAcctMenu(false)} style={{ position: "fixed", inset: 0, zIndex: 30 }} />
                 <div className="enter-pop" style={{ position: "absolute", left: open ? 12 : 8, right: open ? 12 : "auto", bottom: "calc(100% - 2px)", minWidth: 180, background: "var(--surface)", border: "1px solid var(--line)", borderRadius: 13, boxShadow: "0 18px 44px -22px rgba(0,0,0,.4)", padding: 7, zIndex: 31 }}>
-                  <MenuRow icon="spark" label="我的记忆" onClick={() => { setAcctMenu(false); onNavigate("memory"); }} />
-                  <MenuRow icon="grid" label="我的内容" onClick={() => { setAcctMenu(false); onNavigate("works"); }} />
-                  <MenuRow icon="chat" label="历史对话" onClick={() => { setAcctMenu(false); onNavigate("history"); }} />
+                  <MenuRow icon="feedback" label="反馈" onClick={() => { setAcctMenu(false); onNavigate("feedback"); }} />
+                  <MenuRow icon="help" label="帮助" onClick={() => { setAcctMenu(false); onNavigate("help"); }} />
+                  <MenuRow icon="megaphone" label="产品更新动态" onClick={() => { setAcctMenu(false); onNavigate("changelog"); }} />
                   <div style={{ height: 1, background: "var(--line)", margin: "5px 4px" }} />
                   <AppearanceRow />
                   <div style={{ height: 1, background: "var(--line)", margin: "5px 4px" }} />
@@ -1131,15 +1124,11 @@ function MemoryPage({ onResume }) {
           </div>
         ) : (
           <React.Fragment>
-            <Section icon="quote" title="小博士对你的总结">
+            <Section icon="quote" title="小博士眼中的你">
               <div style={{ background: "var(--surface)", border: "1px solid var(--line)", borderRadius: 16, padding: "16px 18px" }}>
                 <p style={{ margin: 0, fontSize: 14.5, lineHeight: 1.8, color: "var(--ink-2)" }}>{M.summary}</p>
                 <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 13, paddingTop: 12, borderTop: "1px dashed var(--line)" }}>
                   <span style={{ fontSize: 12, color: "var(--ink-3)", whiteSpace: "nowrap" }}>记忆更新于 {M.updated}</span>
-                  <div style={{ flex: 1 }} />
-                  <button style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "6px 12px", borderRadius: 8, border: "1px solid var(--line)", background: "var(--surface-2)", color: "var(--ink-2)", fontSize: 12.5, fontWeight: 600, cursor: "pointer", fontFamily: "var(--font-zh)" }}>
-                    <Icon name="refresh" size={13} /> 重新总结
-                  </button>
                 </div>
               </div>
             </Section>
@@ -1207,7 +1196,7 @@ function MemoryPage({ onResume }) {
 function WorksPage({ onResume, onNewChat }) {
   const M = window.AIDATA.USER_MEMORY;
   const mobile = useIsMobile();
-  const SOURCES = ["全部", "AI 生成", "学科网下载", "备课产品"];
+  const SOURCES = ["全部", "AI 生成", "找资源下载"];
   const [filter, setFilter] = useState("全部");
   // list is the default view; teachers scan their library faster as a dense list,
   // and switch to cards when they want the visual previews. choice persists.
@@ -1216,8 +1205,7 @@ function WorksPage({ onResume, onNewChat }) {
   const items = M.works.filter((w) => filter === "全部" || w.source === filter);
   const srcStyle = (src) => {
     if (src === "AI 生成") return { c: "var(--brand-deep)", bg: "var(--brand-soft)", bd: "var(--brand-soft-border)", icon: "spark" };
-    if (src === "学科网下载") return { c: "var(--auth-ink)", bg: "var(--auth-bg)", bd: "var(--auth-border)", icon: "download" };
-    return { c: "oklch(0.5 0.13 45)", bg: "oklch(0.96 0.04 45)", bd: "oklch(0.88 0.06 45)", icon: "layers" };
+    return { c: "var(--auth-ink)", bg: "var(--auth-bg)", bd: "var(--auth-border)", icon: "download" };
   };
   const ViewToggle = () => (
     <div style={{ display: "inline-flex", padding: 3, gap: 2, borderRadius: 10, border: "1px solid var(--line)", background: "var(--surface)", flexShrink: 0 }}>
@@ -1240,11 +1228,8 @@ function WorksPage({ onResume, onNewChat }) {
           </span>
           <div style={{ flex: 1, minWidth: 0 }}>
             <h1 style={{ fontSize: 23, fontWeight: 800, color: "var(--ink)", margin: 0 }}>我的内容</h1>
-            <div style={{ fontSize: 13, color: "var(--ink-3)", fontWeight: 600, marginTop: 2 }}>你的全部教学资料 · AI 生成、学科网下载与备课产品，共 {M.works.length} 份</div>
+            <div style={{ fontSize: 13, color: "var(--ink-3)", fontWeight: 600, marginTop: 2 }}>你的全部教学资料 · AI 生成与找资源下载，共 {M.works.length} 份</div>
           </div>
-          <button onClick={onNewChat} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "10px 16px", borderRadius: 11, border: "none", background: "var(--brand-grad)", backgroundColor: "var(--brand)", color: "#fff", fontSize: 13.5, fontWeight: 700, cursor: "pointer", fontFamily: "var(--font-zh)", flexShrink: 0, boxShadow: "0 4px 14px -6px var(--brand-glow)" }}>
-            <Icon name="plus" size={16} sw={2.4} /> 新建
-          </button>
         </div>
 
         {/* filter by source + view toggle */}
@@ -1346,9 +1331,6 @@ function HistoryPage({ onResume, onNewChat, conversations }) {
             <h1 style={{ fontSize: 23, fontWeight: 800, color: "var(--ink)", margin: 0 }}>历史对话</h1>
             <div style={{ fontSize: 13, color: "var(--ink-3)", fontWeight: 600, marginTop: 2 }}>你与小博士的每一次对话都已保存 · 共 {convs.length} 段，点击任意一条继续</div>
           </div>
-          <button onClick={onNewChat} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "10px 16px", borderRadius: 11, border: "none", background: "var(--brand-grad)", backgroundColor: "var(--brand)", color: "#fff", fontSize: 13.5, fontWeight: 700, cursor: "pointer", fontFamily: "var(--font-zh)", flexShrink: 0, boxShadow: "0 4px 14px -6px var(--brand-glow)" }}>
-            <Icon name="plus" size={16} sw={2.4} /> 新对话
-          </button>
         </div>
 
         {/* timeline */}
@@ -1392,7 +1374,249 @@ function HistoryPage({ onResume, onNewChat, conversations }) {
   );
 }
 
-Object.assign(window, { MemoryPage, WorksPage, HistoryPage });
+// ---------- 反馈 ----------
+function FeedbackPage({ loggedIn, onRequireLogin }) {
+  const mobile = useIsMobile();
+  const CATS = [
+    { k: "bug", label: "问题反馈" },
+    { k: "idea", label: "功能建议" },
+    { k: "other", label: "其他" },
+  ];
+  const catLabel = (k) => (CATS.find((c) => c.k === k) || {}).label || k;
+  const [cat, setCat] = useState("bug");
+  const [text, setText] = useState("");
+  const [images, setImages] = useState([]); // { id, url, name }
+  const [sent, setSent] = useState(false);
+  const fileRef = useRef(null);
+  // local record of past submissions — there's no backend, so this lives in
+  // localStorage on this device; good enough for "did I already report this".
+  const [log, setLog] = useState(() => {
+    try { return JSON.parse(localStorage.getItem("aida_feedback_log") || "[]"); } catch (e) { return []; }
+  });
+
+  const addImages = (files) => {
+    const room = Math.max(0, 4 - images.length);
+    const next = Array.from(files || []).slice(0, room).map((f) => ({ id: Math.random().toString(36).slice(2), url: URL.createObjectURL(f), name: f.name }));
+    if (next.length) setImages((im) => [...im, ...next]);
+  };
+  const removeImage = (id) => setImages((im) => im.filter((i) => i.id !== id));
+
+  const submit = () => {
+    if (!loggedIn) { onRequireLogin && onRequireLogin(); return; }
+    if (!text.trim()) return;
+    const entry = {
+      id: Math.random().toString(36).slice(2),
+      cat,
+      text: text.trim(),
+      imageCount: images.length,
+      when: new Date().toLocaleString("zh-CN", { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" }),
+    };
+    const nextLog = [entry, ...log].slice(0, 20);
+    setLog(nextLog);
+    try { localStorage.setItem("aida_feedback_log", JSON.stringify(nextLog)); } catch (e) {}
+    setSent(true);
+  };
+
+  const reset = () => { setSent(false); setText(""); setImages([]); };
+  const canSubmit = !loggedIn || !!text.trim();
+
+  return (
+    <div className="home-fade" style={{ flex: 1, overflowY: "auto", padding: mobile ? "8px 16px 48px" : "10px 24px 60px" }}>
+      <div style={{ maxWidth: 640, margin: "0 auto" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 14, padding: "8px 0 22px" }}>
+          <span style={{ width: 46, height: 46, borderRadius: 14, background: "var(--brand-soft)", border: "1px solid var(--brand-soft-border)", display: "grid", placeItems: "center", color: "var(--brand-deep)", flexShrink: 0 }}>
+            <Icon name="feedback" size={21} />
+          </span>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <h1 style={{ fontSize: 23, fontWeight: 800, color: "var(--ink)", margin: 0 }}>反馈</h1>
+            <div style={{ fontSize: 13, color: "var(--ink-3)", fontWeight: 600, marginTop: 2 }}>遇到问题，或者有功能建议？告诉小博士。</div>
+          </div>
+        </div>
+
+        {sent ? (
+          <div style={{ textAlign: "center", padding: "70px 20px", color: "var(--ink-3)" }}>
+            <div style={{ display: "inline-flex", marginBottom: 12, color: "var(--brand-deep)" }}><Icon name="check" size={44} sw={1.6} /></div>
+            <div style={{ fontSize: 16, fontWeight: 700, color: "var(--ink-2)", marginBottom: 6 }}>已收到你的反馈，谢谢！</div>
+            <div style={{ fontSize: 13.5, lineHeight: 1.6, marginBottom: 20 }}>我们会尽快查看这条反馈，感谢你帮小博士变得更好用。</div>
+            <button onClick={reset} style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "8px 16px", borderRadius: 10, border: "1px solid var(--line)", background: "var(--surface)", color: "var(--ink-2)", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "var(--font-zh)" }}>
+              再提一条
+            </button>
+          </div>
+        ) : (
+          <div style={{ background: "var(--surface)", border: "1px solid var(--line)", borderRadius: 16, padding: "18px 20px" }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: "var(--ink-2)", marginBottom: 9 }}>类型</div>
+            <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+              {CATS.map((c) => (
+                <button key={c.k} onClick={() => setCat(c.k)} style={{ padding: "7px 15px", borderRadius: 999, fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "var(--font-zh)", border: cat === c.k ? "1px solid var(--brand)" : "1px solid var(--line)", background: cat === c.k ? "var(--brand-soft)" : "var(--surface)", color: cat === c.k ? "var(--brand-deep)" : "var(--ink-2)" }}>{c.label}</button>
+              ))}
+            </div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: "var(--ink-2)", marginBottom: 9 }}>详细描述</div>
+            <textarea
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+              placeholder="请描述你遇到的问题，或希望小博士支持的功能…"
+              rows={6}
+              style={{ width: "100%", boxSizing: "border-box", resize: "vertical", padding: "12px 14px", borderRadius: 12, border: "1px solid var(--line)", background: "var(--surface-2)", color: "var(--ink)", fontSize: 14, lineHeight: 1.6, fontFamily: "var(--font-zh)", outline: "none" }}
+            />
+            <div style={{ fontSize: 13, fontWeight: 700, color: "var(--ink-2)", margin: "16px 0 9px" }}>图片（选填，最多 4 张）</div>
+            <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+              {images.map((img) => (
+                <div key={img.id} style={{ position: "relative", width: 76, height: 76, borderRadius: 10, overflow: "hidden", border: "1px solid var(--line)", flexShrink: 0 }}>
+                  <img src={img.url} alt={img.name} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+                  <button onClick={() => removeImage(img.id)} aria-label="删除图片" style={{ position: "absolute", top: 3, right: 3, width: 18, height: 18, borderRadius: "50%", border: "none", background: "rgba(0,0,0,.55)", color: "#fff", display: "grid", placeItems: "center", cursor: "pointer" }}>
+                    <Icon name="close" size={10} sw={3} />
+                  </button>
+                </div>
+              ))}
+              {images.length < 4 && (
+                <button onClick={() => fileRef.current && fileRef.current.click()} style={{ width: 76, height: 76, borderRadius: 10, border: "1px dashed var(--line)", background: "var(--surface-2)", color: "var(--ink-3)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 4, cursor: "pointer", fontFamily: "var(--font-zh)", flexShrink: 0 }}>
+                  <Icon name="image" size={18} />
+                  <span style={{ fontSize: 10.5 }}>上传图片</span>
+                </button>
+              )}
+              <input ref={fileRef} type="file" accept="image/*" multiple style={{ display: "none" }} onChange={(e) => { addImages(e.target.files); e.target.value = ""; }} />
+            </div>
+            <button
+              onClick={submit}
+              disabled={!canSubmit}
+              style={{ marginTop: 18, display: "inline-flex", alignItems: "center", gap: 7, padding: "11px 22px", borderRadius: 11, border: "none", background: canSubmit ? "var(--brand-grad)" : "var(--line)", backgroundColor: "var(--brand)", color: "#fff", fontSize: 14, fontWeight: 700, cursor: canSubmit ? "pointer" : "default", fontFamily: "var(--font-zh)", opacity: canSubmit ? 1 : 0.6 }}
+            >
+              <Icon name="send" size={16} /> 提交反馈
+            </button>
+            {!loggedIn && (
+              <div style={{ fontSize: 12, color: "var(--ink-3)", marginTop: 9 }}>登录后才能提交反馈，点击上方按钮会先引导你登录。</div>
+            )}
+          </div>
+        )}
+
+        {log.length > 0 && (
+          <div style={{ marginTop: 26 }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: "var(--ink-3)", marginBottom: 10 }}>我的反馈记录</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {log.map((e) => (
+                <div key={e.id} style={{ display: "flex", alignItems: "flex-start", gap: 10, background: "var(--surface)", border: "1px solid var(--line)", borderRadius: 12, padding: "11px 13px" }}>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: "var(--brand-deep)", background: "var(--brand-soft)", border: "1px solid var(--brand-soft-border)", padding: "2px 8px", borderRadius: 999, flexShrink: 0, marginTop: 1, whiteSpace: "nowrap" }}>{catLabel(e.cat)}</span>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 13, color: "var(--ink-2)", lineHeight: 1.5, overflow: "hidden", textOverflow: "ellipsis", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>{e.text}</div>
+                    <div style={{ fontSize: 11, color: "var(--ink-3)", marginTop: 4, display: "flex", alignItems: "center", gap: 6 }}>
+                      {e.imageCount > 0 && <span style={{ display: "inline-flex", alignItems: "center", gap: 3 }}><Icon name="image" size={11} /> {e.imageCount}</span>}
+                      <span>{e.when}</span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ---------- 帮助 ----------
+function HelpPage({ onNavigate }) {
+  const mobile = useIsMobile();
+  const FAQS = [
+    { q: "小博士能帮我做什么？", a: "找资源、问教材、写教案、做课件、出卷子、做思维导图、批改作业——七大教学场景，直接在输入框描述需求，AI 会自动判断该进入哪个场景。" },
+    { q: "找到的资源可靠吗？", a: "小博士的资源库来自学科网，找资源时会优先展示你自己的内容与已收藏资源，其余来自学科网公共库，均经过三审三校。" },
+    { q: "登录后有什么不同？", a: "登录后小博士会记住你的学科、学段、版本与常用偏好，创作时自动预填、少配置；同时可以查看历史对话、我的内容与我的记忆，随时续作。" },
+    { q: "生成的内容存在哪里？", a: "AI 生成的课件、教案、试卷、思维导图会自动存入「我的内容」；从找资源下载的资料也会归档在这里，可随时续作或重新下载。" },
+    { q: "小博士记住的内容可以修改吗？", a: "可以。在侧边栏「我的记忆」页面，你可以查看每条记忆的形成依据，单独关闭某条记忆，或一键清空全部。" },
+  ];
+  const [openIdx, setOpenIdx] = useState(0);
+
+  return (
+    <div className="home-fade" style={{ flex: 1, overflowY: "auto", padding: mobile ? "8px 16px 48px" : "10px 24px 60px" }}>
+      <div style={{ maxWidth: 700, margin: "0 auto" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 14, padding: "8px 0 22px" }}>
+          <span style={{ width: 46, height: 46, borderRadius: 14, background: "var(--brand-soft)", border: "1px solid var(--brand-soft-border)", display: "grid", placeItems: "center", color: "var(--brand-deep)", flexShrink: 0 }}>
+            <Icon name="help" size={22} />
+          </span>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <h1 style={{ fontSize: 23, fontWeight: 800, color: "var(--ink)", margin: 0 }}>帮助</h1>
+            <div style={{ fontSize: 13, color: "var(--ink-3)", fontWeight: 600, marginTop: 2 }}>常见问题与使用说明</div>
+          </div>
+        </div>
+
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          {FAQS.map((f, i) => {
+            const isOpen = openIdx === i;
+            return (
+              <div key={i} style={{ background: "var(--surface)", border: "1px solid var(--line)", borderRadius: 14, overflow: "hidden" }}>
+                <button onClick={() => setOpenIdx(isOpen ? -1 : i)} style={{ width: "100%", display: "flex", alignItems: "center", gap: 10, padding: "14px 16px", border: "none", background: "transparent", cursor: "pointer", textAlign: "left", fontFamily: "var(--font-zh)" }}>
+                  <span style={{ flex: 1, fontSize: 14.5, fontWeight: 700, color: "var(--ink)" }}>{f.q}</span>
+                  <span style={{ color: "var(--ink-3)", flexShrink: 0, transform: isOpen ? "rotate(180deg)" : "none", transition: "transform .2s" }}><Icon name="chevronDown" size={16} /></span>
+                </button>
+                {isOpen && (
+                  <div style={{ padding: "0 16px 16px", fontSize: 13.5, color: "var(--ink-2)", lineHeight: 1.7 }}>{f.a}</div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+
+        <div style={{ marginTop: 18, display: "flex", alignItems: "center", gap: 11, padding: "14px 16px", borderRadius: 14, border: "1px dashed var(--brand-soft-border)", background: "var(--brand-soft)" }}>
+          <span style={{ width: 30, height: 30, borderRadius: 9, background: "var(--surface)", border: "1px solid var(--brand-soft-border)", display: "grid", placeItems: "center", color: "var(--brand-deep)", flexShrink: 0 }}>
+            <Icon name="feedback" size={16} />
+          </span>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 13.5, fontWeight: 800, color: "var(--ink)" }}>没找到答案？</div>
+            <div style={{ fontSize: 12, color: "var(--ink-2)", marginTop: 1 }}>去反馈页告诉我们，我们会尽快跟进。</div>
+          </div>
+          <button onClick={() => onNavigate && onNavigate("feedback")} style={{ flexShrink: 0, display: "inline-flex", alignItems: "center", gap: 5, padding: "8px 14px", borderRadius: 10, border: "1px solid var(--brand-soft-border)", background: "var(--surface)", color: "var(--brand-deep)", fontSize: 12.5, fontWeight: 700, cursor: "pointer", fontFamily: "var(--font-zh)" }}>
+            去反馈 <Icon name="arrow" size={14} />
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ---------- 产品更新动态 ----------
+function ChangelogPage() {
+  const mobile = useIsMobile();
+  const UPDATES = [
+    { date: "2026-06-28", title: "记忆面板全新升级", points: ["登录后首页展示「小博士还记得你」，自动记住学科、学段与版本偏好", "支持一键续作上次的课件、试卷与教案"] },
+    { date: "2026-06-10", title: "互动课件新增课堂活动", points: ["课件中可直接插入抢答、随堂练习等互动组件", "支持「传统 PPT」与「互动课件」两种形态自由切换"] },
+    { date: "2026-05-22", title: "找资源支持专辑与视频章节锚点", points: ["结果按全部 / 文档 / 视频 / 专辑分轨呈现", "视频支持章节锚点跳转，资源可一键收藏进资源篮"] },
+    { date: "2026-05-02", title: "上线批改场景", points: ["支持整班作业批改，自动生成错题本与评语", "可导出班级质量分析，含逐题正确率与共性错误"] },
+  ];
+  const SPINE = 9;
+
+  return (
+    <div className="home-fade" style={{ flex: 1, overflowY: "auto", padding: mobile ? "8px 16px 48px" : "10px 24px 60px" }}>
+      <div style={{ maxWidth: 700, margin: "0 auto" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 14, padding: "8px 0 22px" }}>
+          <span style={{ width: 46, height: 46, borderRadius: 14, background: "var(--brand-soft)", border: "1px solid var(--brand-soft-border)", display: "grid", placeItems: "center", color: "var(--brand-deep)", flexShrink: 0 }}>
+            <Icon name="megaphone" size={21} />
+          </span>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <h1 style={{ fontSize: 23, fontWeight: 800, color: "var(--ink)", margin: 0 }}>产品更新动态</h1>
+            <div style={{ fontSize: 13, color: "var(--ink-3)", fontWeight: 600, marginTop: 2 }}>我们如何让小博士越来越好用</div>
+          </div>
+        </div>
+
+        <div style={{ position: "relative", paddingLeft: 30 }}>
+          <div style={{ position: "absolute", left: SPINE - 1, top: 6, bottom: 6, width: 2, background: "var(--line)" }} />
+          {UPDATES.map((u, i) => (
+            <div key={i} style={{ position: "relative", paddingBottom: i < UPDATES.length - 1 ? 22 : 0 }}>
+              <span style={{ position: "absolute", left: SPINE - 5 - 30, top: 3, width: 10, height: 10, borderRadius: "50%", background: "var(--brand)", border: "3px solid var(--brand-soft)" }} />
+              <div style={{ fontSize: 12, color: "var(--ink-3)", fontWeight: 700, marginBottom: 6, fontFamily: "var(--font-num)" }}>{u.date}</div>
+              <div style={{ background: "var(--surface)", border: "1px solid var(--line)", borderRadius: 14, padding: "14px 16px" }}>
+                <div style={{ fontSize: 15, fontWeight: 800, color: "var(--ink)", marginBottom: 8 }}>{u.title}</div>
+                <ul style={{ margin: 0, paddingLeft: 18, fontSize: 13.5, color: "var(--ink-2)", lineHeight: 1.8 }}>
+                  {u.points.map((p, j) => <li key={j}>{p}</li>)}
+                </ul>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+Object.assign(window, { MemoryPage, WorksPage, HistoryPage, FeedbackPage, HelpPage, ChangelogPage });
 
 // ---------- 资源篮 (resource basket) — full PAGE when opened from the menu ----------
 // (the right-side drawer form, BasketPanel, is kept for in-scenario quick access)
@@ -1609,7 +1833,7 @@ Object.assign(window, { BasketPanel });
 function ContentPanel({ open, onClose, onResume }) {
   const M = window.AIDATA.USER_MEMORY;
   const mobile = useIsMobile();
-  const SOURCES = ["全部", "AI 生成", "学科网下载", "备课产品"];
+  const SOURCES = ["全部", "AI 生成", "找资源下载"];
   const [filter, setFilter] = useState("全部");
   useEffect(() => {
     if (!open) return;
@@ -1620,8 +1844,7 @@ function ContentPanel({ open, onClose, onResume }) {
   const items = M.works.filter((w) => filter === "全部" || w.source === filter);
   const srcStyle = (src) =>
     src === "AI 生成" ? { c: "var(--brand-deep)", bg: "var(--brand-soft)", bd: "var(--brand-soft-border)", icon: "spark" }
-      : src === "学科网下载" ? { c: "var(--auth-ink)", bg: "var(--auth-bg)", bd: "var(--auth-border)", icon: "download" }
-        : { c: "oklch(0.5 0.13 45)", bg: "oklch(0.96 0.04 45)", bd: "oklch(0.88 0.06 45)", icon: "layers" };
+      : { c: "var(--auth-ink)", bg: "var(--auth-bg)", bd: "var(--auth-border)", icon: "download" };
 
   const panelStyle = mobile
     ? { position: "fixed", left: 0, right: 0, bottom: 0, height: "82dvh", maxHeight: "82vh", borderRadius: "18px 18px 0 0", transform: open ? "translateY(0)" : "translateY(101%)" }
@@ -1637,7 +1860,7 @@ function ContentPanel({ open, onClose, onResume }) {
           <span style={{ width: 36, height: 36, borderRadius: 10, background: "var(--brand-soft)", border: "1px solid var(--brand-soft-border)", display: "grid", placeItems: "center", color: "var(--brand-deep)", flexShrink: 0 }}><Icon name="grid" size={18} /></span>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontSize: 16, fontWeight: 800, color: "var(--ink)" }}>我的内容</div>
-            <div style={{ fontSize: 11.5, color: "var(--ink-3)", fontWeight: 600 }}>AI 生成、学科网下载与备课产品，共 {M.works.length} 份</div>
+            <div style={{ fontSize: 11.5, color: "var(--ink-3)", fontWeight: 600 }}>AI 生成与找资源下载，共 {M.works.length} 份</div>
           </div>
           <button onClick={onClose} aria-label="关闭" style={{ width: 32, height: 32, borderRadius: 9, border: "1px solid var(--line)", background: "var(--surface)", color: "var(--ink-2)", display: "grid", placeItems: "center", cursor: "pointer", flexShrink: 0 }}>
             <Icon name="close" size={16} sw={2.4} />

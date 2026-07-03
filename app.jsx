@@ -115,7 +115,7 @@ function App() {
     setScreen("workspace");
   };
 
-  const isHomeShell = screen === "home" || screen === "memory" || screen === "works" || screen === "history" || screen === "basket";
+  const isHomeShell = screen === "home" || screen === "memory" || screen === "works" || screen === "history" || screen === "basket" || screen === "feedback" || screen === "help" || screen === "changelog";
 
   // tell ChatSession which workspace is in view, so a logged history record can carry
   // the right scenario icon/hue and the 成果 menu the right glyph.
