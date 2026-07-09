@@ -57,6 +57,12 @@ https://你的用户名.github.io/仓库名/
 https://你的用户名.github.io/仓库名/docs/产品设计文档.html
 ```
 
+设计系统文档地址：
+
+```text
+https://你的用户名.github.io/仓库名/docs/design-system.html
+```
+
 ## 更新线上站点
 
 修改代码后，在项目目录执行：
