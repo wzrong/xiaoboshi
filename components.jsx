@@ -391,6 +391,9 @@ function useSmartSend({ scenarioId, onSwitch, setMessages, localSend }) {
     const willSwitch = !!(text && text.trim()) && target && target !== scenarioId && typeof onSwitch === "function";
     clearTimeout(timer.current);
     if (willSwitch) {
+      // AI auto-switch — remember where we came from so the chat divider can offer a one-click 切回
+      const cur = (window.AIDATA.SCENARIOS.find((s) => s.id === scenarioId)) || (window.AIDATA.GENERAL && window.AIDATA.GENERAL.id === scenarioId ? window.AIDATA.GENERAL : null);
+      window.ChatSession.switchMeta = { source: "auto", from: cur ? { id: cur.id, name: cur.name } : null };
       // echo the user's message, flash recognizing, then route to the new tool
       setMessages && setMessages((m) => [...m, { role: "user", text, files }]);
       setHeaderRecognizing(true);
@@ -470,7 +473,12 @@ const ChatSession = {
   suppressHistory: false,      // true when resuming an existing item (don't log a NEW history record)
   activeScenario: null,        // {id, icon, hue, name} of the workspace currently in view
   _convTitle: null,            // cached distilled title for this session
-  take() { return this.log.slice(); },
+  take() {
+    const log = this.log.slice();
+    // drop trailing switch markers so rapid A→B→C hops leave one divider, not a stack
+    while (log.length && log[log.length - 1].role === "sys") log.pop();
+    return log;
+  },
   save(msgs) {
     this.log = msgs || [];
     // once a session produces a real round (the teacher sent something), log/refresh
@@ -541,7 +549,20 @@ function enterThread(scenario, greet) {
   const log = ChatSession.take();
   // drop trailing markers (and nothing else) so A→B→C leaves one marker, not three
   while (log.length && log[log.length - 1].role === "sys") log.pop();
+  const div = takeSwitchDivider(scenario, log.length > 0);
   if (!log.length) return greet ? [{ role: "ai", node: greet }] : [];
-  return [...log, { role: "sys", text: `已切换到「${scenario.name}」`, icon: scenario.icon }];
+  return [...log, ...div];
 }
-Object.assign(window, { enterThread });
+// ── Switch divider for query-seeded entries ──
+// Consumes the switch provenance (ChatSession.switchMeta, set by whoever triggered the
+// switch): AI auto-routes carry a one-click 「切回」 back to the previous scenario.
+// Always call this when seeding a thread mid-session — it must clear the meta even
+// when no divider is rendered, so stale provenance never leaks into a later switch.
+function takeSwitchDivider(scenario, hasHistory) {
+  const meta = ChatSession.switchMeta || null;
+  ChatSession.switchMeta = null;
+  if (!hasHistory) return [];
+  const back = meta && meta.source === "auto" && meta.from && meta.from.id !== scenario.id ? meta.from : null;
+  return [{ role: "sys", text: `已切换到「${scenario.name}」`, icon: scenario.icon, back }];
+}
+Object.assign(window, { enterThread, takeSwitchDivider });

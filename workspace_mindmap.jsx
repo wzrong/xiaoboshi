@@ -190,11 +190,12 @@ function MindmapWorkspace({ scenario, query, onHome, onSwitch, fromIntent, resum
     if (fromIntent && query) {
       return [
         ...window.ChatSession.take(),
+        ...window.takeSwitchDivider(scenario, window.ChatSession.log.length > 0),
         ...(window.ChatSession.echoed(query) ? [] : [{ role: "user", text: query }]),
         { role: "ai", wide: true, intent: query, render: () => <InlineIntent query={query} onDone={() => { genMap(query, (m2) => { setMessages((ms) => [...ms, { role: "ai", node: doneNote(m2), artifact: artFor(m2) }]); setSugs(MIND_SUGS); }); }} /> },
       ];
     }
-    if (query) { const m2 = map || buildMindmap(query); return [...window.ChatSession.take(), ...(window.ChatSession.echoed(query) ? [] : [{ role: "user", text: query }]), { role: "ai", node: doneNote(m2), artifact: artFor(m2) }]; }
+    if (query) { const m2 = map || buildMindmap(query); return [...window.ChatSession.take(), ...window.takeSwitchDivider(scenario, window.ChatSession.log.length > 0), ...(window.ChatSession.echoed(query) ? [] : [{ role: "user", text: query }]), { role: "ai", node: doneNote(m2), artifact: artFor(m2) }]; }
     if (stored.map) return window.enterThread(scenario);
     return window.enterThread(scenario, greet);
   });

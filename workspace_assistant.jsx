@@ -249,12 +249,13 @@ function GeneralWorkspace({ query, fromIntent, onHome, onSwitch, nav }) {
     if (willRecognize) {
       return [
         ...window.ChatSession.take(),
+        ...window.takeSwitchDivider(GEN, window.ChatSession.log.length > 0),
         ...(window.ChatSession.echoed(query) ? [] : [{ role: "user", text: query }]),
         { role: "ai", wide: true, intent: query, render: () => <InlineIntent query={query} onDone={(t) => recapRef.current(t)} /> },
       ];
     }
     const hist = window.ChatSession.take();
-    if (hist.length) return window.enterThread(scenario);
+    if (hist.length) return window.enterThread(GEN);
     return [
       ...hist,
       { role: "ai", node: (

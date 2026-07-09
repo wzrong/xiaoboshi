@@ -621,11 +621,12 @@ function LessonWorkspace({ scenario, query, onHome, onSwitch, fromIntent, resume
     if (fromIntent && query) {
       return [
         ...window.ChatSession.take(),
+        ...window.takeSwitchDivider(scenario, window.ChatSession.log.length > 0),
         ...(window.ChatSession.echoed(query) ? [] : [window.ChatSession.seedUser(query)]),
         { role: "ai", wide: true, intent: query, render: () => <InlineIntent query={query} onDone={() => { const m = lessonMeta(query, textbook); setMeta(m); setRawQ(query); setOutline(buildOutline(stored.docType || "教学设计")); setMessages((ms) => [...ms, { role: "ai", node: outlineNote(m, stored.docType || "教学设计") }]); }} /> },
       ];
     }
-    if (freshQuery) return [...window.ChatSession.take(), ...(window.ChatSession.echoed(query) ? [] : [window.ChatSession.seedUser(query)]), { role: "ai", node: outlineNote(lessonMeta(initialQ, textbook), stored.docType || "教学设计") }];
+    if (freshQuery) return [...window.ChatSession.take(), ...window.takeSwitchDivider(scenario, window.ChatSession.log.length > 0), ...(window.ChatSession.echoed(query) ? [] : [window.ChatSession.seedUser(query)]), { role: "ai", node: outlineNote(lessonMeta(initialQ, textbook), stored.docType || "教学设计") }];
     return window.enterThread(scenario, greet);
   });
   const LESSON_SUGS = ["补充教学反思", "作业改成分层", "重难点再细化", "导入换成情境式"];

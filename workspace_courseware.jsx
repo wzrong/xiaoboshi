@@ -490,12 +490,13 @@ function CoursewareWorkspace({ scenario, query, onHome, onSwitch, fromIntent, re
     if (fromIntent && query) {
       return [
         ...hist,
+        ...window.takeSwitchDivider(scenario, hist.length > 0),
         ...(window.ChatSession.echoed(query) ? [] : [{ role: "user", text: query }]),
         { role: "ai", wide: true, intent: query, render: () => <InlineIntent query={query} onDone={afterIntent} /> },
       ];
     }
     if (query) {
-      return [...hist, ...(window.ChatSession.echoed(query) ? [] : [{ role: "user", text: query }]), { role: "ai", node: greet }];
+      return [...hist, ...window.takeSwitchDivider(scenario, hist.length > 0), ...(window.ChatSession.echoed(query) ? [] : [{ role: "user", text: query }]), { role: "ai", node: greet }];
     }
     if (hist.length) return window.enterThread(scenario, greet);
     return [...hist, { role: "ai", node: greet }];

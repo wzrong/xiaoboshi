@@ -71,39 +71,138 @@ function ChatResizer({ children }) {
   );
 }
 
-// ---- Scenario bar: lives at the TOP OF THE STAGE (right pane). The assistant
-// stays on the left; scenarios are just "stages" it opens — switching happens here. ----
-function ScenarioBar({ scenario, onSwitch, disabled }) {
-  const SC = window.AIDATA.SCENARIOS;
-  const canSwitch = typeof onSwitch === "function" && !disabled;
+// ---- Current-scenario label: lives at the TOP OF THE STAGE (right pane). Pure
+// status ("你在哪") — it no longer switches scenarios. Switching now happens down
+// by the composer (see ScenePills), the same visual focus area as typing. ----
+function StageScenarioLabel({ scenario }) {
+  if (!scenario) return null;
   return (
-    <div data-screen-label="场景切换栏" style={{ display: "flex", alignItems: "center", gap: 3, padding: "8px 8px 8px 12px", overflowX: "auto", flexShrink: 1, minWidth: 0, scrollbarWidth: "none" }}>
-      {SC.map((s) => {
-        const active = scenario && s.id === scenario.id;
-        return (
+    <div data-screen-label="当前场景标识" style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 8px 6px 12px", minWidth: 0 }}>
+      <ScenarioGlyph icon={scenario.icon} hue={scenario.hue} size={22} active />
+      <span style={{ fontSize: 13.5, fontWeight: 800, color: "var(--ink)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{scenario.name}</span>
+    </div>
+  );
+}
+
+// ---- Scene pills: lives ABOVE THE COMPOSER (left pane, same visual focus area as
+// typing). Clicking a pill is a manual scene switch — the session's conversation
+// keeps flowing, only the right-side workspace (and this row's highlight) changes.
+// Overflow rule: whatever doesn't fit in one row collapses into a "更多" menu; if the
+// CURRENT scenario would land in that collapsed set, it's swapped into the visible
+// row instead — the active scene must always stay visible. ----
+function ScenePills({ scenario, onSwitch, disabled }) {
+  const SC = window.AIDATA.SCENARIOS;
+  const wrapRef = uR(null);
+  const measureRefs = uR([]);
+  const moreRef = uR(null);
+  const [fit, setFit] = uS(SC.length);
+  const [moreOpen, setMoreOpen] = uS(false);
+  const canSwitch = typeof onSwitch === "function" && !disabled;
+
+  const recalc = () => {
+    const wrap = wrapRef.current;
+    if (!wrap) return;
+    const avail = wrap.clientWidth;
+    const GAP = 6;
+    const widths = measureRefs.current.map((el) => (el ? el.getBoundingClientRect().width : 0));
+    const moreW = (moreRef.current ? moreRef.current.getBoundingClientRect().width : 64) + GAP;
+    let total = 0, count = 0;
+    for (let i = 0; i < widths.length; i++) {
+      const w = widths[i] + (i > 0 ? GAP : 0);
+      const isLast = i === widths.length - 1;
+      const budget = isLast ? avail : avail - moreW;
+      if (total + w <= budget) { total += w; count = i + 1; } else break;
+    }
+    setFit(Math.max(1, count));
+  };
+
+  uE(() => {
+    recalc();
+    const ro = new ResizeObserver(() => recalc());
+    if (wrapRef.current) ro.observe(wrapRef.current);
+    return () => ro.disconnect();
+  }, []);
+
+  uE(() => {
+    if (!moreOpen) return;
+    const close = (e) => { if (moreRef.current && !moreRef.current.contains(e.target)) setMoreOpen(false); };
+    document.addEventListener("mousedown", close);
+    return () => document.removeEventListener("mousedown", close);
+  }, [moreOpen]);
+
+  const activeIdx = SC.findIndex((s) => scenario && s.id === scenario.id);
+  let visible = SC.slice(0, fit);
+  let overflow = SC.slice(fit);
+  if (activeIdx >= fit && fit > 0) {
+    visible = [...SC.slice(0, fit - 1), SC[activeIdx]];
+    overflow = SC.filter((s) => !visible.some((v) => v.id === s.id));
+  }
+
+  const pillStyle = (active) => ({
+    display: "inline-flex", alignItems: "center", gap: 6, flexShrink: 0, whiteSpace: "nowrap",
+    padding: "5px 11px 5px 6px", borderRadius: 999,
+    border: "1px solid " + (active ? "var(--brand-soft-border)" : "var(--line)"),
+    background: active ? "var(--brand-soft)" : "var(--surface)",
+    color: active ? "var(--brand-deep)" : "var(--ink-2)",
+    fontSize: 12.5, fontWeight: active ? 800 : 600,
+    cursor: active || !canSwitch ? "default" : "pointer", fontFamily: "var(--font-zh)",
+    opacity: disabled ? 0.55 : 1,
+    transition: "background .15s, border-color .15s, color .15s",
+  });
+  const Pill = ({ s, refCb }) => {
+    const active = scenario && s.id === scenario.id;
+    return (
+      <button
+        ref={refCb}
+        key={s.id}
+        onClick={() => { if (canSwitch && !active) { window.ChatSession && (window.ChatSession.switchMeta = { source: "manual" }); onSwitch(s.id, ""); } }}
+        title={active ? "当前场景" : "切换到" + s.name}
+        style={pillStyle(active)}
+        onMouseEnter={(e) => { if (canSwitch && !active) e.currentTarget.style.background = "var(--surface-2)"; }}
+        onMouseLeave={(e) => { if (canSwitch && !active) e.currentTarget.style.background = active ? "var(--brand-soft)" : "var(--surface)"; }}
+      >
+        <ScenarioGlyph icon={s.icon} hue={s.hue} size={20} active={active} />
+        {s.name}
+      </button>
+    );
+  };
+
+  return (
+    <div ref={wrapRef} data-screen-label="场景切换胶囊" style={{ position: "relative", display: "flex", alignItems: "center", gap: 6, minWidth: 0, marginBottom: 8 }}>
+      {/* hidden measuring row — same markup as the real pills, used only to learn natural widths */}
+      <div style={{ position: "absolute", top: 0, left: 0, visibility: "hidden", pointerEvents: "none", display: "flex", gap: 6, zIndex: -1 }} aria-hidden="true">
+        {SC.map((s, i) => <Pill key={s.id} s={s} refCb={(el) => (measureRefs.current[i] = el)} />)}
+      </div>
+      {visible.map((s) => <Pill key={s.id} s={s} />)}
+      {overflow.length > 0 && (
+        <div ref={moreRef} style={{ position: "relative", flexShrink: 0 }}>
           <button
-            key={s.id}
-            onClick={() => { if (canSwitch && !active) onSwitch(s.id, ""); }}
-            title={active ? "当前场景" : "切换到" + s.name}
-            style={{
-              display: "inline-flex", alignItems: "center", gap: 6, flexShrink: 0,
-              padding: "5px 11px 5px 6px", borderRadius: 999,
-              border: "1px solid " + (active ? "var(--brand-soft-border)" : "transparent"),
-              background: active ? "var(--brand-soft)" : "transparent",
-              color: active ? "var(--brand-deep)" : "var(--ink-2)",
-              fontSize: 12.5, fontWeight: active ? 800 : 600,
-              cursor: active || !canSwitch ? "default" : "pointer", fontFamily: "var(--font-zh)",
-              opacity: disabled ? 0.55 : 1,
-              transition: "background .15s, border-color .15s, color .15s",
-            }}
-            onMouseEnter={(e) => { if (canSwitch && !active) e.currentTarget.style.background = "var(--surface-2)"; }}
-            onMouseLeave={(e) => { if (canSwitch && !active) e.currentTarget.style.background = active ? "var(--brand-soft)" : "transparent"; }}
+            onClick={() => setMoreOpen((v) => !v)}
+            style={{ ...pillStyle(false), cursor: canSwitch ? "pointer" : "default", paddingLeft: 11 }}
           >
-            <ScenarioGlyph icon={s.icon} hue={s.hue} size={22} active={active} />
-            {s.name}
+            更多 <span style={{ display: "inline-flex", transform: moreOpen ? "rotate(180deg)" : "none", transition: "transform .15s" }}><Icon name="chevron" size={12} /></span>
           </button>
-        );
-      })}
+          {moreOpen && (
+            <div style={{ position: "absolute", bottom: "calc(100% + 6px)", left: 0, minWidth: 168, background: "var(--surface)", border: "1px solid var(--line)", borderRadius: 12, boxShadow: "0 12px 32px -10px rgba(20,30,50,.22)", padding: 6, zIndex: 40 }}>
+              {overflow.map((s) => {
+                const active = scenario && s.id === scenario.id;
+                return (
+                  <button
+                    key={s.id}
+                    onClick={() => { setMoreOpen(false); if (canSwitch && !active) { window.ChatSession && (window.ChatSession.switchMeta = { source: "manual" }); onSwitch(s.id, ""); } }}
+                    style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", padding: "7px 9px", borderRadius: 8, border: "none", background: active ? "var(--brand-soft)" : "transparent", color: active ? "var(--brand-deep)" : "var(--ink-2)", fontSize: 12.5, fontWeight: active ? 800 : 600, fontFamily: "var(--font-zh)", cursor: active || !canSwitch ? "default" : "pointer", textAlign: "left" }}
+                    onMouseEnter={(e) => { if (!active) e.currentTarget.style.background = "var(--surface-2)"; }}
+                    onMouseLeave={(e) => { if (!active) e.currentTarget.style.background = "transparent"; }}
+                  >
+                    <ScenarioGlyph icon={s.icon} hue={s.hue} size={20} active={active} />
+                    {s.name}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -236,7 +335,7 @@ function WorkspaceShell({ scenario, onHome, onSwitch, children, right, afterTitl
           <BotAvatar size={20} /> 正在识别需求 <Dots />
         </span>
       )}
-      <ScenarioBar scenario={scenario} onSwitch={onSwitch} disabled={showRec} />
+      <StageScenarioLabel scenario={scenario} />
       {!showRec && afterTitle}
       <div style={{ flex: 1 }} />
       {!mobile && right}
@@ -279,7 +378,7 @@ function WorkspaceShell({ scenario, onHome, onSwitch, children, right, afterTitl
         <div style={{ flex: 1, minHeight: 0, display: "flex", position: "relative" }}>
           {mobile && isChatLed ? (
             <React.Fragment>
-              {React.cloneElement(kids[0], { width: "100%" })}
+              {React.cloneElement(kids[0], { width: "100%", scenario, onSwitch })}
               <MobileSheet open={sheetOpen} onClose={() => setSheetOpen(false)} title={mobilePanelLabel} headerRight={right}>
                 {stage(kids.slice(1))}
               </MobileSheet>
@@ -289,17 +388,17 @@ function WorkspaceShell({ scenario, onHome, onSwitch, children, right, afterTitl
               <React.Fragment>
                 {/* fullscreen: stage covers the ENTIRE viewport (incl. left rail) via a fixed overlay;
                     chat stays mounted (hidden) so its state survives */}
-                <div style={{ display: "none" }}>{React.cloneElement(kids[0], { header: null })}</div>
+                <div style={{ display: "none" }}>{React.cloneElement(kids[0], { header: null, scenario, onSwitch })}</div>
                 <div style={{ position: "fixed", inset: 0, zIndex: 200, background: "var(--canvas)", display: "flex", flexDirection: "column" }}>
                   {stage(kids.slice(1))}
                 </div>
               </React.Fragment>
             ) : stageCollapsed ? (
               // only the conversation remains — full-width chrome, content centered in a readable column (WorkBuddy-style)
-              React.cloneElement(kids[0], { header: makeChatHeader(expandStageBtn), width: "100%", centered: true })
+              React.cloneElement(kids[0], { header: makeChatHeader(expandStageBtn), width: "100%", centered: true, scenario, onSwitch })
             ) : (
               <ChatResizer>
-                {React.cloneElement(kids[0], { header: chatHeader })}
+                {React.cloneElement(kids[0], { header: chatHeader, scenario, onSwitch })}
                 {stage(kids.slice(1))}
               </ChatResizer>
             )
@@ -386,7 +485,7 @@ function SessionTaskBar({ task, onOpen }) {
 }
 
 // ---- Chat panel (left) ----
-function ChatPanel({ messages, onSend, suggestions, placeholder, width = 380, pinnedCard, roundsById, shownId, onOpenRound, retrieving, header, onOpenRef, clarify, onResolveClarify, onSkipClarify, clarifyNode, taskBar, centered }) {
+function ChatPanel({ messages, onSend, suggestions, placeholder, width = 380, pinnedCard, roundsById, shownId, onOpenRound, retrieving, header, onOpenRef, clarify, onResolveClarify, onSkipClarify, clarifyNode, taskBar, centered, scenario, onSwitch }) {
   const [draft, setDraft] = uS("");
   const [att, setAtt] = uS([]);          // { id, name, status: uploading|parsing|ready }
   const [viewFile, setViewFile] = uS(null);
@@ -457,7 +556,11 @@ function ChatPanel({ messages, onSend, suggestions, placeholder, width = 380, pi
     setAtt([]);
   };
 
-  const sugs = (suggestions || []).slice(0, 3); // default show 3 follow-up questions
+  // 追问 dedup — mock 建议不得与会话中已发送过的消息重复（按发送文本比对）
+  const sentTexts = new Set(messages.filter((m) => m.role === "user" && typeof m.text === "string").map((m) => m.text.trim()));
+  const sugs = (suggestions || [])
+    .filter((s) => { const t = (typeof s === "string" ? s : (s.send_text || s.label)) || ""; return !sentTexts.has(t.trim()); })
+    .slice(0, 3); // 最多 3 条
   const CW = 760; // readable column width when the stage is collapsed (content centers, chrome stays full-width)
   const colWrap = centered ? { maxWidth: CW, marginLeft: "auto", marginRight: "auto", width: "100%" } : null;
   return (
@@ -471,39 +574,49 @@ function ChatPanel({ messages, onSend, suggestions, placeholder, width = 380, pi
           const grouped = m.role !== "user" && m.role !== "sys" && !!prev && prev.role !== "user" && prev.role !== "sys";
           return <Bubble key={i} m={m} round={round} active={round && round.id === shownId && !retrieving} onOpenRound={handleOpenRound} grouped={grouped} onOpenRef={onOpenRef} onViewFile={setViewFile} />;
         })}
+        {/* 追问 chips — live IN the chat flow, hanging under the latest AI reply (PRD 追问推荐 §4.1).
+            Round-scoped and short-lived: the workspace clears `suggestions` the moment the user
+            sends anything, so at most one group exists and it never lingers in history.
+            Only render when the thread actually ends on an AI turn — never under a user message. */}
+        {sugs.length > 0 && !clarify && !retrieving && messages.length > 0 && messages[messages.length - 1].role !== "user" && (
+          <div data-screen-label="追问推荐" style={{ display: "flex", flexWrap: "wrap", gap: 6, paddingLeft: 37 /* avatar 28 + gap 9 — align to the AI bubble's left edge, not the column */, marginTop: -9, marginBottom: 4 }}>
+            {sugs.map((s, i) => {
+              const label = typeof s === "string" ? s : s.label;
+              const sendText = typeof s === "string" ? s : (s.send_text || s.label);
+              return (
+                <button
+                  key={label}
+                  onClick={() => send(sendText)}
+                  title={sendText !== label ? sendText : undefined}
+                  className="sug-pop"
+                  style={{
+                    animationDelay: `${i * 0.05}s`,
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 5,
+                    padding: "4px 10px",
+                    borderRadius: 999,
+                    border: "1px dashed var(--brand-soft-border)",
+                    background: "transparent",
+                    color: "var(--brand-deep)",
+                    fontSize: 11.5,
+                    fontWeight: 500,
+                    cursor: "pointer",
+                    fontFamily: "var(--font-zh)",
+                    transition: "background .15s",
+                  }}
+                  onMouseEnter={(e) => { e.currentTarget.style.background = "var(--brand-soft)"; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
+                >
+                  <Icon name="spark" size={11} /> {label}
+                </button>
+              );
+            })}
+          </div>
+        )}
         {pinnedCard}
         </div>
       </div>
-      {sugs.length > 0 && !clarify && (
-        <div style={{ padding: "10px 16px 4px" }}>
-          <div style={{ ...colWrap, display: "flex", flexWrap: "wrap", gap: 8 }}>
-          {sugs.map((s, i) => (
-            <button
-              key={i}
-              onClick={() => send(s)}
-              className="sug-pop"
-              style={{
-                animationDelay: `${i * 0.05}s`,
-                display: "inline-flex",
-                alignItems: "center",
-                gap: 6,
-                padding: "7px 12px",
-                borderRadius: 999,
-                border: "1px dashed var(--brand-soft-border)",
-                background: "var(--brand-soft)",
-                color: "var(--brand-deep)",
-                fontSize: 12.5,
-                fontWeight: 600,
-                cursor: "pointer",
-                fontFamily: "var(--font-zh)",
-              }}
-            >
-              <Icon name="spark" size={12} /> {s}
-            </button>
-          ))}
-          </div>
-        </div>
-      )}
       {clarify && (clarifyNode || <ClarifyPopover analysis={clarify.analysis} onResolve={onResolveClarify} onSkip={onSkipClarify} />)}
       {!clarify && taskBar}
       <div style={{ padding: "8px 14px 12px", position: "relative" }}>
@@ -514,6 +627,11 @@ function ChatPanel({ messages, onSend, suggestions, placeholder, width = 380, pi
           </button>
         )}
         {/* homepage-style composer: attachments (top, inside box) → input area → button row */}
+        {scenario && (
+          <div style={colWrap || undefined}>
+            <ScenePills scenario={scenario} onSwitch={onSwitch} disabled={!!clarify} />
+          </div>
+        )}
         <div
           onFocusCapture={(e) => { e.currentTarget.style.borderColor = "var(--brand)"; e.currentTarget.style.boxShadow = "var(--ring), var(--input-shadow)"; }}
           onBlurCapture={(e) => { e.currentTarget.style.borderColor = "var(--input-border)"; e.currentTarget.style.boxShadow = "none"; }}
@@ -683,6 +801,15 @@ function Bubble({ m, round, active, onOpenRound, grouped, onOpenRef, onViewFile 
         <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 11.5, fontWeight: 700, color: "var(--ink-3)", whiteSpace: "nowrap" }}>
           {m.icon && <Icon name={m.icon} size={13} />}
           {m.text}
+          {m.back && (
+            <button
+              onClick={() => { window.ChatSession && (window.ChatSession.switchMeta = { source: "manual" }); window.__aidaSwitch && window.__aidaSwitch(m.back.id, ""); }}
+              title={"切回" + m.back.name}
+              style={{ display: "inline-flex", alignItems: "center", gap: 4, marginLeft: 2, padding: "2px 9px", borderRadius: 999, border: "1px solid var(--brand-soft-border)", background: "var(--brand-soft)", color: "var(--brand-deep)", fontSize: 11.5, fontWeight: 800, cursor: "pointer", fontFamily: "var(--font-zh)" }}
+            >
+              切回{m.back.name}
+            </button>
+          )}
         </span>
         <span style={{ flex: 1, height: 1, background: "var(--line)" }} />
       </div>
@@ -1351,6 +1478,7 @@ function FindWorkspace({ scenario, query, onHome, onSwitch, fromIntent, resume, 
     if (fromIntent && query) {
       return [
         ...window.ChatSession.take(),
+        ...window.takeSwitchDivider(scenario, window.ChatSession.log.length > 0),
         ...(window.ChatSession.echoed(query) ? [] : [{ role: "user", text: query }]),
         { role: "ai", wide: true, intent: query, render: () => <InlineIntent query={query} onDone={() => beginFirstRound(query)} /> },
       ];
@@ -1358,6 +1486,7 @@ function FindWorkspace({ scenario, query, onHome, onSwitch, fromIntent, resume, 
     if (query) {
       return [
         ...window.ChatSession.take(),
+        ...window.takeSwitchDivider(scenario, window.ChatSession.log.length > 0),
         ...(window.ChatSession.echoed(query) ? [] : [{ role: "user", text: query }]),
         roundMsg(rounds[rounds.length - 1]),
       ];
@@ -1800,4 +1929,4 @@ function PreviewDrawer({ r, onClose, onDownload, onAsk, onAddBasket, loggedIn })
   );
 }
 
-Object.assign(window, { FindWorkspace, WorkspaceShell, ChatPanel, Bubble, RecognizingPanel, SourceTag, AskBar, buildResourceAsks });
+Object.assign(window, { FindWorkspace, WorkspaceShell, ChatPanel, Bubble, RecognizingPanel, SourceTag, AskBar, buildResourceAsks, ScenePills, StageScenarioLabel });

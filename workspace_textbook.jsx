@@ -103,7 +103,7 @@ function TextbookWorkspace({ scenario, query, onHome, onSwitch, fromIntent, logg
   const [thread, setThread] = tS(() => {
     const hist = window.ChatSession.take();
     if (pendingA) {
-      return [...hist, pendingA.kind === "compare" ? { role: "ai", compare: true } : { role: "ai", answer: true, ans: curAns }];
+      return [...hist, ...window.takeSwitchDivider(scenario, hist.length > 0), pendingA.kind === "compare" ? { role: "ai", compare: true } : { role: "ai", answer: true, ans: curAns }];
     }
     if (!book) {
       // cold start (no textbook yet): greet on a fresh session; on a mid-session
@@ -116,12 +116,13 @@ function TextbookWorkspace({ scenario, query, onHome, onSwitch, fromIntent, logg
     if (fromIntent && query) {
       return [
         ...hist,
+        ...window.takeSwitchDivider(scenario, hist.length > 0),
         ...(window.ChatSession.echoed(query) ? [] : [{ role: "user", text: query }]),
         { role: "ai", wide: true, intent: query, render: () => <InlineIntent query={query} onDone={() => { const a = mkAns(query); setCurAns(a); setThread((t) => [...t, greet]); setThinking(true); setTimeout(() => { setThinking(false); setThread((t) => [...t, { role: "ai", answer: true, ans: a }]); setAnswered(true); }, 1100); }} /> },
       ];
     }
     if (query && /[?？]|区别|为什么|什么|怎么|原理|讲|解释/.test(query)) {
-      return [...hist, greet, ...(window.ChatSession.echoed(query) ? [] : [{ role: "user", text: query }]), { role: "ai", answer: true, ans: curAns }];
+      return [...hist, ...window.takeSwitchDivider(scenario, hist.length > 0), greet, ...(window.ChatSession.echoed(query) ? [] : [{ role: "user", text: query }]), { role: "ai", answer: true, ans: curAns }];
     }
     if (hist.length) return window.enterThread(scenario);
     return [...hist, greet];
@@ -292,7 +293,7 @@ function TextbookWorkspace({ scenario, query, onHome, onSwitch, fromIntent, logg
                   </button>
                 ))}
               </div>
-              <TextbookInput onAsk={coldSend} />
+              <TextbookInput onAsk={coldSend} scenario={scenario} onSwitch={onSwitch} />
             </div>
           </div>
         </TbChat>
@@ -435,6 +436,15 @@ function TextbookWorkspace({ scenario, query, onHome, onSwitch, fromIntent, logg
                     <span style={{ flex: 1, height: 1, background: "var(--line)" }} />
                     <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 11.5, fontWeight: 700, color: "var(--ink-3)", background: "var(--surface-2)", border: "1px solid var(--line)", padding: "4px 12px", borderRadius: 999, maxWidth: "100%" }}>
                       <Icon name={m.icon || "refresh"} size={12} /> <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.text}</span>
+                      {m.back && (
+                        <button
+                          onClick={() => { window.ChatSession && (window.ChatSession.switchMeta = { source: "manual" }); window.__aidaSwitch && window.__aidaSwitch(m.back.id, ""); }}
+                          title={"切回" + m.back.name}
+                          style={{ display: "inline-flex", alignItems: "center", gap: 4, marginLeft: 2, padding: "1px 8px", borderRadius: 999, border: "1px solid var(--brand-soft-border)", background: "var(--brand-soft)", color: "var(--brand-deep)", fontSize: 11.5, fontWeight: 800, cursor: "pointer", fontFamily: "var(--font-zh)", flexShrink: 0 }}
+                        >
+                          切回{m.back.name}
+                        </button>
+                      )}
                     </span>
                     <span style={{ flex: 1, height: 1, background: "var(--line)" }} />
                   </div>
@@ -478,7 +488,7 @@ function TextbookWorkspace({ scenario, query, onHome, onSwitch, fromIntent, logg
                 ))}
               </div>
             )}
-            <TextbookInput onAsk={send} />
+            <TextbookInput onAsk={send} scenario={scenario} onSwitch={onSwitch} />
           </div>
         </div>
       </TbChat>
@@ -655,7 +665,7 @@ function TextbookWorkspace({ scenario, query, onHome, onSwitch, fromIntent, logg
   );
 }
 
-function TextbookInput({ onAsk }) {
+function TextbookInput({ onAsk, scenario, onSwitch }) {
   const [v, setV] = tS("");
   const [att, setAtt] = tS([]);
   const [viewFile, setViewFile] = tS(null);
@@ -677,6 +687,7 @@ function TextbookInput({ onAsk }) {
   };
   return (
     <div>
+      {scenario && <ScenePills scenario={scenario} onSwitch={onSwitch} />}
       {/* homepage-style composer: attachments (top, inside box) → input area → button row, focus border animates */}
       <div
         onFocusCapture={(e) => { e.currentTarget.style.borderColor = "var(--brand)"; e.currentTarget.style.boxShadow = "var(--ring), var(--input-shadow)"; }}

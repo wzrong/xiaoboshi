@@ -64,6 +64,8 @@ function App() {
   // expose theme handle so the account menu can toggle 浅色/深色
   window.__aidaDark = !!t.dark;
   window.__aidaSetDark = (v) => setTweak("dark", v);
+  // one-click 切回 on the auto-switch chat divider → equivalent to a manual switch
+  window.__aidaSwitch = (id, q) => switchScenario(id, q);
 
   const S = window.AIDATA.SCENARIOS;
   const scenario = scenarioId === "general" ? window.AIDATA.GENERAL : (S.find((s) => s.id === scenarioId) || S[0]);

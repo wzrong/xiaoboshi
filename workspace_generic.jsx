@@ -69,11 +69,12 @@ function GenericWorkspace({ scenario, query, onHome, onSwitch, fromIntent, resum
     if (fromIntent && query) {
       return [
         ...window.ChatSession.take(),
+        ...window.takeSwitchDivider(scenario, window.ChatSession.log.length > 0),
         ...(window.ChatSession.echoed(query) ? [] : [{ role: "user", text: query }]),
         { role: "ai", wide: true, intent: query, render: () => <InlineIntent query={query} onDone={() => { setStarted(true); setMessages((m) => [...m, { role: "ai", node: cfg.greet(query) }]); }} /> },
       ];
     }
-    if (query) return [...window.ChatSession.take(), ...(window.ChatSession.echoed(query) ? [] : [{ role: "user", text: query }]), { role: "ai", node: cfg.greet(query) }];
+    if (query) return [...window.ChatSession.take(), ...window.takeSwitchDivider(scenario, window.ChatSession.log.length > 0), ...(window.ChatSession.echoed(query) ? [] : [{ role: "user", text: query }]), { role: "ai", node: cfg.greet(query) }];
     return window.enterThread(scenario, cfg.greet(query));
   });
   const [sugs, setSugs] = gS((query && !fromIntent) || isResume || gStored.started ? cfg.sugs : []);

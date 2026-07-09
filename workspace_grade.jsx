@@ -167,12 +167,13 @@ function GradeWorkspace({ scenario, query, onHome, onSwitch, fromIntent, resume,
     if (fromIntent && query) {
       return [
         ...hist,
+        ...window.takeSwitchDivider(scenario, hist.length > 0),
         ...(window.ChatSession.echoed(query) ? [] : [{ role: "user", text: query }]),
         { role: "ai", wide: true, intent: query, render: () => <InlineIntent query={query} onDone={() => { runGrade(wantsClass(query) ? "class" : "single", true); }} /> },
       ];
     }
     if (startNow) {
-      return [...hist, ...(window.ChatSession.echoed(query) ? [] : [{ role: "user", text: query }]), { role: "ai", node: doneNote(wantsClass(query) ? "class" : "single") }];
+      return [...hist, ...window.takeSwitchDivider(scenario, hist.length > 0), ...(window.ChatSession.echoed(query) ? [] : [{ role: "user", text: query }]), { role: "ai", node: doneNote(wantsClass(query) ? "class" : "single") }];
     }
     if (hist.length) return window.enterThread(scenario);
     return [...hist, { role: "ai", node: greet }];

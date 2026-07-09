@@ -489,11 +489,12 @@ function PaperWorkspace({ scenario, query, onHome, onSwitch, fromIntent, resume,
     if (fromIntent && query) {
       return [
         ...window.ChatSession.take(),
+        ...window.takeSwitchDivider(scenario, window.ChatSession.log.length > 0),
         ...(window.ChatSession.echoed(query) ? [] : [window.ChatSession.seedUser(query)]),
         { role: "ai", wide: true, intent: query, render: () => <InlineIntent query={query} onDone={() => { const m = paperMeta(query, mem); setMeta(m); setMessages((ms) => [...ms, { role: "ai", node: setupNote(m) }]); }} /> },
       ];
     }
-    if (freshQuery) { const m = seedFromHandoff ? metaFromItem(handoffItem, initialQ, mem) : paperMeta(initialQ, mem); const note = seedFromHandoff ? handoffNote(m, handoffItem, isPractice) : setupNote(m); return [...window.ChatSession.take(), ...(window.ChatSession.echoed(query) ? [] : [window.ChatSession.seedUser(query)]), { role: "ai", node: note }]; }
+    if (freshQuery) { const m = seedFromHandoff ? metaFromItem(handoffItem, initialQ, mem) : paperMeta(initialQ, mem); const note = seedFromHandoff ? handoffNote(m, handoffItem, isPractice) : setupNote(m); return [...window.ChatSession.take(), ...window.takeSwitchDivider(scenario, window.ChatSession.log.length > 0), ...(window.ChatSession.echoed(query) ? [] : [window.ChatSession.seedUser(query)]), { role: "ai", node: note }]; }
     return window.enterThread(scenario, greet);
   });
   const PAPER_SUGS = ["再难一点", "解答题加到 6 道", "第 1 题换一道", "附上答案与解析"];
