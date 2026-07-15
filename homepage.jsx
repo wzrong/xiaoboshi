@@ -141,25 +141,24 @@ function SmartInput({ value, setValue, onSubmit, big, placeholder, ghost }) {
         <button
           onClick={onSubmit}
           disabled={!value.trim()}
+          aria-label="发送"
+          data-tip="发送"
           style={{
-            display: "inline-flex",
-            alignItems: "center",
-            gap: 7,
-            padding: big ? "11px 24px" : "8px 18px",
-            borderRadius: 999,
+            width: big ? 42 : 36,
+            height: big ? 42 : 36,
+            borderRadius: "50%",
             border: "none",
+            display: "grid",
+            placeItems: "center",
             background: value.trim() ? "var(--brand-grad)" : "var(--line)",
             color: value.trim() ? "#fff" : "var(--ink-3)",
-            fontSize: big ? 15 : 13.5,
-            fontWeight: 700,
             cursor: value.trim() ? "pointer" : "default",
-            fontFamily: "var(--font-zh)",
             boxShadow: value.trim() ? "inset 0 1px 0 rgba(255,255,255,.25), 0 6px 16px -6px var(--brand-glow)" : "none",
             transition: "all .2s",
             flexShrink: 0,
           }}
         >
-          开始 <Icon name="send" size={big ? 17 : 15} />
+          <svg width={big ? 19 : 17} height={big ? 19 : 17} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 19V6"></path><path d="m6 11.5 6-6 6 6"></path></svg>
         </button>
       </div>
     </div>
@@ -176,31 +175,15 @@ function HomeConversation({ value, setValue, onSubmit, onPick, onResume, loggedI
   const [phi, setPhi] = useState(0);
   useEffect(() => { const id = setInterval(() => setPhi((i) => (i + 1) % phs.length), 3400); return () => clearInterval(id); }, []);
   return (
-    <div className="home-fade" style={{ padding: mobile ? "2vh 16px 36px" : "4vh 24px 40px", textAlign: "center" }}>
-      <div style={{ maxWidth: 760, margin: "0 auto" }}>
-        <div style={{ display: "flex", justifyContent: "center", marginBottom: mobile ? 16 : 20 }}>
-          <BotAvatar size={mobile ? 54 : 66} glow />
-        </div>
+    <div className="home-fade" style={{ padding: mobile ? "2vh 16px 20px" : "3vh 24px 22px", textAlign: "center", flex: 1, display: "flex", flexDirection: "column", justifyContent: "center", minHeight: 0, paddingTop: mobile ? "6vh" : "calc(10vh + 80px)" }}>
+      <div style={{ maxWidth: 760, margin: "0 auto", width: "100%" }}>
         <h1 style={{ fontSize: mobile ? 25 : 36, fontWeight: 800, color: "var(--ink)", margin: "0 0 12px", letterSpacing: "-0.8px" }}>
-          老师好，今天想准备点什么？
+          老师好，有什么我能帮你的？
         </h1>
         <p style={{ fontSize: mobile ? 14.5 : 16, color: "var(--ink-2)", margin: 0, lineHeight: 1.6 }}>
           说出你的需求，我会从<b style={{ color: "var(--brand-deep)" }}>学科网资源库</b>出发，陪你一起完成。
         </p>
-        {/* real-world example prompts — vertically centered in the gap between the greeting and the input */}
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 7, justifyContent: "center", marginTop: mobile ? 40 : 100, marginBottom: mobile ? 40 : 100 }}>
-          <span style={{ fontSize: 12, color: "var(--ink-3)", fontWeight: 700, alignSelf: "center", display: "inline-flex", alignItems: "center", gap: 5 }}><Icon name="spark" size={13} /> 老师们在问</span>
-          {EX.slice(0, mobile ? 3 : 5).map((ex, i) => (
-            <button
-              key={i}
-              onClick={() => onSubmit(ex.t)}
-              className="chip-pop ex-chip"
-              style={{ animationDelay: `${i * 0.04}s`, maxWidth: "100%", padding: "7px 13px", borderRadius: 999, border: "1px solid var(--brand-soft-border)", background: "color-mix(in oklab, var(--brand-soft), var(--surface) 40%)", color: "var(--brand-deep)", fontSize: 12.5, fontWeight: 600, cursor: "pointer", fontFamily: "var(--font-zh)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}
-            >
-              {ex.t}
-            </button>
-          ))}
-        </div>
+        <div style={{ height: mobile ? 26 : 40 }} />
         <SmartInput
           value={value}
           setValue={setValue}
@@ -220,8 +203,9 @@ function HomeConversation({ value, setValue, onSubmit, onPick, onResume, loggedI
               display: "inline-flex",
               alignItems: "center",
               gap: 7,
-              padding: "8px 12px 8px 9px",
-              borderRadius: 999,
+              padding: "9px 15px 9px 12px",
+              borderRadius: 13,
+              boxShadow: "0 1px 4px oklch(0.4 0.08 260 / .06)",
               border: "1px solid var(--line)",
               background: "var(--surface)",
               cursor: "pointer",
@@ -237,11 +221,11 @@ function HomeConversation({ value, setValue, onSubmit, onPick, onResume, loggedI
             }}
             onMouseLeave={(e) => {
               e.currentTarget.style.transform = "none";
-              e.currentTarget.style.boxShadow = "none";
+              e.currentTarget.style.boxShadow = "0 1px 4px oklch(0.4 0.08 260 / .06)";
               e.currentTarget.style.borderColor = "var(--line)";
             }}
           >
-            <ScenarioGlyph icon={s.icon} hue={s.hue} size={26} />
+            <span style={{ width: 22, height: 22, display: "grid", placeItems: "center", color: `oklch(0.56 0.14 ${s.hue})`, flexShrink: 0 }}><Icon name={s.icon} size={20} /></span>
             <span style={{ fontSize: 13.5, fontWeight: 700, color: "var(--ink)" }}>{s.name}</span>
             {s.id === "courseware" && (
               <span style={{ fontSize: 9.5, fontWeight: 700, color: "oklch(0.5 0.13 45)", background: "oklch(0.95 0.05 45)", padding: "1px 6px", borderRadius: 999, marginLeft: -2 }}>互动</span>
@@ -249,9 +233,14 @@ function HomeConversation({ value, setValue, onSubmit, onPick, onResume, loggedI
           </button>
         ))}
       </div>
-      <div style={{ maxWidth: 760, margin: "0 auto" }}>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 8, justifyContent: "center", alignItems: "center", marginTop: 48, maxWidth: 760, marginLeft: "auto", marginRight: "auto" }}>
+        <span style={{ fontSize: 12, color: "var(--ink-3)", fontWeight: 700, display: "inline-flex", alignItems: "center", gap: 5 }}><Icon name="spark" size={13} /> 老师们在问</span>
+        {EX.slice(0, mobile ? 3 : 5).map((ex, i) => (
+          <button key={i} onClick={() => onSubmit(ex.t)} className="chip-pop ex-chip" style={{ animationDelay: `${i * 0.04}s`, maxWidth: "100%", padding: "7px 14px", borderRadius: 999, border: "1px solid var(--line)", background: "var(--surface)", color: "var(--ink-2)", fontSize: 12.5, fontWeight: 600, cursor: "pointer", fontFamily: "var(--font-zh)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{ex.t}</button>
+        ))}
+      </div>
+      <div style={{ maxWidth: 760, margin: "0 auto", width: "100%" }}>
         {loggedIn ? <MemoryPanel onResume={onResume} onManageMemory={onManageMemory} onOpenWorks={onOpenWorks} /> : <LoginHook onLogin={onLogin} />}
-        <AuthorityStrip />
       </div>
     </div>
   );
@@ -507,7 +496,6 @@ function HomeGrid({ value, setValue, onSubmit, onPick, onResume, loggedIn, onLog
       </div>
       <div style={{ maxWidth: 760, margin: "0 auto" }}>
         {loggedIn ? <MemoryPanel onResume={onResume} onManageMemory={onManageMemory} onOpenWorks={onOpenWorks} /> : <LoginHook onLogin={onLogin} />}
-        <AuthorityStrip />
       </div>
     </div>
   );
@@ -666,56 +654,34 @@ function HomePersona({ value, setValue, onSubmit, onPick, onResume, loggedIn, on
         </div>
       </div>
     </div>
-    <AuthorityStrip />
     </div>
   );
 }
 
 function AuthorityStrip() {
-  const items = [
-    { n: "2000万+", l: "精品资源" },
-    { n: "20 年", l: "教研沉淀" },
-    { n: "三审三校", l: "质量把关" },
-    { n: "全学段", l: "学科覆盖" },
+  const mobile = useIsMobile();
+  const stats = [
+    ["2000万+", "精品资源"],
+    ["20年", "教研沉淀"],
+    ["三审三校", "质量把关"],
+    ["全学段", "覆盖"],
   ];
   return (
-    <div style={{ marginTop: 40 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12, justifyContent: "center", color: "var(--auth-ink)" }}>
-        <span style={{ flex: 1, maxWidth: 60, height: 1, background: "var(--auth-border)" }} />
-        <Icon name="shield" size={15} />
-        <span style={{ fontSize: 13, fontWeight: 700 }}>小博士的每一份生成，背后都有学科网资源库支撑</span>
-        <span style={{ flex: 1, maxWidth: 60, height: 1, background: "var(--auth-border)" }} />
+    <div style={{ marginTop: 0, display: "flex", flexDirection: "column", alignItems: "center" }}>
+      <div style={{ display: "flex", flexDirection: mobile ? "column" : "row", alignItems: "center", gap: mobile ? 8 : 16, padding: mobile ? "10px 16px" : "9px 24px", borderRadius: mobile ? 14 : 999, maxWidth: "100%", background: "color-mix(in oklab, var(--auth-bg), var(--surface) 35%)" }}>
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 7, fontSize: 12, fontWeight: 600, color: "color-mix(in oklab, var(--auth-ink), var(--surface) 22%)", whiteSpace: "nowrap" }}>
+          <Icon name="shield" size={14} /> 每一份生成，都有学科网资源库支撑
+        </span>
+        {!mobile && <span style={{ width: 1, height: 14, background: "color-mix(in oklab, var(--auth-border), var(--surface) 30%)", flexShrink: 0 }} />}
+        <span style={{ display: "flex", flexWrap: "wrap", justifyContent: "center", gap: mobile ? "4px 14px" : "4px 16px" }}>
+          {stats.map(([n, l], i) => (
+            <span key={i} style={{ display: "inline-flex", alignItems: "baseline", gap: 4, fontSize: 12, color: "var(--ink-3)", whiteSpace: "nowrap" }}>
+              <b style={{ fontSize: 12, fontWeight: 700, color: "color-mix(in oklab, var(--auth-ink), var(--surface) 18%)", fontFamily: "var(--font-num)" }}>{n}</b>{l}
+            </span>
+          ))}
+        </span>
       </div>
-      <div
-        style={{
-          display: "flex",
-          flexWrap: "wrap",
-          justifyContent: "center",
-          gap: 0,
-          background: "var(--auth-bg)",
-          border: "1px solid var(--auth-border)",
-          borderRadius: 16,
-          padding: "16px 10px",
-        }}
-      >
-        {items.map((it, i) => (
-          <div
-            key={i}
-            style={{
-              flex: "1 1 120px",
-              textAlign: "center",
-              borderRight: i < items.length - 1 ? "1px solid var(--auth-border)" : "none",
-              padding: "2px 12px",
-            }}
-          >
-            <div style={{ fontSize: 19, fontWeight: 800, color: "var(--auth-ink)", fontFamily: "var(--font-num)" }}>
-              {it.n}
-            </div>
-            <div style={{ fontSize: 12, color: "var(--ink-3)", marginTop: 2, fontWeight: 600 }}>{it.l}</div>
-          </div>
-        ))}
-      </div>
-      <div style={{ textAlign: "center", fontSize: 11.5, color: "var(--ink-3)", marginTop: 10, lineHeight: 1.6 }}>
+      <div style={{ textAlign: "center", fontSize: 11, color: "color-mix(in oklab, var(--ink-3), var(--surface) 25%)", marginTop: 7, lineHeight: 1.6 }}>
         AI 内容仅供教研参考，请结合实际教学进行调整
       </div>
     </div>
@@ -783,7 +749,7 @@ function Homepage({ page, layout, value, setValue, onSubmit, onPick, onResume, l
           onCollapse={() => setRailOpen(false)}
         />
       ) : null}
-      <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", position: "relative" }}>
+      <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", position: "relative", background: "radial-gradient(60% 42% at 50% 30%, color-mix(in oklab, var(--brand), var(--surface) 94%) 0%, var(--surface) 72%)" }}>
         {!mobile && !railOpen && (
           <div style={{ position: "absolute", top: 14, left: 14, zIndex: 20, display: "inline-flex", gap: 6 }}>
             <button onClick={() => setRailOpen(true)} data-tip="展开菜单" data-tip-pos="bottom-left" aria-label="展开菜单" style={railIconBtn} {...railHoverFx}>
@@ -828,8 +794,11 @@ function Homepage({ page, layout, value, setValue, onSubmit, onPick, onResume, l
             <ChangelogPage />
           ) : (
             <React.Fragment>
-              <div style={{ margin: "auto 0", width: "100%" }}>
+              <div style={{ margin: "auto 0", width: "100%", display: "flex", flexDirection: "column", flex: 1 }}>
                 <Comp value={value} setValue={setValue} onSubmit={onSubmit} onPick={onPick} {...memProps} />
+                <div style={{ marginTop: "auto", padding: "28px 16px 16px" }}>
+                  <AuthorityStrip />
+                </div>
               </div>
             </React.Fragment>
           )}
@@ -856,7 +825,7 @@ function LeftRail({ page, loggedIn, onNavigate, onNewChat, onResume, onLogout, o
       onClick={onClick}
       title={label}
       style={{ width: "100%", display: "flex", alignItems: "center", gap: 11, padding: open ? "10px 12px" : "10px 0", justifyContent: open ? "flex-start" : "center", borderRadius: 11, border: "none", cursor: "pointer", fontFamily: "var(--font-zh)", fontSize: 14, fontWeight: 600, background: active ? "var(--brand-soft)" : "transparent", color: active ? "var(--brand-deep)" : "var(--ink-2)", transition: "background .15s" }}
-      onMouseEnter={(e) => { if (!active) e.currentTarget.style.background = "var(--surface-2)"; }}
+      onMouseEnter={(e) => { if (!active) e.currentTarget.style.background = "var(--surface)"; }}
       onMouseLeave={(e) => { if (!active) e.currentTarget.style.background = "transparent"; }}
     >
       <span style={{ flexShrink: 0, width: 20, height: 20, display: "grid", placeItems: "center", color: accent && !active ? "var(--brand-deep)" : "inherit" }}><Icon name={icon} size={18} /></span>
@@ -865,8 +834,8 @@ function LeftRail({ page, loggedIn, onNavigate, onNewChat, onResume, onLogout, o
   );
 
   const asideStyle = mobile
-    ? { position: "fixed", top: 0, left: 0, bottom: 0, width: "min(300px, 84vw)", zIndex: 81, background: "var(--surface)", borderRight: "1px solid var(--line)", display: "flex", flexDirection: "column", transform: mobileOpen ? "translateX(0)" : "translateX(-102%)", transition: "transform .3s cubic-bezier(.32,.72,0,1)", boxShadow: mobileOpen ? "0 20px 60px -20px rgba(0,0,0,.5)" : "none" }
-    : { width: open ? 252 : 72, flexShrink: 0, background: "var(--surface)", borderRight: "1px solid var(--line)", display: "flex", flexDirection: "column", transition: "width .2s" };
+    ? { position: "fixed", top: 0, left: 0, bottom: 0, width: "min(300px, 84vw)", zIndex: 81, background: "var(--surface-2)", display: "flex", flexDirection: "column", transform: mobileOpen ? "translateX(0)" : "translateX(-102%)", transition: "transform .3s cubic-bezier(.32,.72,0,1)", boxShadow: mobileOpen ? "0 20px 60px -20px rgba(0,0,0,.5)" : "none" }
+    : { width: open ? 252 : 72, flexShrink: 0, background: "var(--surface-2)", display: "flex", flexDirection: "column", transition: "width .2s" };
 
   return (
     <React.Fragment>
@@ -909,7 +878,7 @@ function LeftRail({ page, loggedIn, onNavigate, onNewChat, onResume, onLogout, o
         <button
           onClick={onNewChat}
           title="新对话"
-          style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, padding: open ? "11px 14px" : "11px 0", borderRadius: 12, border: "none", background: "var(--brand-grad)", backgroundColor: "var(--brand)", color: "#fff", fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "var(--font-zh)", boxShadow: "0 4px 14px -6px var(--brand-glow)" }}
+          style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, padding: open ? "11px 14px" : "11px 0", borderRadius: 999, border: "none", background: "var(--surface)", color: "var(--ink)", fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "var(--font-zh)", boxShadow: "0 1px 4px oklch(0.3 0.02 260 / .14)" }}
         >
           <Icon name="plus" size={17} sw={2.4} /> {open && "新对话"}
         </button>
@@ -917,43 +886,9 @@ function LeftRail({ page, loggedIn, onNavigate, onNewChat, onResume, onLogout, o
 
       {/* nav */}
       <div style={{ padding: open ? "8px 12px" : "8px 12px", display: "flex", flexDirection: "column", gap: 3 }}>
-        <NavItem icon="spark" label="我的记忆" accent active={page === "memory"} onClick={() => go("memory")} />
+        <NavItem icon="brain" label="我的记忆" accent active={page === "memory"} onClick={() => go("memory")} />
         <NavItem icon="grid" label="我的内容" active={page === "works"} onClick={() => go("works")} />
-        <NavItem icon="basket" label={basketCount > 0 ? `资源篮 · ${basketCount}` : "资源篮"} active={page === "basket"} onClick={() => (loggedIn ? onNavigate("basket") : onRequireLogin())} />
-        <a
-          href={encodeURI("学科网智能搜索首页 (standalone).html")}
-          target="_blank"
-          rel="noopener noreferrer"
-          title="学科网智能搜索"
-          style={{ width: "100%", boxSizing: "border-box", display: "flex", alignItems: "center", gap: 11, padding: open ? "10px 12px" : "10px 0", justifyContent: open ? "flex-start" : "center", borderRadius: 11, border: "none", cursor: "pointer", fontFamily: "var(--font-zh)", fontSize: 14, fontWeight: 600, background: "transparent", color: "var(--ink-2)", textDecoration: "none", transition: "background .15s" }}
-          onMouseEnter={(e) => (e.currentTarget.style.background = "var(--surface-2)")}
-          onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
-        >
-          <span style={{ flexShrink: 0, width: 20, height: 20, display: "grid", placeItems: "center" }}><Icon name="search" size={18} /></span>
-          {open && (
-            <span style={{ whiteSpace: "nowrap", lineHeight: 1, flex: 1, display: "inline-flex", alignItems: "center", gap: 6 }}>
-              学科网智能搜索
-              <Icon name="external" size={13} />
-            </span>
-          )}
-        </a>
-        <a
-          href={encodeURI("docs/产品设计文档.html")}
-          target="_blank"
-          rel="noopener noreferrer"
-          title="产品文档"
-          style={{ width: "100%", boxSizing: "border-box", display: "flex", alignItems: "center", gap: 11, padding: open ? "10px 12px" : "10px 0", justifyContent: open ? "flex-start" : "center", borderRadius: 11, border: "none", cursor: "pointer", fontFamily: "var(--font-zh)", fontSize: 14, fontWeight: 600, background: "transparent", color: "var(--ink-2)", textDecoration: "none", transition: "background .15s" }}
-          onMouseEnter={(e) => (e.currentTarget.style.background = "var(--surface-2)")}
-          onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
-        >
-          <span style={{ flexShrink: 0, width: 20, height: 20, display: "grid", placeItems: "center" }}><Icon name="file" size={18} /></span>
-          {open && (
-            <span style={{ whiteSpace: "nowrap", lineHeight: 1, flex: 1, display: "inline-flex", alignItems: "center", gap: 6 }}>
-              产品文档
-              <Icon name="external" size={13} />
-            </span>
-          )}
-        </a>
+        <NavItem icon="cart" label={basketCount > 0 ? `资源篮 · ${basketCount}` : "资源篮"} active={page === "basket"} onClick={() => (loggedIn ? onNavigate("basket") : onRequireLogin())} />
         {!open && (
           <NavItem icon="chat" label="历史对话" active={page === "history"} onClick={() => (loggedIn ? onNavigate("history") : onRequireLogin())} />
         )}
@@ -969,11 +904,13 @@ function LeftRail({ page, loggedIn, onNavigate, onNewChat, onResume, onLogout, o
             {loggedIn && (
               <button
                 onClick={() => onNavigate("history")}
-                style={{ border: "none", background: "transparent", color: "var(--brand-deep)", fontSize: 11.5, fontWeight: 700, cursor: "pointer", fontFamily: "var(--font-zh)", padding: "2px 4px", borderRadius: 6 }}
-                onMouseEnter={(e) => (e.currentTarget.style.background = "var(--surface-2)")}
+                data-tip="全部历史对话"
+                aria-label="全部历史对话"
+                style={{ border: "none", background: "transparent", color: "var(--ink-3)", cursor: "pointer", width: 24, height: 24, display: "grid", placeItems: "center", borderRadius: 6 }}
+                onMouseEnter={(e) => (e.currentTarget.style.background = "var(--surface)")}
                 onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
               >
-                全部
+                <Icon name="history" size={15} />
               </button>
             )}
           </div>
@@ -985,7 +922,7 @@ function LeftRail({ page, loggedIn, onNavigate, onNewChat, onResume, onLogout, o
                   onClick={() => onResume && onResume({ ...c, isConversation: true })}
                   title={c.title}
                   style={{ display: "flex", alignItems: "center", gap: 9, padding: "8px 10px", borderRadius: 10, border: "none", background: "transparent", cursor: "pointer", fontFamily: "var(--font-zh)", textAlign: "left", transition: "background .15s" }}
-                  onMouseEnter={(e) => (e.currentTarget.style.background = "var(--surface-2)")}
+                  onMouseEnter={(e) => (e.currentTarget.style.background = "var(--surface)")}
                   onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
                 >
                   <span style={{ flexShrink: 0, color: "var(--ink-3)", display: "grid", placeItems: "center", width: 18 }}><Icon name={c.icon} size={17} /></span>
@@ -998,7 +935,7 @@ function LeftRail({ page, loggedIn, onNavigate, onNewChat, onResume, onLogout, o
             </div>
           ) : (
             <div style={{ flex: 1 }}>
-              <button onClick={onRequireLogin} style={{ margin: "4px 12px", padding: "16px 14px", width: "calc(100% - 24px)", borderRadius: 12, border: "1px dashed var(--line)", background: "var(--surface-2)", cursor: "pointer", fontFamily: "var(--font-zh)", textAlign: "center" }}>
+              <button onClick={onRequireLogin} style={{ margin: "4px 12px", padding: "16px 14px", width: "calc(100% - 24px)", borderRadius: 12, border: "1px dashed var(--line)", background: "var(--surface)", cursor: "pointer", fontFamily: "var(--font-zh)", textAlign: "center" }}>
                 <div style={{ fontSize: 12.5, color: "var(--ink-2)", fontWeight: 600, lineHeight: 1.6 }}>登录后查看历史对话<br /><span style={{ color: "var(--ink-3)", fontWeight: 500 }}>你的每一次创作都会自动保存</span></div>
               </button>
             </div>
@@ -1008,14 +945,14 @@ function LeftRail({ page, loggedIn, onNavigate, onNewChat, onResume, onLogout, o
       {!open && <div style={{ flex: 1 }} />}
 
       {/* account (bottom) */}
-      <div style={{ borderTop: "1px solid var(--line)", padding: open ? "10px 12px" : "10px 8px", position: "relative" }}>
+      <div style={{ padding: open ? "8px 12px 12px" : "8px 8px 12px", position: "relative" }}>
         {loggedIn ? (
           <React.Fragment>
             <button
               onClick={() => setAcctMenu((m) => !m)}
-              style={{ width: "100%", display: "flex", alignItems: "center", gap: 10, padding: open ? "7px 8px" : "7px 0", justifyContent: open ? "flex-start" : "center", borderRadius: 11, border: "none", background: acctMenu ? "var(--surface-2)" : "transparent", cursor: "pointer", fontFamily: "var(--font-zh)" }}
-              onMouseEnter={(e) => (e.currentTarget.style.background = "var(--surface-2)")}
-              onMouseLeave={(e) => { if (!acctMenu) e.currentTarget.style.background = "transparent"; }}
+              style={{ width: "100%", display: "flex", alignItems: "center", gap: 10, padding: open ? "8px 10px" : "7px 0", justifyContent: open ? "flex-start" : "center", borderRadius: 12, border: "none", background: open ? "var(--surface)" : "transparent", boxShadow: open ? "0 1px 4px oklch(0.3 0.02 260 / .1)" : "none", cursor: "pointer", fontFamily: "var(--font-zh)" }}
+              onMouseEnter={(e) => (e.currentTarget.style.background = open ? "var(--surface)" : "var(--surface-2)")}
+              onMouseLeave={(e) => { e.currentTarget.style.background = open ? "var(--surface)" : "transparent"; }}
             >
               <span style={{ width: 32, height: 32, borderRadius: "50%", background: "var(--brand-soft)", border: "1px solid var(--brand-soft-border)", display: "grid", placeItems: "center", color: "var(--brand-deep)", fontWeight: 700, fontSize: 13.5, flexShrink: 0 }}>李</span>
               {open && (
