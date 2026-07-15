@@ -216,8 +216,8 @@ function HomeConversation({ value, setValue, onSubmit, onPick, onResume, loggedI
             }}
             onMouseEnter={(e) => {
               e.currentTarget.style.transform = "translateY(-2px)";
-              e.currentTarget.style.boxShadow = `0 10px 24px -12px oklch(0.55 0.12 ${s.hue} / .55)`;
-              e.currentTarget.style.borderColor = `oklch(0.7 0.1 ${s.hue})`;
+              e.currentTarget.style.boxShadow = `0 10px 24px -12px ${accentFor(s.icon, 0.6)}`;
+              e.currentTarget.style.borderColor = accentFor(s.icon);
             }}
             onMouseLeave={(e) => {
               e.currentTarget.style.transform = "none";
@@ -393,7 +393,7 @@ function MemoryPanel({ onResume, onManageMemory, onOpenWorks }) {
                 key={i}
                 onClick={() => onResume && onResume(r)}
                 style={{ display: "flex", alignItems: "center", gap: 11, padding: "9px 11px", borderRadius: 12, border: "1px solid var(--line)", background: "var(--surface)", cursor: "pointer", fontFamily: "var(--font-zh)", textAlign: "left", transition: "transform .15s, border-color .2s, box-shadow .2s" }}
-                onMouseEnter={(e) => { e.currentTarget.style.transform = "translateX(3px)"; e.currentTarget.style.borderColor = `oklch(0.8 0.08 ${r.hue})`; e.currentTarget.style.boxShadow = `0 8px 18px -12px oklch(0.6 0.14 ${r.hue} / .5)`; }}
+                onMouseEnter={(e) => { e.currentTarget.style.transform = "translateX(3px)"; e.currentTarget.style.borderColor = accentFor(r.icon); e.currentTarget.style.boxShadow = `0 8px 18px -12px ${accentFor(r.icon, 0.5)}`; }}
                 onMouseLeave={(e) => { e.currentTarget.style.transform = "none"; e.currentTarget.style.borderColor = "var(--line)"; e.currentTarget.style.boxShadow = "none"; }}
               >
                 <ScenarioGlyph icon={r.icon} hue={r.hue} size={34} />
@@ -466,8 +466,8 @@ function HomeGrid({ value, setValue, onSubmit, onPick, onResume, loggedIn, onLog
             }}
             onMouseEnter={(e) => {
               e.currentTarget.style.transform = "translateY(-4px)";
-              e.currentTarget.style.boxShadow = `0 16px 32px -16px oklch(0.6 0.14 ${s.hue} / .55)`;
-              e.currentTarget.style.borderColor = `oklch(0.78 0.09 ${s.hue})`;
+              e.currentTarget.style.boxShadow = `0 16px 32px -16px ${accentFor(s.icon, 0.55)}`;
+              e.currentTarget.style.borderColor = accentFor(s.icon);
             }}
             onMouseLeave={(e) => {
               e.currentTarget.style.transform = "none";
@@ -477,7 +477,7 @@ function HomeGrid({ value, setValue, onSubmit, onPick, onResume, loggedIn, onLog
           >
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
               <ScenarioGlyph icon={s.icon} hue={s.hue} size={46} />
-              <span style={{ color: `oklch(0.6 0.12 ${s.hue})`, opacity: 0.5 }}>
+              <span style={{ color: accentFor(s.icon), opacity: 0.5 }}>
                 <Icon name="arrow" size={18} />
               </span>
             </div>
@@ -487,7 +487,7 @@ function HomeGrid({ value, setValue, onSubmit, onPick, onResume, loggedIn, onLog
                 <span style={{ fontSize: 10.5, fontWeight: 700, color: "oklch(0.5 0.13 45)", background: "oklch(0.95 0.05 45)", padding: "2px 7px", borderRadius: 999 }}>{s.badge}</span>
               )}
             </div>
-            <div style={{ fontSize: 12.5, fontWeight: 700, color: `oklch(0.55 0.12 ${s.hue})`, marginTop: 3 }}>
+            <div style={{ fontSize: 12.5, fontWeight: 700, color: accentFor(s.icon), marginTop: 3 }}>
               {s.tagline}
             </div>
             <div style={{ fontSize: 12, color: "var(--ink-3)", marginTop: 8, lineHeight: 1.55 }}>{s.desc}</div>
@@ -572,7 +572,7 @@ function HomePersona({ value, setValue, onSubmit, onPick, onResume, loggedIn, on
                     key={i}
                     onClick={() => onResume && onResume(r)}
                     style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 11px", borderRadius: 12, border: "1px solid var(--line)", background: "var(--surface-2)", cursor: "pointer", fontFamily: "var(--font-zh)", textAlign: "left", transition: "transform .15s, border-color .2s, box-shadow .2s" }}
-                    onMouseEnter={(e) => { e.currentTarget.style.transform = "translateX(3px)"; e.currentTarget.style.borderColor = `oklch(0.8 0.08 ${r.hue})`; e.currentTarget.style.boxShadow = `0 8px 18px -12px oklch(0.6 0.14 ${r.hue} / .5)`; }}
+                    onMouseEnter={(e) => { e.currentTarget.style.transform = "translateX(3px)"; e.currentTarget.style.borderColor = accentFor(r.icon); e.currentTarget.style.boxShadow = `0 8px 18px -12px ${accentFor(r.icon, 0.5)}`; }}
                     onMouseLeave={(e) => { e.currentTarget.style.transform = "none"; e.currentTarget.style.borderColor = "var(--line)"; e.currentTarget.style.boxShadow = "none"; }}
                   >
                     <ScenarioGlyph icon={r.icon} hue={r.hue} size={32} />
@@ -621,7 +621,7 @@ function HomePersona({ value, setValue, onSubmit, onPick, onResume, loggedIn, on
                 transition: "transform .15s, border-color .2s, background .2s",
               }}
               onMouseEnter={(e) => {
-                e.currentTarget.style.borderColor = `oklch(0.78 0.09 ${s.hue})`;
+                e.currentTarget.style.borderColor = accentFor(s.icon);
                 e.currentTarget.style.transform = "translateX(3px)";
               }}
               onMouseLeave={(e) => {

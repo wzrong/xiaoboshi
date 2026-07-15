@@ -450,6 +450,28 @@ function CIcon({ name, size = 16, active = false }) {
   );
 }
 
+// Exact accent color for each scenario icon — sampled from the real SVG fills
+// so hover borders/shadows match the icon color precisely (not an oklch approximation).
+const ICON_ACCENT = {
+  search:  "#00BA3F",
+  paper:   "#624AFF",
+  slides:  "#FF8200",
+  lesson:  "#1890FF",
+  book:    "#00BA3F",
+  mindmap: "#F23CFF",
+  grade:   "#FF443F",
+  spark:   "#5B6CFF",
+};
+// Returns the icon's exact accent hex. `alpha` (0–1) appends an 8-digit hex alpha.
+function accentFor(icon, alpha) {
+  const hex = ICON_ACCENT[icon] || "#5B6CFF";
+  if (alpha == null) return hex;
+  const a = Math.round(Math.max(0, Math.min(1, alpha)) * 255).toString(16).padStart(2, "0");
+  return hex + a;
+}
+
 window.Icon = Icon;
 window.CIcon = CIcon;
 window.CUSTOM_ICON_MAP = CUSTOM_ICON_MAP;
+window.ICON_ACCENT = ICON_ACCENT;
+window.accentFor = accentFor;
