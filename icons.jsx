@@ -435,8 +435,19 @@ const CUSTOM_ICON_MAP = {
 function CIcon({ name, size = 16, active = false }) {
   const entry = CUSTOM_ICON_MAP[name];
   if (!entry) return <Icon name={name} size={size} />;
-  const src = active ? entry[1] : entry[0];
-  return <img src={src} width={size} height={size} style={{ display: "block", flexShrink: 0 }} alt="" />;
+  const [defSrc, actSrc] = entry;
+  // Render both variants stacked and cross-fade via opacity so neither
+  // image is ever re-fetched/re-decoded on state change (no flicker).
+  const imgBase = { display: "block", width: size, height: size, position: "absolute", inset: 0 };
+  if (defSrc === actSrc) {
+    return <img src={defSrc} width={size} height={size} style={{ display: "block", flexShrink: 0 }} alt="" />;
+  }
+  return (
+    <span style={{ position: "relative", display: "block", width: size, height: size, flexShrink: 0 }}>
+      <img src={defSrc} width={size} height={size} style={{ ...imgBase, opacity: active ? 0 : 1 }} alt="" />
+      <img src={actSrc} width={size} height={size} style={{ ...imgBase, opacity: active ? 1 : 0 }} alt="" />
+    </span>
+  );
 }
 
 window.Icon = Icon;
