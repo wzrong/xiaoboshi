@@ -776,7 +776,7 @@ function FrozenTbAnswer({ ans }) {
           <Icon name={meta.icon} size={12} /> {meta.label}
         </span>
         <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 11, color: "var(--ink-3)", fontWeight: 700 }}>
-          <Icon name="book" size={12} /> 问教材回答 · 已留存
+          <CIcon name="book" size={12} /> 问教材回答 · 已留存
         </span>
       </div>
       <TbAnsBlocks blocks={ans.blocks} CiteMark={NoCite} />
@@ -800,7 +800,7 @@ function FrozenTbCompare({ cmp }) {
       </span>
       {C.summary && <p style={{ margin: 0, fontSize: 13, lineHeight: 1.7, color: "var(--ink-2)" }}>{C.summary}</p>}
       <span style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 11, color: "var(--auth-ink)", fontWeight: 700 }}>
-        <Icon name="book" size={12} /> 问教材回答 · 已留存
+        <CIcon name="book" size={12} /> 问教材回答 · 已留存
       </span>
     </div>
   );

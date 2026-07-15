@@ -287,7 +287,7 @@ function CwDrop({ file, onPick, onClear, onSample, type }) {
   if (file) {
     return (
       <div style={{ display: "flex", alignItems: "center", gap: 11, padding: "13px 15px", borderRadius: 13, border: "1px solid var(--brand-soft-border)", background: "var(--brand-soft)" }}>
-        <span style={{ width: 36, height: 36, borderRadius: 10, background: "var(--surface)", border: "1px solid var(--brand-soft-border)", color: "var(--brand-deep)", display: "grid", placeItems: "center", flexShrink: 0 }}><Icon name="slides" size={18} /></span>
+        <span style={{ width: 36, height: 36, borderRadius: 10, background: "var(--surface)", border: "1px solid var(--brand-soft-border)", color: "var(--brand-deep)", display: "grid", placeItems: "center", flexShrink: 0 }}><CIcon name="slides" size={18} /></span>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontSize: 13, fontWeight: 700, color: "var(--ink)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{file}</div>
           <div style={{ fontSize: 11, color: "var(--brand-deep)", fontWeight: 600, marginTop: 1 }}>已解析 · 共 18 页</div>

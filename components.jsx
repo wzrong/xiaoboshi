@@ -119,27 +119,7 @@ function Btn({ children, kind = "primary", size = "md", icon, iconRight, onClick
 
 // Scenario glyph tile (colored, uses scenario hue)
 function ScenarioGlyph({ icon, hue, size = 46, active }) {
-  return (
-    <div
-      style={{
-        width: size,
-        height: size,
-        borderRadius: size * 0.3,
-        display: "grid",
-        placeItems: "center",
-        background: `linear-gradient(160deg, oklch(0.96 0.032 ${hue}), oklch(0.915 0.058 ${hue}))`,
-        color: `oklch(0.48 0.135 ${hue})`,
-        flexShrink: 0,
-        transition: "transform .2s ease, box-shadow .2s ease",
-        boxShadow: active
-          ? `inset 0 0 0 1px oklch(0.87 0.06 ${hue} / .7), 0 8px 20px -8px oklch(0.6 0.15 ${hue} / .6)`
-          : `inset 0 0 0 1px oklch(0.87 0.06 ${hue} / .55), inset 0 1px 0 rgba(255,255,255,.55)`,
-        transform: active ? "translateY(-2px)" : "none",
-      }}
-    >
-      <Icon name={icon} size={size * 0.5} sw={2} />
-    </div>
-  );
+  return <CIcon name={icon} size={size} active />;
 }
 
 // thinking dots
@@ -241,7 +221,7 @@ function ClipButton({ onFiles, label = "参考资料", compact = false }) {
           e.currentTarget.style.borderColor = "var(--input-border)";
         }}
       >
-        <Icon name="clip" size={15} />
+        <CIcon name="clip" size={15} />
         {!compact && label}
       </button>
     </React.Fragment>
@@ -369,7 +349,7 @@ function ResourcePeek({ item, onClose, onOpenInFind }) {
         </div>
         <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", padding: "14px 18px 16px" }}>
           <button onClick={onClose} style={{ padding: "9px 15px", borderRadius: 10, border: "1px solid var(--line)", background: "var(--surface)", color: "var(--ink-2)", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "var(--font-zh)" }}>继续当前工作</button>
-          <button onClick={onOpenInFind} style={{ padding: "9px 15px", borderRadius: 10, border: "none", background: "var(--brand)", color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "var(--font-zh)", display: "inline-flex", alignItems: "center", gap: 6 }}><Icon name="search" size={14} /> 在「找资源」中打开</button>
+          <button onClick={onOpenInFind} style={{ padding: "9px 15px", borderRadius: 10, border: "none", background: "var(--brand)", color: "#fff", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "var(--font-zh)", display: "inline-flex", alignItems: "center", gap: 6 }}><CIcon name="search" size={14} /> 在「找资源」中打开</button>
         </div>
       </div>
     </div>

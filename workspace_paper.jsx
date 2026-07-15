@@ -224,7 +224,7 @@ function PaperSetup({ meta, setMeta, structure, setStructure, diff, setDiff, sco
   return (
     <div style={{ maxWidth: 680, margin: "0 auto" }}>
       <div style={{ display: "flex", alignItems: "flex-start", gap: 12, marginBottom: 20 }}>
-        <span style={{ width: 40, height: 40, borderRadius: 12, background: "var(--brand-soft)", border: "1px solid var(--brand-soft-border)", color: "var(--brand-deep)", display: "grid", placeItems: "center", flexShrink: 0 }}><Icon name="paper" size={20} /></span>
+        <span style={{ width: 40, height: 40, borderRadius: 12, background: "var(--brand-soft)", border: "1px solid var(--brand-soft-border)", color: "var(--brand-deep)", display: "grid", placeItems: "center", flexShrink: 0 }}><CIcon name="paper" size={20} /></span>
         <div style={{ flex: 1, minWidth: 0 }}>
           <h2 style={{ margin: "0 0 4px", fontSize: 18, fontWeight: 800, color: "var(--ink)" }}>组卷配置</h2>
           <div style={{ fontSize: 12.5, color: "var(--ink-3)", fontWeight: 600 }}>

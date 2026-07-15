@@ -710,7 +710,7 @@ function LessonWorkspace({ scenario, query, onHome, onSwitch, fromIntent, resume
           <React.Fragment>
           {/* 上排：当前教材身份 + 切换教材（打开完整选择器）*/}
           <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-            <span style={{ width: 26, height: 26, borderRadius: 8, background: "var(--brand-soft)", border: "1px solid var(--brand-soft-border)", display: "grid", placeItems: "center", color: "var(--brand-deep)", flexShrink: 0 }}><Icon name="book" size={14} /></span>
+            <span style={{ width: 26, height: 26, borderRadius: 8, background: "var(--brand-soft)", border: "1px solid var(--brand-soft-border)", display: "grid", placeItems: "center", color: "var(--brand-deep)", flexShrink: 0 }}><CIcon name="book" size={14} /></span>
             <div style={{ minWidth: 0 }}>
               <div style={{ fontSize: 13, fontWeight: 800, color: "var(--ink)", lineHeight: 1.2 }}>{lzLabel(textbook)}</div>
               <div style={{ fontSize: 10.5, color: "var(--ink-3)", fontWeight: 600 }}>{textbook.stage} · {lzGrade(textbook)}</div>
@@ -723,7 +723,7 @@ function LessonWorkspace({ scenario, query, onHome, onSwitch, fromIntent, resume
             {savedDocs.length > 0 && (
               <div style={{ position: "relative" }}>
                 <button onClick={() => setSavedOpen((v) => !v)} style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "5px 11px", borderRadius: 8, border: "1px solid var(--line)", background: savedOpen ? "var(--brand-soft)" : "var(--surface-2)", color: savedOpen ? "var(--brand-deep)" : "var(--ink-2)", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "var(--font-zh)" }}>
-                  <Icon name="lesson" size={13} /> 已保存 {savedDocs.length}
+                  <CIcon name="lesson" size={13} /> 已保存 {savedDocs.length}
                   <span style={{ display: "inline-flex", transform: savedOpen ? "rotate(180deg)" : "none", transition: "transform .15s", color: "var(--ink-3)" }}><Icon name="chevron" size={12} /></span>
                 </button>
                 {savedOpen && (
@@ -735,7 +735,7 @@ function LessonWorkspace({ scenario, query, onHome, onSwitch, fromIntent, resume
                         <div key={idx} style={{ display: "flex", alignItems: "center", gap: 4, borderRadius: 9, padding: "2px 2px 2px 0" }}>
                           <button onClick={() => openSaved(idx)} style={{ flex: 1, minWidth: 0, textAlign: "left", display: "flex", alignItems: "center", gap: 8, padding: "8px 9px", borderRadius: 9, border: "none", background: "transparent", color: "var(--ink-2)", fontSize: 12.5, fontWeight: 600, cursor: "pointer", fontFamily: "var(--font-zh)" }}
                             onMouseEnter={(e) => { e.currentTarget.style.background = "var(--surface-2)"; }} onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}>
-                            <Icon name="lesson" size={13} />
+                            <CIcon name="lesson" size={13} />
                             <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>《{s.doc.topic}》{s.docType}</span>
                           </button>
                           <button onClick={() => removeSaved(idx)} aria-label="删除" style={{ width: 26, height: 26, flexShrink: 0, borderRadius: 7, border: "none", background: "transparent", color: "var(--ink-3)", display: "grid", placeItems: "center", cursor: "pointer" }}
@@ -806,7 +806,7 @@ function LessonWorkspace({ scenario, query, onHome, onSwitch, fromIntent, resume
         <div onClick={() => setPickTextbook(false)} style={{ position: "fixed", inset: 0, zIndex: 84, background: "rgba(20,16,10,.42)", backdropFilter: "blur(2px)", opacity: pickTextbook ? 1 : 0, pointerEvents: pickTextbook ? "auto" : "none", transition: "opacity .2s" }} />
         <div style={{ position: "fixed", top: 0, right: 0, bottom: 0, zIndex: 85, width: mobile ? "100%" : "min(560px, 94vw)", background: "var(--canvas)", boxShadow: "-20px 0 60px -30px rgba(0,0,0,.5)", transform: pickTextbook ? "translateX(0)" : "translateX(102%)", transition: "transform .26s cubic-bezier(.22,1,.36,1)", display: "flex", flexDirection: "column" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 9, padding: "13px 18px", borderBottom: "1px solid var(--line)", background: "var(--surface)", flexShrink: 0 }}>
-            <span style={{ width: 28, height: 28, borderRadius: 9, background: "var(--brand-soft)", border: "1px solid var(--brand-soft-border)", display: "grid", placeItems: "center", color: "var(--brand-deep)" }}><Icon name="book" size={16} /></span>
+            <span style={{ width: 28, height: 28, borderRadius: 9, background: "var(--brand-soft)", border: "1px solid var(--brand-soft-border)", display: "grid", placeItems: "center", color: "var(--brand-deep)" }}><CIcon name="book" size={16} /></span>
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontSize: 14.5, fontWeight: 800, color: "var(--ink)" }}>选择教材</div>
               <div style={{ fontSize: 11, color: "var(--ink-3)", fontWeight: 600 }}>学段 · 学科 · 版本 · 册别 → 章节目录</div>
@@ -895,7 +895,7 @@ function LessonStartPage({ textbook, docType, loggedIn, savedDocs, onWrite, onPi
       {recents.length > 0 && (
         <div>
           <div style={{ display: "flex", alignItems: "center", gap: 7, margin: "0 2px 9px", fontSize: 12, fontWeight: 800, color: "var(--ink-3)" }}>
-            <Icon name="lesson" size={13} /> 接着上次
+            <CIcon name="lesson" size={13} /> 接着上次
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             {recents.map((s, i) => {
@@ -903,7 +903,7 @@ function LessonStartPage({ textbook, docType, loggedIn, savedDocs, onWrite, onPi
               return (
                 <button key={i} onClick={() => onOpenSaved(idx)} style={{ display: "flex", alignItems: "center", gap: 11, padding: "11px 14px", borderRadius: 12, border: "1px solid var(--line)", background: "var(--surface)", cursor: "pointer", fontFamily: "var(--font-zh)", textAlign: "left", transition: "all .15s" }}
                   onMouseEnter={(e) => { e.currentTarget.style.borderColor = "var(--brand)"; }} onMouseLeave={(e) => { e.currentTarget.style.borderColor = "var(--line)"; }}>
-                  <span style={{ width: 30, height: 30, borderRadius: 9, background: "var(--surface-2)", border: "1px solid var(--line)", display: "grid", placeItems: "center", color: "var(--brand-deep)", flexShrink: 0 }}><Icon name="lesson" size={15} /></span>
+                  <span style={{ width: 30, height: 30, borderRadius: 9, background: "var(--surface-2)", border: "1px solid var(--line)", display: "grid", placeItems: "center", color: "var(--brand-deep)", flexShrink: 0 }}><CIcon name="lesson" size={15} /></span>
                   <span style={{ flex: 1, minWidth: 0 }}>
                     <span style={{ display: "block", fontSize: 13, fontWeight: 700, color: "var(--ink)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>《{s.doc.topic}》{s.docType}</span>
                     <span style={{ display: "block", fontSize: 11, color: "var(--ink-3)", fontWeight: 600 }}>{s.doc.edition} · {s.doc.grade} · {s.when}</span>

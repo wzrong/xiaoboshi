@@ -273,7 +273,7 @@ function TextbookWorkspace({ scenario, query, onHome, onSwitch, fromIntent, logg
                   <BotAvatar size={28} />
                   <div style={{ display: "flex", flexDirection: "column", gap: 5, background: "var(--surface)", border: "1px solid var(--line)", padding: "10px 14px", borderRadius: 12 }}>
                     <span style={{ fontSize: 12.5, color: "var(--ink-3)", fontWeight: 600, display: "inline-flex", gap: 7, alignItems: "center" }}>
-                      <Icon name="book" size={13} /> 正在比对教材原文 <Dots />
+                      <CIcon name="book" size={13} /> 正在比对教材原文 <Dots />
                     </span>
                   </div>
                 </div>
@@ -469,7 +469,7 @@ function TextbookWorkspace({ scenario, query, onHome, onSwitch, fromIntent, logg
                 <BotAvatar size={28} />
                 <div style={{ display: "flex", flexDirection: "column", gap: 5, background: "var(--surface)", border: "1px solid var(--line)", padding: "10px 14px", borderRadius: 12 }}>
                   <span style={{ fontSize: 12.5, color: "var(--ink-3)", fontWeight: 600, display: "inline-flex", gap: 7, alignItems: "center" }}>
-                    <Icon name="book" size={13} /> 正在比对教材原文 <Dots />
+                    <CIcon name="book" size={13} /> 正在比对教材原文 <Dots />
                   </span>
                 </div>
               </div>
@@ -581,7 +581,7 @@ function TextbookWorkspace({ scenario, query, onHome, onSwitch, fromIntent, logg
                     <div>{c.quote}</div>
                   </div>
                   <div style={{ display: "inline-flex", alignItems: "center", gap: 4, marginTop: 9, fontSize: 11.5, fontWeight: 700, color: "var(--brand-deep)" }}>
-                    <Icon name="book" size={13} /> 查看教材原文（扫描页） <Icon name="arrow" size={13} />
+                    <CIcon name="book" size={13} /> 查看教材原文（扫描页） <Icon name="arrow" size={13} />
                   </div>
                 </div>
               ))}
@@ -642,7 +642,7 @@ function TextbookWorkspace({ scenario, query, onHome, onSwitch, fromIntent, logg
         : { position: "fixed", top: 0, right: 0, bottom: 0, width: "min(560px, 96vw)", zIndex: 85, background: "var(--canvas)", display: "flex", flexDirection: "column", overflow: "hidden", transform: switcherOpen ? "translateX(0)" : "translateX(102%)", transition: "transform .3s cubic-bezier(.32,.72,0,1)", boxShadow: "0 18px 60px -24px rgba(0,0,0,.5)" }}>
         {mobile && <div style={{ width: 40, height: 4, borderRadius: 999, background: "var(--line)", margin: "8px auto 0", flexShrink: 0 }} />}
         <div style={{ flexShrink: 0, display: "flex", alignItems: "center", gap: 10, padding: "13px 18px", borderBottom: "1px solid var(--line)", background: "var(--surface)" }}>
-          <span style={{ width: 34, height: 34, borderRadius: 10, background: "var(--brand-soft)", border: "1px solid var(--brand-soft-border)", display: "grid", placeItems: "center", color: "var(--brand-deep)", flexShrink: 0 }}><Icon name="book" size={17} /></span>
+          <span style={{ width: 34, height: 34, borderRadius: 10, background: "var(--brand-soft)", border: "1px solid var(--brand-soft-border)", display: "grid", placeItems: "center", color: "var(--brand-deep)", flexShrink: 0 }}><CIcon name="book" size={17} /></span>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontSize: 15, fontWeight: 800, color: "var(--ink)" }}>切换 / 选择教材</div>
             <div style={{ fontSize: 11.5, color: "var(--ink-3)", fontWeight: 600 }}>当前：{bookLabel}</div>
@@ -832,7 +832,7 @@ function TextbookPicker({ onOpen, onFree, onMulti, onResume, memBook, demoBook, 
             onMouseEnter={(e) => (e.currentTarget.style.boxShadow = "0 10px 26px -16px var(--brand)")}
             onMouseLeave={(e) => (e.currentTarget.style.boxShadow = "none")}>
             <span style={{ position: "absolute", top: 11, right: 12, display: "inline-flex", alignItems: "center", gap: 4, fontSize: 10.5, fontWeight: 800, color: "var(--brand-deep)" }}><Icon name="spark" size={11} /> 来自记忆</span>
-            <span style={{ width: 40, height: 40, borderRadius: 11, background: "var(--surface)", border: "1px solid var(--brand-soft-border)", display: "grid", placeItems: "center", color: "var(--brand-deep)", flexShrink: 0 }}><Icon name="book" size={20} /></span>
+            <span style={{ width: 40, height: 40, borderRadius: 11, background: "var(--surface)", border: "1px solid var(--brand-soft-border)", display: "grid", placeItems: "center", color: "var(--brand-deep)", flexShrink: 0 }}><CIcon name="book" size={20} /></span>
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontSize: 11, fontWeight: 700, color: "var(--ink-3)", marginBottom: 2 }}>继续上次</div>
               <div style={{ fontSize: 14.5, fontWeight: 800, color: "var(--ink)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{memBook.edition} {memBook.subject} · {memBook.name}</div>
@@ -856,7 +856,7 @@ function TextbookPicker({ onOpen, onFree, onMulti, onResume, memBook, demoBook, 
 
         {/* hot / recommended — multi-selectable */}
         <div style={{ fontSize: 12.5, fontWeight: 700, color: "var(--ink-3)", marginBottom: 10, display: "flex", alignItems: "center", gap: 6 }}>
-          <Icon name="book" size={14} /> 选择教材 <span style={{ fontWeight: 600, color: "var(--ink-3)" }}>· 可勾选多本做综合复习</span>
+          <CIcon name="book" size={14} /> 选择教材 <span style={{ fontWeight: 600, color: "var(--ink-3)" }}>· 可勾选多本做综合复习</span>
         </div>
         <div style={{ display: "grid", gridTemplateColumns: mobile ? "1fr 1fr" : "repeat(3, 1fr)", gap: 10, marginBottom: 18 }}>
           {HOT.map((b, i) => {
@@ -1015,7 +1015,7 @@ function PdfPagePreview({ cite, onClose, mobile }) {
       <div style={{ position: "fixed", zIndex: 91, inset: mobile ? "0" : "50% auto auto 50%", transform: mobile ? "none" : "translate(-50%, -50%)", width: mobile ? "100%" : "min(720px, 94vw)", height: mobile ? "100%" : "min(88vh, 940px)", display: "flex", flexDirection: "column", background: "var(--surface)", borderRadius: mobile ? 0 : 18, overflow: "hidden", boxShadow: "0 40px 100px -30px rgba(0,0,0,.6)" }}>
         {/* header */}
         <div style={{ flexShrink: 0, display: "flex", alignItems: "center", gap: 10, padding: "12px 16px", borderBottom: "1px solid var(--line)", background: "var(--surface)" }}>
-          <span style={{ width: 34, height: 34, borderRadius: 10, background: "var(--brand-soft)", border: "1px solid var(--brand-soft-border)", display: "grid", placeItems: "center", color: "var(--brand-deep)", flexShrink: 0 }}><Icon name="book" size={17} /></span>
+          <span style={{ width: 34, height: 34, borderRadius: 10, background: "var(--brand-soft)", border: "1px solid var(--brand-soft-border)", display: "grid", placeItems: "center", color: "var(--brand-deep)", flexShrink: 0 }}><CIcon name="book" size={17} /></span>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontSize: 14.5, fontWeight: 800, color: "var(--ink)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{cite.source} · 教材原文</div>
             <div style={{ fontSize: 11.5, color: "var(--ink-3)", fontWeight: 600 }}>{cite.loc} · 扫描原件</div>

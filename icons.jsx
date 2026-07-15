@@ -414,4 +414,31 @@ function Icon({ name, size = 24, sw = 1.8 }) {
   return <svg {...common}>{paths[name] || paths.spark}</svg>;
 }
 
+// Custom SVG icon mapping — uses uploaded SVG files as <img>
+// Each key maps to [default_path, active_path]
+const CUSTOM_ICON_MAP = {
+  search:  ["assets/icons/找资源1.svg",   "assets/icons/找资源2.svg"],
+  paper:   ["assets/icons/出卷子1.svg",   "assets/icons/出卷子2.svg"],
+  slides:  ["assets/icons/做课件1.svg",   "assets/icons/做课件2.svg"],
+  lesson:  ["assets/icons/写教案1.svg",   "assets/icons/写教案2.svg"],
+  book:    ["assets/icons/问教材1.svg",   "assets/icons/问教材2.svg"],
+  mindmap: ["assets/icons/画导图2.svg",   "assets/icons/画导图2.svg"],
+  grade:   ["assets/icons/改作业2.svg",   "assets/icons/改作业2.svg"],
+  history: ["assets/icons/历史.svg",       "assets/icons/历史.svg"],
+  scenarioSpark: ["assets/icons/识别场景.svg", "assets/icons/识别场景.svg"],
+  clip:    ["assets/icons/附件.svg",       "assets/icons/附件.svg"],
+  brain:   ["assets/icons/我的记忆（默认）.svg", "assets/icons/我的记忆（选中）.svg"],
+  grid:    ["assets/icons/我的内容（默认）.svg", "assets/icons/我的内容（选中）.svg"],
+  cart:    ["assets/icons/资源篮（默认）.svg",   "assets/icons/资源篮（选中）.svg"],
+};
+
+function CIcon({ name, size = 16, active = false }) {
+  const entry = CUSTOM_ICON_MAP[name];
+  if (!entry) return <Icon name={name} size={size} />;
+  const src = active ? entry[1] : entry[0];
+  return <img src={src} width={size} height={size} style={{ display: "block", flexShrink: 0 }} alt="" />;
+}
+
 window.Icon = Icon;
+window.CIcon = CIcon;
+window.CUSTOM_ICON_MAP = CUSTOM_ICON_MAP;

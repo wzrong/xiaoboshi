@@ -61,7 +61,7 @@ function SmartInput({ value, setValue, onSubmit, big, placeholder, ghost }) {
         border: "1.5px solid var(--input-border)",
         borderRadius: 22,
         boxShadow: "var(--input-shadow)",
-        padding: big ? "18px 18px 14px" : "12px 12px 10px",
+        padding: big ? "18px 18px 12px" : "12px 12px 8px",
         transition: "border-color .2s, box-shadow .25s",
       }}
       onFocusCapture={(e) => {
@@ -73,6 +73,7 @@ function SmartInput({ value, setValue, onSubmit, big, placeholder, ghost }) {
         e.currentTarget.style.boxShadow = "var(--input-shadow)";
       }}
     >
+      <FileChips files={files} onRemove={(i) => setFiles((f) => f.filter((_, j) => j !== i))} style={{ margin: "0 2px 4px" }} />
       <textarea
         ref={ref}
         value={value}
@@ -105,14 +106,13 @@ function SmartInput({ value, setValue, onSubmit, big, placeholder, ghost }) {
           boxSizing: "border-box",
         }}
       />
-      <FileChips files={files} onRemove={(i) => setFiles((f) => f.filter((_, j) => j !== i))} style={{ margin: "4px 2px 0" }} />
       <div
         style={{
           display: "flex",
-          alignItems: "center",
+          alignItems: "flex-end",
           justifyContent: "space-between",
           gap: 10,
-          marginTop: big ? 8 : 4,
+          marginTop: big ? 6 : 2,
         }}
       >
         <div style={{ display: "inline-flex", alignItems: "center", gap: 8, minWidth: 0 }}>
@@ -129,7 +129,7 @@ function SmartInput({ value, setValue, onSubmit, big, placeholder, ghost }) {
               whiteSpace: "nowrap",
             }}
           >
-            <span style={{ display: "grid", placeItems: "center", width: 14, height: 14 }}><Icon name="spark" size={14} /></span>
+            <span style={{ display: "grid", placeItems: "center", width: 14, height: 14 }}><CIcon name="scenarioSpark" size={14} /></span>
             AI 自动识别场景
           </span>
           {ghost && !value.trim() && (
@@ -175,7 +175,7 @@ function HomeConversation({ value, setValue, onSubmit, onPick, onResume, loggedI
   const [phi, setPhi] = useState(0);
   useEffect(() => { const id = setInterval(() => setPhi((i) => (i + 1) % phs.length), 3400); return () => clearInterval(id); }, []);
   return (
-    <div className="home-fade" style={{ padding: mobile ? "2vh 16px 20px" : "3vh 24px 22px", textAlign: "center", flex: 1, display: "flex", flexDirection: "column", justifyContent: "center", minHeight: 0, paddingTop: mobile ? "6vh" : "calc(10vh + 80px)" }}>
+    <div className="home-fade" style={{ padding: mobile ? "2vh 16px 20px" : "3vh 24px 22px", textAlign: "center", flex: 1, display: "flex", flexDirection: "column", justifyContent: "center", minHeight: 0 }}>
       <div style={{ maxWidth: 760, margin: "0 auto", width: "100%" }}>
         <h1 style={{ fontSize: mobile ? 25 : 36, fontWeight: 800, color: "var(--ink)", margin: "0 0 12px", letterSpacing: "-0.8px" }}>
           老师好，有什么我能帮你的？
@@ -203,7 +203,7 @@ function HomeConversation({ value, setValue, onSubmit, onPick, onResume, loggedI
               display: "inline-flex",
               alignItems: "center",
               gap: 7,
-              padding: "9px 15px 9px 12px",
+              padding: "6px 15px 6px 12px",
               borderRadius: 13,
               boxShadow: "0 1px 4px oklch(0.4 0.08 260 / .06)",
               border: "1px solid var(--line)",
@@ -225,7 +225,7 @@ function HomeConversation({ value, setValue, onSubmit, onPick, onResume, loggedI
               e.currentTarget.style.borderColor = "var(--line)";
             }}
           >
-            <span style={{ width: 22, height: 22, display: "grid", placeItems: "center", color: `oklch(0.56 0.14 ${s.hue})`, flexShrink: 0 }}><Icon name={s.icon} size={20} /></span>
+            <span style={{ width: 22, height: 22, display: "grid", placeItems: "center", flexShrink: 0 }}><CIcon name={s.icon} size={20} active /></span>
             <span style={{ fontSize: 13.5, fontWeight: 700, color: "var(--ink)" }}>{s.name}</span>
             {s.id === "courseware" && (
               <span style={{ fontSize: 9.5, fontWeight: 700, color: "oklch(0.5 0.13 45)", background: "oklch(0.95 0.05 45)", padding: "1px 6px", borderRadius: 999, marginLeft: -2 }}>互动</span>
@@ -236,7 +236,7 @@ function HomeConversation({ value, setValue, onSubmit, onPick, onResume, loggedI
       <div style={{ display: "flex", flexWrap: "wrap", gap: 8, justifyContent: "center", alignItems: "center", marginTop: 48, maxWidth: 760, marginLeft: "auto", marginRight: "auto" }}>
         <span style={{ fontSize: 12, color: "var(--ink-3)", fontWeight: 700, display: "inline-flex", alignItems: "center", gap: 5 }}><Icon name="spark" size={13} /> 老师们在问</span>
         {EX.slice(0, mobile ? 3 : 5).map((ex, i) => (
-          <button key={i} onClick={() => onSubmit(ex.t)} className="chip-pop ex-chip" style={{ animationDelay: `${i * 0.04}s`, maxWidth: "100%", padding: "7px 14px", borderRadius: 999, border: "1px solid var(--line)", background: "var(--surface)", color: "var(--ink-2)", fontSize: 12.5, fontWeight: 600, cursor: "pointer", fontFamily: "var(--font-zh)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{ex.t}</button>
+          <button key={i} onClick={() => onSubmit(ex.t)} className="chip-pop ex-chip" style={{ animationDelay: `${i * 0.04}s`, maxWidth: "100%", padding: "7px 14px", borderRadius: 999, border: "1px solid var(--line)", background: "var(--surface)", color: "var(--ink-3)", fontSize: 12.5, fontWeight: 600, cursor: "pointer", fontFamily: "var(--font-zh)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{ex.t}</button>
         ))}
       </div>
       <div style={{ maxWidth: 760, margin: "0 auto", width: "100%" }}>
@@ -307,7 +307,7 @@ function MemoryPanel({ onResume, onManageMemory, onOpenWorks }) {
   // closed → the panel is gone for the rest of this session (not collapsed to a strip),
   // but resets on page refresh so the flow stays testable. teachers can still reach
   // memory anytime via the sidebar「我的记忆」entry.
-  const [hidden, setHidden] = useState(false);
+  const [hidden, setHidden] = useState(true);
   if (hidden) return null;
   const dismiss = () => setHidden(true);
 
@@ -371,7 +371,7 @@ function MemoryPanel({ onResume, onManageMemory, onOpenWorks }) {
           <div style={{ display: "flex", flexWrap: "wrap", gap: 16, paddingTop: 13, borderTop: "1px dashed var(--line)" }}>
             {M.stats.map((s, i) => (
               <div key={i} style={{ display: "inline-flex", alignItems: "center", gap: 7 }}>
-                <span style={{ color: "var(--ink-3)" }}><Icon name={s.icon} size={15} /></span>
+                <span style={{ color: "var(--ink-3)" }}><CIcon name={s.icon} size={15} /></span>
                 <span style={{ fontSize: 15, fontWeight: 800, color: "var(--ink)", fontFamily: "var(--font-num)" }}>{s.n}</span>
                 <span style={{ fontSize: 12, color: "var(--ink-3)", fontWeight: 600 }}>{s.label}</span>
               </div>
@@ -381,7 +381,7 @@ function MemoryPanel({ onResume, onManageMemory, onOpenWorks }) {
         {/* right: resume recent creations */}
         <div style={{ padding: "14px 16px", background: "var(--surface-2)" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 700, color: "var(--ink-3)", marginBottom: 11 }}>
-            <Icon name="history" size={14} /> 继续上次创作
+            <CIcon name="history" size={14} /> 继续上次创作
             <div style={{ flex: 1 }} />
             <button onClick={onOpenWorks} style={{ display: "inline-flex", alignItems: "center", gap: 3, border: "none", background: "transparent", color: "var(--brand-deep)", fontSize: 11.5, fontWeight: 700, cursor: "pointer", fontFamily: "var(--font-zh)" }}>
               我的内容 <Icon name="arrow" size={13} />
@@ -560,7 +560,7 @@ function HomePersona({ value, setValue, onSubmit, onPick, onResume, loggedIn, on
                 ))}
               </div>
               <div style={{ fontSize: 11.5, fontWeight: 700, color: "var(--ink-3)", display: "flex", alignItems: "center", gap: 6, marginBottom: 9, paddingTop: 12, borderTop: "1px dashed var(--line)" }}>
-                <Icon name="history" size={13} /> 继续上次创作
+                <CIcon name="history" size={13} /> 继续上次创作
                 <div style={{ flex: 1 }} />
                 <button onClick={onOpenWorks} style={{ display: "inline-flex", alignItems: "center", gap: 3, border: "none", background: "transparent", color: "var(--brand-deep)", fontSize: 11.5, fontWeight: 700, cursor: "pointer", fontFamily: "var(--font-zh)" }}>
                   我的内容 <Icon name="arrow" size={12} />
@@ -611,7 +611,7 @@ function HomePersona({ value, setValue, onSubmit, onPick, onResume, loggedIn, on
                 display: "flex",
                 alignItems: "center",
                 gap: 12,
-                padding: "12px 14px",
+                padding: "9px 14px",
                 borderRadius: 14,
                 border: "1px solid var(--line)",
                 background: "var(--surface)",
@@ -749,7 +749,7 @@ function Homepage({ page, layout, value, setValue, onSubmit, onPick, onResume, l
           onCollapse={() => setRailOpen(false)}
         />
       ) : null}
-      <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", position: "relative", background: "radial-gradient(60% 42% at 50% 30%, color-mix(in oklab, var(--brand), var(--surface) 94%) 0%, var(--surface) 72%)" }}>
+      <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", position: "relative", background: "var(--surface)" }}>
         {!mobile && !railOpen && (
           <div style={{ position: "absolute", top: 14, left: 14, zIndex: 20, display: "inline-flex", gap: 6 }}>
             <button onClick={() => setRailOpen(true)} data-tip="展开菜单" data-tip-pos="bottom-left" aria-label="展开菜单" style={railIconBtn} {...railHoverFx}>
@@ -828,7 +828,7 @@ function LeftRail({ page, loggedIn, onNavigate, onNewChat, onResume, onLogout, o
       onMouseEnter={(e) => { if (!active) e.currentTarget.style.background = "var(--surface)"; }}
       onMouseLeave={(e) => { if (!active) e.currentTarget.style.background = "transparent"; }}
     >
-      <span style={{ flexShrink: 0, width: 20, height: 20, display: "grid", placeItems: "center", color: accent && !active ? "var(--brand-deep)" : "inherit" }}><Icon name={icon} size={18} /></span>
+      <span style={{ flexShrink: 0, width: 20, height: 20, display: "grid", placeItems: "center" }}><CIcon name={icon} size={18} active={active} /></span>
       {open && <span style={{ whiteSpace: "nowrap", lineHeight: 1 }}>{label}</span>}
     </button>
   );
@@ -852,8 +852,10 @@ function LeftRail({ page, loggedIn, onNavigate, onNewChat, onResume, onLogout, o
               <div style={{ fontWeight: 800, fontSize: 15.5, color: "var(--ink)" }}>AI 小博士</div>
               <div style={{ fontSize: 11, color: "var(--ink-3)", fontWeight: 600, marginTop: 1 }}>你的备课教学助手</div>
             </div>
-            <button onClick={collapse} data-tip={mobile ? "关闭菜单" : "收起菜单"} aria-label={mobile ? "关闭菜单" : "收起菜单"} style={{ width: 26, height: 26, borderRadius: 8, border: "1px solid var(--line)", background: "var(--surface)", color: "var(--ink-3)", display: "grid", placeItems: "center", cursor: "pointer", flexShrink: 0 }}>
-              <Icon name={mobile ? "close" : "panelCollapse"} size={15} sw={mobile ? 2.4 : 1.8} />
+            <button onClick={collapse} data-tip={mobile ? "关闭菜单" : "收起菜单"} aria-label={mobile ? "关闭菜单" : "收起菜单"} style={{ width: 32, height: 32, borderRadius: 8, border: "none", background: "transparent", color: "var(--ink-3)", display: "grid", placeItems: "center", cursor: "pointer", flexShrink: 0, transition: "background .15s, color .15s" }}
+              onMouseEnter={(e) => { e.currentTarget.style.background = "var(--surface)"; e.currentTarget.style.color = "var(--ink-2)"; }}
+              onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "var(--ink-3)"; }}>
+              <Icon name={mobile ? "close" : "panelCollapse"} size={17} sw={mobile ? 2.4 : 1.8} />
             </button>
           </React.Fragment>
         ) : (
@@ -898,7 +900,6 @@ function LeftRail({ page, loggedIn, onNavigate, onNewChat, onResume, onLogout, o
       {open && (
         <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", paddingTop: 6 }}>
           <div style={{ padding: "4px 18px 8px", display: "flex", alignItems: "center", gap: 6 }}>
-            <Icon name="chat" size={13} />
             <span style={{ fontSize: 11.5, fontWeight: 700, color: "var(--ink-3)" }}>历史对话</span>
             <div style={{ flex: 1 }} />
             {loggedIn && (
@@ -906,11 +907,11 @@ function LeftRail({ page, loggedIn, onNavigate, onNewChat, onResume, onLogout, o
                 onClick={() => onNavigate("history")}
                 data-tip="全部历史对话"
                 aria-label="全部历史对话"
-                style={{ border: "none", background: "transparent", color: "var(--ink-3)", cursor: "pointer", width: 24, height: 24, display: "grid", placeItems: "center", borderRadius: 6 }}
+                style={{ border: "none", background: "transparent", color: "var(--ink-3)", cursor: "pointer", width: 28, height: 28, display: "flex", alignItems: "center", justifyContent: "center", borderRadius: 7, transition: "background .15s" }}
                 onMouseEnter={(e) => (e.currentTarget.style.background = "var(--surface)")}
                 onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
               >
-                <Icon name="history" size={15} />
+                <CIcon name="history" size={16} />
               </button>
             )}
           </div>
@@ -925,10 +926,9 @@ function LeftRail({ page, loggedIn, onNavigate, onNewChat, onResume, onLogout, o
                   onMouseEnter={(e) => (e.currentTarget.style.background = "var(--surface)")}
                   onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
                 >
-                  <span style={{ flexShrink: 0, color: "var(--ink-3)", display: "grid", placeItems: "center", width: 18 }}><Icon name={c.icon} size={17} /></span>
+                  <span style={{ flexShrink: 0, display: "grid", placeItems: "center", width: 18 }}><CIcon name={c.icon} size={15} /></span>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: 12.5, fontWeight: 600, color: "var(--ink)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{c.title}</div>
-                    <div style={{ fontSize: 10.5, color: "var(--ink-3)", marginTop: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{c.when} · {c.last}</div>
                   </div>
                 </button>
               ))}
@@ -1110,7 +1110,7 @@ function MemoryPage({ onResume }) {
               <div style={{ display: "flex", flexWrap: "wrap", gap: 20, background: "var(--surface)", border: "1px solid var(--line)", borderRadius: 14, padding: "16px 18px" }}>
                 {M.stats.map((s, i) => (
                   <div key={i} style={{ display: "inline-flex", alignItems: "center", gap: 7 }}>
-                    <span style={{ color: "var(--ink-3)" }}><Icon name={s.icon} size={16} /></span>
+                    <span style={{ color: "var(--ink-3)" }}><CIcon name={s.icon} size={16} /></span>
                     <span style={{ fontSize: 16, fontWeight: 800, color: "var(--ink)", fontFamily: "var(--font-num)" }}>{s.n}</span>
                     <span style={{ fontSize: 12.5, color: "var(--ink-3)", fontWeight: 600 }}>{s.label}</span>
                   </div>
@@ -1294,7 +1294,7 @@ function HistoryPage({ onResume, onNewChat, conversations }) {
                   >
                     {/* node on the spine */}
                     <span style={{ position: "absolute", left: SPINE - 30 - 4, top: "50%", marginTop: -4, width: 9, height: 9, borderRadius: 999, background: "var(--canvas)", border: "2px solid var(--ink-4, var(--line))", boxShadow: "0 0 0 3px var(--canvas)" }} />
-                    <span style={{ width: 28, height: 28, display: "grid", placeItems: "center", color: "var(--ink-3)", flexShrink: 0 }}><Icon name={c.icon} size={18} /></span>
+                    <span style={{ width: 28, height: 28, display: "grid", placeItems: "center", flexShrink: 0 }}><CIcon name={c.icon} size={18} /></span>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ fontSize: 14, fontWeight: 700, color: "var(--ink)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{c.title}</div>
                       <div style={{ fontSize: 12, color: "var(--ink-3)", marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>最近：{c.last}</div>
@@ -1589,7 +1589,7 @@ function BasketPage({ items = [], onRemove, onClear, onOpenContent, onNewChat, o
             <div style={{ fontSize: 16, fontWeight: 800, color: "var(--ink)", marginBottom: 7 }}>资源篮还是空的</div>
             <div style={{ fontSize: 13.5, color: "var(--ink-3)", lineHeight: 1.7, maxWidth: 340, margin: "0 auto 18px" }}>在「找资源」里预览任意文档或视频，点<b style={{ color: "var(--brand-deep)" }}>加入资源篮</b>，就会出现在这里，随时取用。</div>
             <button onClick={onGoFind} style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "10px 18px", borderRadius: 11, border: "none", background: "var(--brand-soft)", color: "var(--brand-deep)", fontSize: 13.5, fontWeight: 700, cursor: "pointer", fontFamily: "var(--font-zh)" }}>
-              <Icon name="search" size={16} /> 去找资源
+              <CIcon name="search" size={16} /> 去找资源
             </button>
           </div>
         ) : (

@@ -147,7 +147,7 @@ function GenericWorkspace({ scenario, query, onHome, onSwitch, fromIntent, resum
             </div>
             {isResume && (
               <span style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "5px 11px", borderRadius: 999, background: "var(--surface-2)", border: "1px solid var(--line)", fontSize: 11.5, fontWeight: 700, color: "var(--ink-3)" }}>
-                <Icon name="history" size={13} /> 历史创作 · 恢复自{resume.when}
+                <CIcon name="history" size={13} /> 历史创作 · 恢复自{resume.when}
               </span>
             )}
           </div>

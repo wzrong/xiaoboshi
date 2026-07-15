@@ -1057,7 +1057,7 @@ function roundSuggestions(round) {
 function ResultPill({ count, active, onOpen }) {
   return (
     <button onClick={onOpen} style={{ width: "100%", display: "flex", alignItems: "center", gap: 9, textAlign: "left", padding: "9px 11px", borderRadius: 11, border: `1px solid ${active ? "var(--brand)" : "var(--brand-soft-border)"}`, background: active ? "var(--brand-soft)" : "var(--surface)", cursor: "pointer", fontFamily: "var(--font-zh)" }}>
-      <span style={{ width: 30, height: 30, borderRadius: 9, background: "var(--brand-soft)", border: "1px solid var(--brand-soft-border)", display: "grid", placeItems: "center", color: "var(--brand-deep)", flexShrink: 0 }}><Icon name="search" size={15} /></span>
+      <span style={{ width: 30, height: 30, borderRadius: 9, background: "var(--brand-soft)", border: "1px solid var(--brand-soft-border)", display: "grid", placeItems: "center", color: "var(--brand-deep)", flexShrink: 0 }}><CIcon name="search" size={15} /></span>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontSize: 12.5, fontWeight: 800, color: "var(--brand-deep)" }}>已为你匹配 {count} 个资源</div>
         <div style={{ fontSize: 10.5, color: "var(--ink-3)", fontWeight: 600, marginTop: 1 }}>{active ? "当前正在查看" : "点此查看本轮结果"}</div>
@@ -1401,7 +1401,7 @@ function ClarifyPopover({ analysis, onResolve, onSkip }) {
           onClick={() => onResolve(vals)}
           style={{ padding: "8px 16px", borderRadius: 10, border: "none", background: ready ? "var(--brand)" : "var(--line)", color: ready ? "#fff" : "var(--ink-4)", fontSize: 13, fontWeight: 700, cursor: ready ? "pointer" : "default", fontFamily: "var(--font-zh)", display: "inline-flex", alignItems: "center", gap: 6, maxWidth: 320 }}
         >
-          <Icon name="search" size={14} /> <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{ready ? `检索 ${summary}` : "请补齐必选项"}</span>
+          <CIcon name="search" size={14} /> <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{ready ? `检索 ${summary}` : "请补齐必选项"}</span>
         </button>
       </div>
     </div>
@@ -1838,7 +1838,7 @@ function NotFound({ topic, onSwitch, query }) {
   return (
     <div style={{ textAlign: "center", padding: "30px 20px 10px" }}>
       <div style={{ display: "inline-flex", marginBottom: 12, color: "var(--line)" }}>
-        <Icon name="search" size={44} sw={1.4} />
+        <CIcon name="search" size={44} sw={1.4} />
       </div>
       <div style={{ fontSize: 16, fontWeight: 800, color: "var(--ink)", marginBottom: 6 }}>当前条件下暂无现成资源完全匹配</div>
       <div style={{ fontSize: 13.5, color: "var(--ink-3)", marginBottom: 22, lineHeight: 1.6 }}>

@@ -125,7 +125,7 @@ function GradeGuide({ mode, setMode, onStart }) {
           onDragLeave={() => setOver(false)}
           onDrop={(e) => { e.preventDefault(); setOver(false); onStart(examples[0]); }}
           style={{ width: "100%", display: "flex", flexDirection: "column", alignItems: "center", gap: 8, padding: "30px 20px", borderRadius: 16, border: `1.5px dashed ${over ? "var(--brand)" : "var(--brand-soft-border)"}`, background: over ? "var(--brand-soft)" : "var(--surface)", cursor: "pointer", fontFamily: "var(--font-zh)", marginBottom: 18, transition: "all .15s" }}>
-          <span style={{ width: 46, height: 46, borderRadius: 13, background: "var(--brand-soft)", border: "1px solid var(--brand-soft-border)", color: "var(--brand-deep)", display: "grid", placeItems: "center" }}><Icon name="clip" size={22} /></span>
+          <span style={{ width: 46, height: 46, borderRadius: 13, background: "var(--brand-soft)", border: "1px solid var(--brand-soft-border)", color: "var(--brand-deep)", display: "grid", placeItems: "center" }}><CIcon name="clip" size={22} /></span>
           <div style={{ fontSize: 14, fontWeight: 800, color: "var(--ink)" }}>拖入或<span style={{ color: "var(--brand-deep)" }}>拍照上传</span>{mode === "class" ? "全班作业" : "学生作业"}</div>
           <div style={{ fontSize: 11.5, color: "var(--ink-3)", fontWeight: 600 }}>支持照片 / PDF / Word · {mode === "class" ? "可一次上传多份" : "单份逐题精批"}</div>
         </button>
@@ -258,7 +258,7 @@ function GradeWorkspace({ scenario, query, onHome, onSwitch, fromIntent, resume,
       <div style={{ flex: 1, display: "grid", placeItems: "center", padding: 30 }}>
         <div style={{ textAlign: "center", color: "var(--ink-3)" }}>
           <div style={{ display: "inline-flex", marginBottom: 12 }}><BotAvatar size={42} glow /></div>
-          <div style={{ fontSize: 14, fontWeight: 700, color: "var(--ink-2)", display: "inline-flex", gap: 7, alignItems: "center" }}><Icon name="grade" size={15} /> 正在比对权威答案、逐题批改 <Dots /></div>
+          <div style={{ fontSize: 14, fontWeight: 700, color: "var(--ink-2)", display: "inline-flex", gap: 7, alignItems: "center" }}><CIcon name="grade" size={15} /> 正在比对权威答案、逐题批改 <Dots /></div>
         </div>
       </div>
     );
