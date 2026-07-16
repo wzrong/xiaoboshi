@@ -299,6 +299,34 @@ function Icon({ name, size = 24, sw = 1.8 }) {
         <path d="M14.2 9.6 16.6 12l-2.4 2.4" />
       </g>
     ),
+    panelLeftClose: (
+      <g>
+        <rect width="18" height="18" x="3" y="3" rx="2" />
+        <path d="M9 3v18" />
+        <path d="m16 15-3-3 3-3" />
+      </g>
+    ),
+    panelLeftOpen: (
+      <g>
+        <rect width="18" height="18" x="3" y="3" rx="2" />
+        <path d="M9 3v18" />
+        <path d="m14 9 3 3-3 3" />
+      </g>
+    ),
+    panelRightClose: (
+      <g>
+        <rect width="18" height="18" x="3" y="3" rx="2" />
+        <path d="M15 3v18" />
+        <path d="m8 9 3 3-3 3" />
+      </g>
+    ),
+    panelRightOpen: (
+      <g>
+        <rect width="18" height="18" x="3" y="3" rx="2" />
+        <path d="M15 3v18" />
+        <path d="m10 15-3-3 3-3" />
+      </g>
+    ),
     enterFull: (
       <g>
         <path d="M4 9V5a1 1 0 0 1 1-1h4" />

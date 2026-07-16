@@ -265,7 +265,7 @@ function WorkspaceShell({ scenario, onHome, onSwitch, children, right, afterTitl
   const expandBtn = nav && !mobile && !railOpen ? (
     <span style={{ display: "inline-flex", gap: 6 }}>
       <button onClick={() => setRailOpen(true)} data-tip="展开菜单" data-tip-pos="bottom-left" aria-label="展开菜单" style={iconBtnStyle} {...hoverFx}>
-        <Icon name="panelExpand" size={17} />
+        <Icon name="panelLeftOpen" size={17} />
       </button>
       {nav.onNewChat && (
         <button onClick={() => nav.onNewChat()} data-tip="新对话" aria-label="新对话" style={iconBtnStyle} {...hoverFx}>
@@ -289,7 +289,7 @@ function WorkspaceShell({ scenario, onHome, onSwitch, children, right, afterTitl
             <Icon name="enterFull" size={16} />
           </button>
           <button onClick={() => setStageCollapsed(true)} data-tip="收起面板" data-tip-pos="bottom-right" aria-label="收起面板" style={stageCtrlBtn} {...hoverFx}>
-            <Icon name="panelExpand" size={17} />
+            <Icon name="panelRightClose" size={17} />
           </button>
         </React.Fragment>
       )}
@@ -322,7 +322,7 @@ function WorkspaceShell({ scenario, onHome, onSwitch, children, right, afterTitl
   // chat header, same spot the collapse button lived) brings the panel back — no weird full-height rail.
   const expandStageBtn = (
     <button onClick={() => setStageCollapsed(false)} data-tip={`展开${mobilePanelLabel}面板`} data-tip-pos="bottom-right" aria-label="展开面板" style={stageCtrlBtn} {...hoverFx}>
-      <Icon name="panelCollapse" size={17} />
+      <Icon name="panelRightOpen" size={17} />
     </button>
   );
 

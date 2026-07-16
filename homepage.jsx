@@ -753,7 +753,7 @@ function Homepage({ page, layout, value, setValue, onSubmit, onPick, onResume, l
         {!mobile && !railOpen && (
           <div style={{ position: "absolute", top: 14, left: 14, zIndex: 20, display: "inline-flex", gap: 6 }}>
             <button onClick={() => setRailOpen(true)} data-tip="展开菜单" data-tip-pos="bottom-left" aria-label="展开菜单" style={railIconBtn} {...railHoverFx}>
-              <Icon name="panelExpand" size={17} />
+              <Icon name="panelLeftOpen" size={17} />
             </button>
             <button onClick={newChat} data-tip="新对话" aria-label="新对话" style={railIconBtn} {...railHoverFx}>
               <Icon name="plus" size={17} />
@@ -844,7 +844,7 @@ function LeftRail({ page, loggedIn, onNavigate, onNewChat, onResume, onLogout, o
     )}
     <aside style={asideStyle}>
       {/* brand + collapse */}
-      <div style={{ display: "flex", alignItems: "center", gap: 9, padding: open ? "15px 14px 12px" : "15px 0 12px", justifyContent: "center" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 9, padding: open ? "15px 6px 12px 14px" : "15px 0 12px", justifyContent: "center" }}>
         {open ? (
           <React.Fragment>
             <BotAvatar size={40} glow />
@@ -855,7 +855,7 @@ function LeftRail({ page, loggedIn, onNavigate, onNewChat, onResume, onLogout, o
             <button onClick={collapse} data-tip={mobile ? "关闭菜单" : "收起菜单"} aria-label={mobile ? "关闭菜单" : "收起菜单"} style={{ width: 32, height: 32, borderRadius: 8, border: "none", background: "transparent", color: "var(--ink-3)", display: "grid", placeItems: "center", cursor: "pointer", flexShrink: 0, transition: "background .15s, color .15s" }}
               onMouseEnter={(e) => { e.currentTarget.style.background = "var(--surface)"; e.currentTarget.style.color = "var(--ink-2)"; }}
               onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = "var(--ink-3)"; }}>
-              <Icon name={mobile ? "close" : "panelCollapse"} size={17} sw={mobile ? 2.4 : 1.8} />
+              <Icon name={mobile ? "close" : "panelLeftClose"} size={17} sw={mobile ? 2.4 : 1.8} />
             </button>
           </React.Fragment>
         ) : (
@@ -869,7 +869,7 @@ function LeftRail({ page, loggedIn, onNavigate, onNewChat, onResume, onLogout, o
           >
             <span className="rbt-avatar"><BotAvatar size={40} glow /></span>
             <span className="rbt-icon" style={{ position: "absolute", inset: 0, borderRadius: 12, background: "var(--brand-soft)", border: "1px solid var(--brand-soft-border)", color: "var(--brand-deep)", display: "grid", placeItems: "center" }}>
-              <Icon name="panelExpand" size={19} />
+              <Icon name="panelLeftOpen" size={19} />
             </span>
           </button>
         )}
@@ -899,7 +899,7 @@ function LeftRail({ page, loggedIn, onNavigate, onNewChat, onResume, onLogout, o
       {/* conversation history (expanded only) */}
       {open && (
         <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", paddingTop: 6 }}>
-          <div style={{ padding: "4px 18px 8px", display: "flex", alignItems: "center", gap: 6 }}>
+          <div style={{ padding: "4px 8px 8px 18px", display: "flex", alignItems: "center", gap: 6 }}>
             <span style={{ fontSize: 11.5, fontWeight: 700, color: "var(--ink-3)" }}>历史对话</span>
             <div style={{ flex: 1 }} />
             {loggedIn && (
