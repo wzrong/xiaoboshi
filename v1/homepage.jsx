@@ -884,13 +884,13 @@ function LeftRail({ page, loggedIn, onNavigate, onPick, onNewChat, onResume, onL
 
       {/* nav */}
       <div style={{ padding: open ? "8px 12px" : "8px 12px", display: "flex", flexDirection: "column", gap: 3 }}>
-        <NavItem icon="file" label="智能组卷" active={page === "legacy:paper"} onClick={() => onNavigate("legacy:paper")} />
-        <NavItem icon="interactive" label="互动课件" active={page === "legacy:interactive"} onClick={() => onNavigate("legacy:interactive")} />
-        <NavItem icon="book" label="教材百科" active={page === "legacy:textbook"} onClick={() => onNavigate("legacy:textbook")} />
-        <NavItem icon="grade" label="作文批改" active={page === "legacy:grade"} onClick={() => onNavigate("legacy:grade")} />
-        <NavItem icon="image" label="AI 生图" active={page === "legacy:image"} onClick={() => onNavigate("legacy:image")} />
-        <NavItem icon="megaphone" label="AI 讲卷" active={page === "legacy:explain"} onClick={() => onNavigate("legacy:explain")} />
-        <NavItem icon="spark" label="智能体" active={page === "legacy:agent"} onClick={() => onNavigate("legacy:agent")} />
+        <NavItem icon="file" label="智能组卷" active={page === "legacy:paper"} onClick={() => go("legacy:paper")} />
+        <NavItem icon="interactive" label="互动课件" active={page === "legacy:interactive"} onClick={() => go("legacy:interactive")} />
+        <NavItem icon="book" label="教材百科" active={page === "legacy:textbook"} onClick={() => go("legacy:textbook")} />
+        <NavItem icon="grade" label="作文批改" active={page === "legacy:grade"} onClick={() => go("legacy:grade")} />
+        <NavItem icon="image" label="AI 生图" active={page === "legacy:image"} onClick={() => go("legacy:image")} />
+        <NavItem icon="megaphone" label="AI 讲卷" active={page === "legacy:explain"} onClick={() => go("legacy:explain")} />
+        <NavItem icon="spark" label="智能体" active={page === "legacy:agent"} onClick={() => go("legacy:agent")} />
         <NavItem icon="grid" label="我的内容" active={page === "works"} onClick={() => go("works")} />
         {!open && (
           <NavItem icon="chat" label="历史对话" active={page === "history"} onClick={() => (loggedIn ? onNavigate("history") : onRequireLogin())} />

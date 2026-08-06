@@ -545,11 +545,32 @@ const USER_MEMORY = {
   textbook: { edition: "人教版", stage: "高中", book: "生物 · 必修1", section: "第5章 第4节 · 能量之源——光合作用", when: "2 天前" },
   // 历史对话 — past chat SESSIONS (process). Click to resume the conversation.
   conversations: [
-    { id: "v1", scenario: "paper", icon: "paper", hue: 25, title: "《有理数》随堂练习卷", last: "再把第 5 题换成应用题", when: "今天" },
-    { id: "v2", scenario: "courseware", icon: "slides", hue: 255, title: "《整式的加减》互动课件", last: "加一个抢答环节", when: "昨天" },
-    { id: "v3", scenario: "textbook", icon: "book", hue: 200, title: "问：光反应和暗反应的区别", last: "已标注教材 P103–104", when: "3 天前" },
-    { id: "v4", scenario: "find", icon: "search", hue: 150, title: "一元一次方程 同步微课", last: "收藏了 5 个资源", when: "上周" },
-    { id: "v5", scenario: "lesson", icon: "lesson", hue: 320, title: "《数轴》教案（情境导入）", last: "导出为 Word", when: "上周" },
+    { id: "v1", scenario: "find", icon: "search", hue: 150, title: "一元一次方程 同步微课", last: "收藏了 5 个资源", when: "今天", messages: [
+      { role: "ai", text: "老师你好，告诉我你要找什么，我会从学科网资源库为你精准匹配。" },
+      { role: "user", text: "一元一次方程 同步微课" },
+      { role: "ai", text: "好的，已从学科网资源库为你检索到 5 项相关资源。" },
+      { role: "user", text: "第二个不错，收藏一下" },
+      { role: "ai", text: "已收藏《一元一次方程》同步微课到你的内容。" },
+    ] },
+    { id: "v2", scenario: "courseware", icon: "slides", hue: 255, title: "《整式的加减》课件", last: "加一个抢答环节", when: "昨天", messages: [
+      { role: "ai", text: "好的，我来帮你做课件。告诉我课题，或者在右侧选好教材章节，我先给你列个大纲。" },
+      { role: "user", text: "人教版七年级上 整式的加减 课件" },
+      { role: "ai", text: "大纲已列在右侧了，你可以增删条目、调整顺序。满意后点「生成课件内容」。" },
+      { role: "user", text: "加一个抢答环节" },
+      { role: "ai", text: "已在「课堂互动」模块中加入抢答环节。" },
+    ] },
+    { id: "v3", scenario: "lesson", icon: "lesson", hue: 320, title: "《数轴》教案（情境导入）", last: "导出为 Word", when: "上周", messages: [
+      { role: "ai", text: "好的，我来帮你写教案。告诉我课题，或者在右侧选好教材章节，我先给你列个大纲。" },
+      { role: "user", text: "人教版七年级上 数轴 教案，情境导入" },
+      { role: "ai", text: "大纲已列好，共 5 个模块。确认后点「生成教案内容」。" },
+      { role: "user", text: "确认，开始生成" },
+      { role: "ai", text: "《数轴》的教案已经写好了，共 5 个模块。可以点「编辑」继续改，也可以直接下载。" },
+    ] },
+    { id: "v4", scenario: "mindmap", icon: "mindmap", hue: 95, title: "《有理数》知识网络图", last: "已生成思维导图", when: "上周", messages: [
+      { role: "ai", text: "好的，我来帮你画导图。告诉我主题，我直接生成。" },
+      { role: "user", text: "人教版七年级上 有理数 知识网络图" },
+      { role: "ai", text: "《有理数》的思维导图已经画好了，右侧可以编辑节点。" },
+    ] },
   ],
   // 我的内容 — everything the teacher has: AI-generated, or downloaded from 找资源…
   works: [

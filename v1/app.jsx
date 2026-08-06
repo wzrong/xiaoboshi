@@ -130,7 +130,11 @@ function App() {
   // resume a finished past creation → open its workspace in the COMPLETED state
   const resumeCreation = (item) => {
     window.ChatSession && window.ChatSession.clear();
-    if (window.ChatSession) window.ChatSession.suppressHistory = true; // resuming an existing item — don't log a new record
+    if (window.ChatSession) window.ChatSession.suppressHistory = true;
+    // Pre-populate chat history from saved conversation messages
+    if (item.messages && item.messages.length && window.ChatSession) {
+      window.ChatSession.save(item.messages.map((m) => m.role === "user" ? { role: "user", text: m.text } : { role: "ai", node: m.text }));
+    }
     setScenarioId(item.scenario);
     setQuery(item.title);
     setFromIntent(false);
@@ -138,7 +142,7 @@ function App() {
     setScreen("workspace");
   };
 
-  const isHomeShell = screen === "home" || screen === "memory" || screen === "works" || screen === "history" || screen === "basket" || screen === "feedback" || screen === "help" || screen === "changelog";
+  const isHomeShell = screen === "home" || screen === "memory" || screen === "works" || screen === "history" || screen === "basket" || screen === "feedback" || screen === "help" || screen === "changelog" || (screen && screen.startsWith("legacy:"));
 
   // tell ChatSession which workspace is in view, so a logged history record can carry
   // the right scenario icon/hue and the 成果 menu the right glyph.
