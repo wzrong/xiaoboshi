@@ -40,7 +40,6 @@ function VideoCard({ v, onPlay, onDownload, source }) {
           <span style={{ whiteSpace: "nowrap" }}>{v.quality}</span>
           <span style={{ whiteSpace: "nowrap" }}>{v.chapters.length} 章节</span>
           <span style={{ display: "inline-flex", alignItems: "center", gap: 3, whiteSpace: "nowrap" }}><Icon name="eye" size={12} /> {v.plays}</span>
-          {source && <span style={{ marginLeft: "auto" }}><SourceTag source={source} /></span>}
         </div>
       </div>
     </div>
@@ -195,7 +194,6 @@ function AlbumCard({ a, onOpen, source }) {
             <Icon name="layers" size={11} /> 专辑
           </span>
           <span style={{ fontSize: 11, color: "var(--ink-3)", fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{a.edition} · {a.grade}{a.subject}</span>
-          {source && <span style={{ marginLeft: "auto" }}><SourceTag source={source} /></span>}
         </div>
         <div style={{ fontSize: 14, fontWeight: 800, color: "var(--ink)", lineHeight: 1.4, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{a.title}</div>
         <div style={{ fontSize: 11.5, color: "var(--ink-3)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>

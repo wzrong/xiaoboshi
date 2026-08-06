@@ -1395,13 +1395,13 @@ function ClarifyPopover({ analysis, onResolve, onSkip }) {
       </div>
 
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, padding: "10px 14px", borderTop: "1px solid var(--line-2)", background: "var(--surface-2)" }}>
-        <button onClick={() => onSkip && onSkip()} style={{ border: "none", background: "transparent", color: "var(--ink-3)", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "var(--font-zh)" }}>跳过，先给我看大致结果</button>
+        <button onClick={() => onSkip && onSkip()} style={{ border: "none", background: "transparent", color: "var(--ink-3)", fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "var(--font-zh)" }}>请补齐必选项</button>
         <button
           disabled={!ready}
           onClick={() => onResolve(vals)}
           style={{ padding: "8px 16px", borderRadius: 10, border: "none", background: ready ? "var(--brand)" : "var(--line)", color: ready ? "#fff" : "var(--ink-4)", fontSize: 13, fontWeight: 700, cursor: ready ? "pointer" : "default", fontFamily: "var(--font-zh)", display: "inline-flex", alignItems: "center", gap: 6, maxWidth: 320 }}
         >
-          <CIcon name="search" size={14} /> <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{ready ? `检索 ${summary}` : "请补齐必选项"}</span>
+          <CIcon name="search" size={14} /> <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>确认</span>
         </button>
       </div>
     </div>
@@ -1675,7 +1675,7 @@ function FindWorkspace({ scenario, query, onHome, onSwitch, fromIntent, resume, 
     return <ResourceCard key={key} r={it} source={it._source} onPreview={() => setPreview(it)} onDownload={() => guardDownload(`已开始下载《${(it.title || "").slice(0, 12)}…》`)} />;
   };
 
-  const items = shownRound ? shownRound.items : [];
+  const items = shownRound ? shownRound.items.filter((x) => x._kind !== "video" && x._kind !== "album") : [];
   const presentSources = ["我的内容", "资源篮", "学科网"].filter((s) => items.some((x) => x._source === s));
   const resultBody = items.length
     ? <React.Fragment>{items.map(renderItem)}<HandoffBar topic={shownRound.subject || ""} onSwitch={onSwitch} query={shownRound.query} /></React.Fragment>
@@ -1696,12 +1696,7 @@ function FindWorkspace({ scenario, query, onHome, onSwitch, fromIntent, resume, 
               <span style={{ fontSize: 13.5, fontWeight: 800, color: "var(--ink)" }}>以下是为你匹配的资源</span>
               <span style={{ fontSize: 11.5, fontWeight: 800, fontFamily: "var(--font-num)", padding: "1px 8px", borderRadius: 999, background: "var(--brand-soft)", border: "1px solid var(--brand-soft-border)", color: "var(--brand-deep)" }}>{items.length} 项</span>
               <div style={{ flex: 1 }} />
-              {presentSources.length > 0 && (
-                <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 11, color: "var(--ink-3)", fontWeight: 600, flexWrap: "wrap", rowGap: 5 }}>
-                  {!mobile && <span>来源</span>}
-                  {presentSources.map((s) => <SourceTag key={s} source={s} />)}
-                </span>
-              )}
+              {presentSources.length > 0 && null}
             </div>
             <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: mobile ? "11px 16px 20px" : "14px 22px 24px", display: "flex", flexDirection: "column", gap: mobile ? 9 : 12 }}>
               {resultBody}
@@ -1829,15 +1824,8 @@ function ResourceCard({ r, onPreview, onDownload, source }) {
       onMouseEnter={(e) => { e.currentTarget.style.boxShadow = "0 10px 24px -18px rgba(0,0,0,.3)"; e.currentTarget.style.borderColor = "var(--brand-soft-border)"; }}
       onMouseLeave={(e) => { e.currentTarget.style.boxShadow = "none"; e.currentTarget.style.borderColor = "var(--line)"; }}
     >
-      <div style={{ flexShrink: 0, textAlign: "center" }}>
-        <div style={{ position: "relative", width: 44, height: 44 }}>
-          <svg width="44" height="44" style={{ transform: "rotate(-90deg)" }}>
-            <circle cx="22" cy="22" r="18" fill="none" stroke="var(--line)" strokeWidth="4" />
-            <circle cx="22" cy="22" r="18" fill="none" stroke="var(--brand)" strokeWidth="4" strokeLinecap="round" strokeDasharray={`${(r.match / 100) * 113} 113`} />
-          </svg>
-          <div style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center", fontSize: 12, fontWeight: 800, color: "var(--brand-deep)", fontFamily: "var(--font-num)" }}>{r.match}</div>
-        </div>
-        <div style={{ fontSize: 9, color: "var(--ink-3)", marginTop: 2 }}>匹配度</div>
+      <div style={{ flexShrink: 0, width: 44, height: 44, borderRadius: 12, background: "var(--brand-soft)", border: "1px solid var(--brand-soft-border)", display: "grid", placeItems: "center" }}>
+        <CIcon name={/课件/.test(r.type) ? "slides" : /教案|讲义|学案|学历/.test(r.type) ? "doc" : /试卷|卷|练习|习题|真题|作业|检测|训练/.test(r.type) ? "paper" : "search"} size={20} />
       </div>
       <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 7 }}>
         <div style={{ fontSize: 14, fontWeight: 700, color: "var(--ink)", lineHeight: 1.4, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{r.title}</div>
@@ -1846,7 +1834,6 @@ function ResourceCard({ r, onPreview, onDownload, source }) {
           <span style={{ fontWeight: 700, color: "var(--ink-2)", whiteSpace: "nowrap" }}>{r.edition} · {r.grade}{r.subject}</span>
           {(r.chips || []).slice(0, 4).map((c, i) => <span key={i} style={{ padding: "1.5px 7px", borderRadius: 6, background: "var(--surface-2)", border: "1px solid var(--line)", color: "var(--ink-3)", fontWeight: 600, whiteSpace: "nowrap" }}>{c}</span>)}
           {(r.qcount > 0 || r.pages) && <span style={{ whiteSpace: "nowrap" }}>{r.qcount > 0 ? `${r.qcount}题` : ""}{r.qcount > 0 && r.pages ? " · " : ""}{r.pages ? `${r.pages}页` : ""}</span>}
-          {source && <span style={{ marginLeft: "auto" }}><SourceTag source={source} /></span>}
         </div>
       </div>
       <Icon name="chevronRight" size={18} />

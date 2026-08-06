@@ -17,56 +17,56 @@
 
     --ease-out: cubic-bezier(.22, 1, .36, 1);
 
-    --brand: #2f73e0;
-    --brand-deep: color-mix(in oklab, var(--brand), oklch(0.3 0.09 265) 30%);
+    --brand: #c15f3c;
+    --brand-deep: color-mix(in oklab, var(--brand), oklch(0.3 0.08 45) 30%);
     --brand-bright: color-mix(in oklab, var(--brand), #ffffff 14%);
-    --brand-grad: linear-gradient(180deg, var(--brand-bright), var(--brand) 52%, color-mix(in oklab, var(--brand), oklch(0.35 0.12 265) 20%));
+    --brand-grad: linear-gradient(180deg, var(--brand-bright), var(--brand) 52%, color-mix(in oklab, var(--brand), oklch(0.35 0.1 40) 20%));
     --brand-soft: color-mix(in oklab, var(--brand), var(--surface) 90%);
     --brand-soft-border: color-mix(in oklab, var(--brand), var(--surface) 70%);
     --brand-glow: color-mix(in oklab, var(--brand), transparent 46%);
 
-    --accent: oklch(0.7 0.16 42);
+    --accent: oklch(0.66 0.13 42);
 
-    --canvas: oklch(0.983 0.001 250);
+    --canvas: oklch(0.968 0.006 78);
     --surface: #ffffff;
-    --surface-2: oklch(0.967 0.0018 250);
-    --ink: oklch(0.26 0.008 260);
-    --ink-2: oklch(0.46 0.006 256);
-    --ink-3: oklch(0.62 0.005 252);
-    --line: oklch(0.925 0.0022 250);
+    --surface-2: oklch(0.963 0.007 78);
+    --ink: oklch(0.26 0.008 60);
+    --ink-2: oklch(0.46 0.008 62);
+    --ink-3: oklch(0.64 0.01 66);
+    --line: oklch(0.905 0.008 76);
 
     --auth-bg: oklch(0.972 0.022 80);
     --auth-ink: oklch(0.54 0.1 68);
     --auth-border: oklch(0.9 0.045 78);
 
-    --intent-bg: oklch(0.971 0.0015 250);
-    --input-border: oklch(0.913 0.003 250);
-    --input-shadow: 0 1px 2px oklch(0.4 0.06 260 / .04), 0 6px 16px -10px oklch(0.5 0.04 260 / .12);
+    --intent-bg: oklch(0.966 0.007 78);
+    --input-border: oklch(0.895 0.009 76);
+    --input-shadow: 0 1px 2px oklch(0.4 0.04 60 / .04), 0 6px 16px -10px oklch(0.5 0.03 60 / .12);
     --ring: 0 0 0 4px color-mix(in oklab, var(--brand), transparent 85%);
-    --shadow-card: 0 1px 2px oklch(0.4 0.05 260 / .05), 0 14px 36px -26px oklch(0.35 0.07 260 / .55);
+    --shadow-card: 0 1px 2px oklch(0.4 0.03 60 / .05), 0 14px 36px -26px oklch(0.35 0.04 60 / .5);
   }
 
   .dark {
     --brand-deep: color-mix(in oklab, var(--brand), #ffffff 22%);
     --brand-bright: color-mix(in oklab, var(--brand), #ffffff 18%);
-    --brand-grad: linear-gradient(180deg, var(--brand-bright), var(--brand) 60%, color-mix(in oklab, var(--brand), oklch(0.3 0.1 265) 18%));
+    --brand-grad: linear-gradient(180deg, var(--brand-bright), var(--brand) 60%, color-mix(in oklab, var(--brand), oklch(0.3 0.09 40) 18%));
     --brand-soft: color-mix(in oklab, var(--brand), var(--surface) 84%);
     --brand-soft-border: color-mix(in oklab, var(--brand), var(--surface) 60%);
 
-    --canvas: oklch(0.21 0.012 260);
-    --surface: oklch(0.255 0.014 260);
-    --surface-2: oklch(0.29 0.015 260);
-    --ink: oklch(0.93 0.01 250);
-    --ink-2: oklch(0.78 0.012 250);
-    --ink-3: oklch(0.6 0.012 250);
-    --line: oklch(0.36 0.014 260);
+    --canvas: oklch(0.205 0.008 60);
+    --surface: oklch(0.252 0.009 60);
+    --surface-2: oklch(0.29 0.01 62);
+    --ink: oklch(0.93 0.008 70);
+    --ink-2: oklch(0.78 0.009 68);
+    --ink-3: oklch(0.6 0.009 66);
+    --line: oklch(0.36 0.009 62);
 
     --auth-bg: oklch(0.32 0.04 70);
     --auth-ink: oklch(0.82 0.08 72);
     --auth-border: oklch(0.42 0.05 70);
 
-    --intent-bg: oklch(0.18 0.012 260);
-    --input-border: oklch(0.38 0.015 260);
+    --intent-bg: oklch(0.18 0.008 60);
+    --input-border: oklch(0.38 0.01 62);
     --input-shadow: 0 1px 2px rgba(0,0,0,.3), 0 18px 50px -28px rgba(0, 0, 0, 0.7);
     --ring: 0 0 0 4px color-mix(in oklab, var(--brand), transparent 75%);
     --shadow-card: 0 1px 2px rgba(0,0,0,.3), 0 16px 40px -28px rgba(0,0,0,.8);
@@ -231,14 +231,24 @@
 <script type="text/babel" src="components.jsx"></script>
 <script type="text/babel" src="homepage.jsx"></script>
 <script type="text/babel" src="intentflow.jsx"></script>
-<script type="text/babel" src="workspace_find_media.jsx"></script>
 <script type="text/babel" src="workspace_find.jsx"></script>
+<script type="text/babel" src="workspace_find_media.jsx"></script>
+<script type="text/babel" src="workspace_textbook_answers.jsx"></script>
+<script type="text/babel" src="workspace_textbook_cards.jsx"></script>
+<script type="text/babel" src="workspace_textbook.jsx"></script>
 <script type="text/babel" src="workspace_courseware.jsx"></script>
+<script type="text/babel" src="workspace_generic.jsx"></script>
 <script type="text/babel" src="workspace_lesson.jsx"></script>
+<script type="text/babel" src="workspace_paper.jsx"></script>
 <script type="text/babel" src="workspace_mindmap.jsx"></script>
+<script type="text/babel" src="workspace_grade.jsx"></script>
 <script type="text/babel" src="workspace_assistant.jsx"></script>
-<script type="text/babel" src="workspace_stubs.jsx"></script>
 <script type="text/babel" src="app.jsx"></script>
+
+<!-- UI稿专用：强制主色为 Claude 珊瑚色（app.jsx 会以内联样式写入蓝色，这里覆盖） -->
+<script>
+(function(){var C="#c15f3c";function fix(){if(document.documentElement.style.getPropertyValue("--brand").trim()!==C){document.documentElement.style.setProperty("--brand",C);}}new MutationObserver(fix).observe(document.documentElement,{attributes:true,attributeFilter:["style"]});fix();})();
+</script>
 
 <template id="__bundler_thumbnail" data-bg-color="#2f73e0">
   <svg viewBox="0 0 1200 800" xmlns="http://www.w3.org/2000/svg">

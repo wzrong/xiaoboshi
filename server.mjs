@@ -29,9 +29,15 @@ function resolveRequestPath(url) {
 
   if (!fullPath.startsWith(root)) return null;
   if (!existsSync(fullPath)) return null;
-  if (!statSync(fullPath).isFile()) return null;
 
-  return fullPath;
+  const resolvedPath = statSync(fullPath).isDirectory()
+    ? join(fullPath, "index.html")
+    : fullPath;
+
+  if (!existsSync(resolvedPath)) return null;
+  if (!statSync(resolvedPath).isFile()) return null;
+
+  return resolvedPath;
 }
 
 const server = createServer((req, res) => {

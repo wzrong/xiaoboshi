@@ -17,26 +17,19 @@ function MenuRow({ icon, label, accent, onClick }) {
   );
 }
 
-// 外观（浅色/深色）—— 账号浮层内的主题分段控件
-function AppearanceRow() {
-  const [dark, setDark] = useState(!!window.__aidaDark);
-  const set = (v) => { setDark(v); window.__aidaDark = v; window.__aidaSetDark && window.__aidaSetDark(v); };
-  const seg = (on, label, icon, v) => (
-    <button
-      onClick={() => set(v)}
-      style={{ flex: 1, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 5, padding: "6px 8px", borderRadius: 7, border: "none", cursor: "pointer", fontFamily: "var(--font-zh)", fontSize: 12, fontWeight: 700, transition: "all .15s", background: on ? "var(--surface)" : "transparent", color: on ? "var(--brand-deep)" : "var(--ink-3)", boxShadow: on ? "0 1px 3px rgba(0,0,0,.12)" : "none" }}
-    >
-      <Icon name={icon} size={14} /> {label}
-    </button>
-  );
+// 外观（浅色/深色）—— removed for v1
+
+const LEGACY_LABELS = { "legacy:paper": "智能组卷", "legacy:interactive": "互动课件", "legacy:textbook": "教材百科", "legacy:grade": "作文批改", "legacy:image": "AI 生图", "legacy:explain": "AI 讲卷", "legacy:agent": "智能体" };
+const LEGACY_ICONS = { "legacy:paper": "file", "legacy:interactive": "interactive", "legacy:textbook": "book", "legacy:grade": "grade", "legacy:image": "image", "legacy:explain": "megaphone", "legacy:agent": "spark" };
+function LegacyPlaceholder({ page }) {
+  const label = LEGACY_LABELS[page] || page;
+  const icon = LEGACY_ICONS[page] || "spark";
   return (
-    <div style={{ padding: "7px 10px", display: "flex", alignItems: "center", gap: 10 }}>
-      <span style={{ flexShrink: 0, fontSize: 13, fontWeight: 600, color: "var(--ink-2)", display: "inline-flex", alignItems: "center", gap: 10 }}>
-        <Icon name="sun" size={15} /> 外观
-      </span>
-      <div style={{ flex: 1, display: "flex", gap: 2, padding: 2, borderRadius: 9, background: "var(--surface-2)" }}>
-        {seg(!dark, "浅色", "sun", false)}
-        {seg(dark, "深色", "moon", true)}
+    <div style={{ flex: 1, display: "grid", placeItems: "center" }}>
+      <div style={{ textAlign: "center" }}>
+        <div style={{ display: "inline-flex", marginBottom: 14 }}><Icon name={icon} size={48} /></div>
+        <h2 style={{ fontSize: 20, fontWeight: 800, color: "var(--ink)", margin: "0 0 8px" }}>{label}</h2>
+        <p style={{ fontSize: 14, color: "var(--ink-3)", margin: 0 }}>该功能将在旧版页面中打开</p>
       </div>
     </div>
   );
@@ -791,6 +784,8 @@ function Homepage({ page, layout, value, setValue, onSubmit, onPick, onResume, l
             <HelpPage onNavigate={onNavigate} />
           ) : page === "changelog" ? (
             <ChangelogPage />
+          ) : page && page.startsWith("legacy:") ? (
+            <LegacyPlaceholder page={page} />
           ) : (
             <React.Fragment>
               <div style={{ margin: "auto 0", width: "100%", display: "flex", flexDirection: "column", flex: 1 }}>
@@ -889,13 +884,13 @@ function LeftRail({ page, loggedIn, onNavigate, onPick, onNewChat, onResume, onL
 
       {/* nav */}
       <div style={{ padding: open ? "8px 12px" : "8px 12px", display: "flex", flexDirection: "column", gap: 3 }}>
-        <NavItem icon="file" label="智能组卷" onClick={() => onPick && onPick("paper")} />
-        <NavItem icon="interactive" label="互动课件" onClick={() => onPick && onPick("courseware")} />
-        <NavItem icon="book" label="教材百科" onClick={() => onPick && onPick("textbook")} />
-        <NavItem icon="grade" label="作文批改" onClick={() => onPick && onPick("grade")} />
-        <NavItem icon="image" label="AI 生图" onClick={() => onPick && onPick("image")} />
-        <NavItem icon="megaphone" label="AI 讲卷" onClick={() => onPick && onPick("explain")} />
-        <NavItem icon="spark" label="智能体" onClick={() => onPick && onPick("agent")} />
+        <NavItem icon="file" label="智能组卷" active={page === "legacy:paper"} onClick={() => onNavigate("legacy:paper")} />
+        <NavItem icon="interactive" label="互动课件" active={page === "legacy:interactive"} onClick={() => onNavigate("legacy:interactive")} />
+        <NavItem icon="book" label="教材百科" active={page === "legacy:textbook"} onClick={() => onNavigate("legacy:textbook")} />
+        <NavItem icon="grade" label="作文批改" active={page === "legacy:grade"} onClick={() => onNavigate("legacy:grade")} />
+        <NavItem icon="image" label="AI 生图" active={page === "legacy:image"} onClick={() => onNavigate("legacy:image")} />
+        <NavItem icon="megaphone" label="AI 讲卷" active={page === "legacy:explain"} onClick={() => onNavigate("legacy:explain")} />
+        <NavItem icon="spark" label="智能体" active={page === "legacy:agent"} onClick={() => onNavigate("legacy:agent")} />
         <NavItem icon="grid" label="我的内容" active={page === "works"} onClick={() => go("works")} />
         {!open && (
           <NavItem icon="chat" label="历史对话" active={page === "history"} onClick={() => (loggedIn ? onNavigate("history") : onRequireLogin())} />
