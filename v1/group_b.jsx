@@ -1,3 +1,4 @@
+// ======== homepage.jsx ========
 // homepage.jsx — unified entry, 3 switchable directions
 const { useState, useRef, useEffect } = React;
 

@@ -78,7 +78,7 @@ function knowledgeAnswer(query, hit) {
   );
 }
 
-function GeneralAnswer({ query }) {
+function GeneralAnswer({ query, fallback }) {
   const q = query || "";
   const hit = GA_KB.find((k) => k.re.test(q));
   const isTranslate = /翻译|translate|用英(语|文)|英文怎么(说|表达)|中文怎么说/.test(q);
@@ -106,6 +106,11 @@ function GeneralAnswer({ query }) {
       <div style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 12, color: "var(--auth-ink)", background: "var(--auth-bg)", border: "1px solid var(--auth-border)", borderRadius: 10, padding: "8px 11px" }}>
         <Icon name="shield" size={13} /> 回答参考学科网权威教研资源，成稿可一键溯源教材原文
       </div>
+      {fallback && (
+        <div style={{ fontSize: 13, color: "var(--ink-2)", lineHeight: 1.7, marginTop: 2 }}>
+          「{fallback.intent}」这个功能暂时还没融合到对话里，你可以点左侧菜单的<span style={{ color: "var(--brand-deep)", fontWeight: 700, cursor: "pointer", textDecoration: "underline", textDecorationColor: "color-mix(in oklab, var(--brand-deep), transparent 60%)", textUnderlineOffset: 2 }}>「{fallback.entry}」</span>直接使用。
+        </div>
+      )}
     </div>
   );
 }
@@ -235,14 +240,30 @@ function GeneralWorkspace({ query, fromIntent, onHome, onSwitch, nav }) {
   const [recognizing, setRecognizing] = gaS(willRecognize);
 
   const recapRef = gaR(null);
-  const handleRecognized = (target) => {
-    if (target && target !== "general") {
-      onSwitch(target, query);
+  const handleRecognized = (result) => {
+    if (result.type === "hit") {
+      if (fromIntent) {
+        // Homepage first entry → no divider, user hasn't been in any workspace
+        window.ChatSession.noDivider = true;
+      } else {
+        window.ChatSession.switchMeta = { source: "auto", from: window.AIDATA.GENERAL };
+      }
+      onSwitch(result.scenarioId, query);
       return;
     }
     setRecognizing(false);
-    setMessages((m) => [...m, { role: "ai", node: <GeneralAnswer query={query} /> }]);
-    setSugs(["展开讲讲", "给我一个课堂导入", "帮我整理成要点"]);
+    if (result.type === "multi") {
+      const S = window.AIDATA.SCENARIOS;
+      const matched = result.intents.map(id => S.find(s => s.id === id)).filter(Boolean);
+      setMessages((m) => [...m, { role: "ai", node: <MultiIntentAsk intents={matched} onPick={(id) => { window.ChatSession.switchMeta = { source: "auto", from: window.AIDATA.GENERAL }; onSwitch(id, query); }} /> }]);
+      setSugs([]);
+    } else if (result.type === "legacy") {
+      setMessages((m) => [...m, { role: "ai", node: <GeneralAnswer query={query} fallback={result.legacy} /> }]);
+      setSugs(["展开讲讲", "帮我整理成要点"]);
+    } else {
+      setMessages((m) => [...m, { role: "ai", node: <GeneralAnswer query={query} /> }]);
+      setSugs(["展开讲讲", "给我一个课堂导入", "帮我整理成要点"]);
+    }
   };
 
   const [messages, setMessages] = gaS(() => {

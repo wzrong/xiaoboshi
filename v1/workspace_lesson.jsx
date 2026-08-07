@@ -554,6 +554,7 @@ function LessonWorkspace({ scenario, query, onHome, onSwitch, fromIntent, resume
   // 新建（独立动作，不保存）—— 清空当前，回到选择态
   const createNew = () => {
     setDoc(null); setOutline(null); setMeta(null); setRawQ(""); setSugs([]);
+    window.__activeArtifactKey = null; window.dispatchEvent(new CustomEvent("artifact-select", { detail: null }));
     setMessages((m) => [...m, { role: "ai", node: <span>已新建一份空白文档——在右上选好教材章节和文档类型，或直接告诉我课题。</span> }]);
   };
 
@@ -586,6 +587,7 @@ function LessonWorkspace({ scenario, query, onHome, onSwitch, fromIntent, resume
     if (!docType) setDocType(t);
     const m = lessonMeta(q, textbook);
     setMeta(m); setRawQ(q); setDoc(null); setOutline(buildOutline(t));
+    window.__activeArtifactKey = null; window.dispatchEvent(new CustomEvent("artifact-select", { detail: null }));
     setMessages((ms) => [...ms.filter((x) => !x.typing), { role: "ai", node: outlineNote(m, t) }]);
   };
   const confirmOutline = () => {
@@ -632,7 +634,7 @@ function LessonWorkspace({ scenario, query, onHome, onSwitch, fromIntent, resume
   const LESSON_SUGS = ["补充教学反思", "作业改成分层", "重难点再细化", "导入换成情境式"];
   const [sugs, setSugs] = lS(doc ? LESSON_SUGS : []);
 
-  const artFor = (d) => ({ scenario: "lesson", icon: "lesson", title: `《${d.topic}》${d.docType || "教学设计"}`, meta: `${d.edition} · ${d.grade} · ${d.subject}` });
+  const artFor = (d) => { const a = { scenario: "lesson", icon: "lesson", title: `《${d.topic}》${d.docType || "教学设计"}`, meta: `${d.edition} · ${d.grade} · ${d.subject}`, _uid: "ls" + Date.now() }; window.__activeArtifactKey = "lesson:" + a._uid; window.dispatchEvent(new CustomEvent("artifact-select", { detail: "lesson:" + a._uid })); return a; };
   const doneNote = (d) => (
     <span>《<b>{d.topic}</b>》的教案已经写好了，共 <b>{d.sections.length}</b> 个模块。可以点「编辑」继续改，也可以直接下载。</span>
   );
@@ -687,6 +689,7 @@ function LessonWorkspace({ scenario, query, onHome, onSwitch, fromIntent, resume
       setSavedDocs((s) => [...s.filter((x) => (x.doc.topic + "|" + x.docType) !== key), { doc, meta, rawQ, docCat, docType, when: "刚刚" }]);
     }
     setDoc(null); setSugs([]);
+    window.__activeArtifactKey = null; window.dispatchEvent(new CustomEvent("artifact-select", { detail: null }));
   };
 
   return (

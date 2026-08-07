@@ -64,6 +64,41 @@ function extractEntities(text) {
   return ents;
 }
 
+// Whitelist: only these scenarios auto-route; others get legacy fallback
+const INTENT_WHITELIST = ["find", "courseware", "lesson", "mindmap"];
+const LEGACY_MAP = {
+  paper: { intent: "出卷子", entry: "智能组卷" },
+  textbook: { intent: "问教材", entry: "教材百科" },
+  grade: { intent: "改作业", entry: "作文批改" },
+  explain: { intent: "讲卷", entry: "AI 讲卷" },
+  image: { intent: "生成图片", entry: "AI 生图" },
+  agent: { intent: "智能体", entry: "智能体" },
+};
+
+function detectMultiIntent(text) {
+  const t = (text || "").toLowerCase();
+  const groups = [
+    { id: "find", kw: ["找资源","找一份","找一些","找点","搜资源","找现成","找几份","找份"] },
+    { id: "courseware", kw: ["做课件","做个课件","生成课件","做ppt","做个ppt"] },
+    { id: "lesson", kw: ["写教案","做教案","生成教案"] },
+    { id: "mindmap", kw: ["思维导图","画导图","做导图"] },
+  ];
+  const hits = groups.filter(g => g.kw.some(k => t.includes(k)));
+  return hits.length > 1 ? hits.map(h => h.id) : null;
+}
+
+function resolveIntent(query) {
+  const multi = detectMultiIntent(query);
+  if (multi) return { type: "multi", intents: multi, entities: extractEntities(query) };
+  const raw = detectScenario(query);
+  const entities = extractEntities(query);
+  const hidden = window.AIDATA.HIDDEN_SCENARIOS || [];
+  if (raw === "general") return { type: "nomatch", entities };
+  if (hidden.includes(raw)) return { type: "legacy", scenarioId: raw, legacy: LEGACY_MAP[raw] || { intent: raw, entry: raw }, entities };
+  const scenario = (window.AIDATA.SCENARIOS || []).find(s => s.id === raw);
+  return { type: "hit", scenarioId: raw, scenario, entities };
+}
+
 function IntentFlow({ query, onDone }) {
   const S = window.AIDATA.SCENARIOS;
   const target = detectScenario(query);
@@ -270,82 +305,71 @@ function IntentFlow({ query, onDone }) {
   );
 }
 
-Object.assign(window, { IntentFlow, detectScenario, detectSwitchTarget, extractEntities });
+Object.assign(window, { IntentFlow, detectScenario, detectSwitchTarget, extractEntities, resolveIntent, detectMultiIntent, INTENT_WHITELIST, LEGACY_MAP });
 
 // ---- Inline intent recognition: lives inside a chat bubble ----
+// PRD: process state ("正在理解你的需求…") → brief result (~0.5s) → collapsed one-line.
+// No step checklist, no confidence score.
 function InlineIntent({ query, onDone, instant }) {
-  const S = window.AIDATA.SCENARIOS;
-  const target = detectScenario(query);
-  const isGeneral = target === "general";
-  const scenario = S.find((s) => s.id === target) || window.AIDATA.GENERAL;
-  const entities = extractEntities(query);
-  const [step, setStep] = React.useState(instant ? 4 : 0);
-  // 0 understand, 1 entities, 2 retrieve, 3 matched, 4 done
-
+  const result = resolveIntent(query);
+  const [phase, setPhase] = React.useState(instant ? "collapsed" : "loading");
   React.useEffect(() => {
     if (instant) return;
-    const timers = [];
-    timers.push(setTimeout(() => setStep(1), 650));
-    timers.push(setTimeout(() => setStep(2), 1400));
-    timers.push(setTimeout(() => setStep(3), 2300));
-    timers.push(setTimeout(() => setStep(4), 3150));
-    timers.push(setTimeout(() => onDone && onDone(target), 3700));
-    return () => timers.forEach(clearTimeout);
+    const t1 = setTimeout(() => {
+      setPhase("collapsed");
+      onDone && onDone(result);
+    }, 1200);
+    return () => clearTimeout(t1);
   }, []);
-
-  const Row = ({ idx, icon, label, children }) => {
-    const state = step > idx ? "done" : step === idx ? "active" : "wait";
+  const entities = result.entities ? result.entities.filter(e => e.k !== "需求") : [];
+  let lineContent;
+  if (result.type === "hit") {
+    const ps = entities.length > 0 ? entities.map(e => e.v).join(" · ") : "";
+    lineContent = ps
+      ? <span>已识别：<b style={{ color: "var(--ink)" }}>{ps}</b> → <b style={{ color: `oklch(0.45 0.12 ${result.scenario.hue})` }}>{result.scenario.name}</b></span>
+      : <span>已识别 → <b style={{ color: `oklch(0.45 0.12 ${result.scenario.hue})` }}>{result.scenario.name}</b></span>;
+  } else if (result.type === "multi") {
+    lineContent = "识别到多个需求，先和你确认先做哪个";
+  } else {
+    lineContent = "未匹配到特定场景，直接为你解答";
+  }
+  if (phase === "loading") {
     return (
-      <div style={{ display: "flex", gap: 10, alignItems: "flex-start", opacity: state === "wait" ? 0.35 : 1, transition: "opacity .35s" }}>
-        <div style={{ width: 22, height: 22, flexShrink: 0, borderRadius: "50%", display: "grid", placeItems: "center", marginTop: 1, background: state === "done" ? "var(--brand)" : state === "active" ? "var(--brand-soft)" : "var(--line)", color: state === "done" ? "#fff" : "var(--brand)", border: state === "active" ? "1.5px solid var(--brand)" : "none", transition: "all .3s" }}>
-          {state === "done" ? <Icon name="check" size={12} sw={2.8} /> : <Icon name={icon} size={11} sw={2} />}
-        </div>
-        <div style={{ flex: 1, minWidth: 0, paddingTop: 1 }}>
-          <div style={{ fontSize: 13, fontWeight: 700, color: "var(--ink)" }}>{label}</div>
-          {state !== "wait" && children}
-        </div>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "var(--ink-2)", fontWeight: 600, padding: "2px 0" }}>
+        <span className="mini-spin" style={{ width: 14, height: 14 }} />
+        正在理解你的需求…
       </div>
     );
-  };
-
+  }
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 12, width: "100%", boxSizing: "border-box" }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 12.5, fontWeight: 700, color: "var(--ink-2)" }}>
-        {instant ? "已理解你的需求" : "正在理解你的需求"} {step < 4 && <Dots />}
-      </div>
-      <Row idx={0} icon="spark" label="理解需求" />
-      <Row idx={1} icon="filter" label="提取关键信息">
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 7 }}>
-          {entities.map((e, i) => (
-            <span key={i} className="ent-pop" style={{ animationDelay: `${i * 0.08}s`, display: "inline-flex", alignItems: "center", gap: 4, padding: "3px 8px", borderRadius: 7, background: "var(--surface)", border: "1px solid var(--line)", fontSize: 11.5, fontWeight: 600 }}>
-              <span style={{ color: "var(--ink-3)", fontSize: 10.5 }}>{e.k}</span>
-              <span style={{ color: "var(--brand-deep)", fontWeight: 700 }}>{e.v}</span>
-            </span>
-          ))}
-        </div>
-      </Row>
-      <Row idx={2} icon="shield" label="检索学科网权威库">
-        <div style={{ fontSize: 11.5, color: "var(--ink-3)", marginTop: 3 }}>匹配三审三校精品内容作为底座</div>
-      </Row>
-      <Row idx={3} icon="check" label={isGeneral ? "未匹配到专用工具" : "识别场景"}>
-        {step >= 3 && (
-          <div className="match-pop" style={{ marginTop: 8, display: "flex", alignItems: "center", gap: 10, padding: 9, borderRadius: 11, maxWidth: "100%", boxSizing: "border-box", background: `oklch(0.96 0.04 ${scenario.hue})`, border: `1px solid oklch(0.84 0.07 ${scenario.hue})` }}>
-            <ScenarioGlyph icon={scenario.icon} hue={scenario.hue} size={32} active />
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 13.5, fontWeight: 800, color: "var(--ink)" }}>{isGeneral ? "由通用助手解答" : scenario.name}</div>
-              <div style={{ fontSize: 11, color: "var(--ink-3)" }}>{isGeneral ? "直接对话回答你的问题" : scenario.tagline}</div>
-            </div>
-            {!isGeneral && <div style={{ fontSize: 16, fontWeight: 800, color: `oklch(0.5 0.14 ${scenario.hue})`, fontFamily: "var(--font-num)" }}>97%</div>}
-          </div>
-        )}
-      </Row>
-      {step >= 4 && !instant && (
-        <div className="enter-pop" style={{ fontSize: 12, color: "var(--ink-2)", fontWeight: 600 }}>
-          {isGeneral ? <span>正在为你解答…</span> : <span>已为你打开 <b style={{ color: "var(--brand-deep)" }}>{scenario.name}</b>，继续为你准备…</span>}
-        </div>
-      )}
+    <div style={{ fontSize: 12.5, color: "var(--ink-3)", fontWeight: 500, padding: "2px 0", animation: "pulseBg .5s ease" }}>
+      {lineContent}
     </div>
   );
 }
 
-Object.assign(window, { InlineIntent });
+// Multi-intent confirmation: user picks which task to do first
+function MultiIntentAsk({ intents, onPick }) {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+      <div style={{ fontSize: 14, color: "var(--ink)", lineHeight: 1.7 }}>
+        你是想先{intents.map((s, i) => (
+          <React.Fragment key={s.id}>
+            {i > 0 && "，还是先"}
+            <b style={{ color: `oklch(0.45 0.12 ${s.hue})` }}>{s.name}</b>
+          </React.Fragment>
+        ))}？我可以一件一件来。
+      </div>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+        {intents.map(s => (
+          <button key={s.id} onClick={() => onPick(s.id)} style={{ display: "inline-flex", alignItems: "center", gap: 7, padding: "8px 14px", borderRadius: 10, border: `1px solid oklch(0.84 0.07 ${s.hue})`, background: `oklch(0.96 0.04 ${s.hue})`, cursor: "pointer", fontFamily: "var(--font-zh)", fontSize: 13.5, fontWeight: 700, color: "var(--ink)" }}>
+            <ScenarioGlyph icon={s.icon} hue={s.hue} size={24} active />
+            先{s.name}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+Object.assign(window, { InlineIntent, MultiIntentAsk });

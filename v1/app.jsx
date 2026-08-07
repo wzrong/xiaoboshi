@@ -156,6 +156,9 @@ function App() {
   aE(() => {
     window.openSessionArtifact = (a) => {
       if (!a || !a.scenario) return;
+      // Deselect any previously active artifact first
+      window.__activeArtifactKey = a.scenario + ":" + (a._uid || a.id || a.title);
+      window.dispatchEvent(new CustomEvent("artifact-select", { detail: window.__activeArtifactKey }));
       window.ChatSession.pendingArtifact = a;
       setScenarioId(a.scenario);
       setQuery("");

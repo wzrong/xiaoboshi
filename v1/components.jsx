@@ -541,8 +541,10 @@ function enterThread(scenario, greet) {
 function takeSwitchDivider(scenario, hasHistory) {
   const meta = ChatSession.switchMeta || null;
   ChatSession.switchMeta = null;
-  if (!hasHistory) return [];
+  const noDivider = ChatSession.noDivider || false;
+  ChatSession.noDivider = false;
+  if (!hasHistory || noDivider) return [];
   const back = meta && meta.source === "auto" && meta.from && meta.from.id !== scenario.id ? meta.from : null;
-  return [{ role: "sys", text: `已切换到「${scenario.name}」`, icon: scenario.icon, back }];
+  return [{ role: "sys", text: `已切到「${scenario.name}」`, icon: scenario.icon, back }];
 }
 Object.assign(window, { enterThread, takeSwitchDivider });

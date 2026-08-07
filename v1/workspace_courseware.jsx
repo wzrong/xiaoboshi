@@ -343,7 +343,7 @@ function CwContentView({ doc, meta, genProgress, onFinish, mobile }) {
             对齐课程标准 · 结构参考学科网三审三校权威教案
           </footer>
         </article>
-        {allDone && (
+        {false && allDone && (
           <div style={{ position: "sticky", bottom: 0, padding: "16px 0 20px", background: "var(--canvas)", display: "flex", justifyContent: "center", zIndex: 5 }}>
             <button onClick={onFinish} style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "13px 28px", borderRadius: 13, border: "none", background: "var(--brand-grad)", backgroundColor: "var(--brand)", color: "#fff", fontSize: 14.5, fontWeight: 800, cursor: "pointer", fontFamily: "var(--font-zh)", boxShadow: "0 10px 26px -12px var(--brand-glow)" }}>
               <CIcon name="slides" size={17} /> 生成课件
@@ -466,6 +466,9 @@ function CoursewareWorkspace({ scenario, query, onHome, onSwitch, fromIntent, re
 
   // ---- 流程函数 ----
   const goOutline = (meta, chapter) => {
+    // Right side is changing — deselect any active artifact
+    window.__activeArtifactKey = null;
+    window.dispatchEvent(new CustomEvent("artifact-select", { detail: null }));
     const ol = cwDefaultOutline(meta.topic);
     setOutline(ol);
     setTextbook({ stage: meta.grade && /高/.test(meta.grade) ? "高中" : "初中", subject: meta.subject, edition: meta.edition, book: "", chapter: chapter || meta.topic });
@@ -489,7 +492,12 @@ function CoursewareWorkspace({ scenario, query, onHome, onSwitch, fromIntent, re
       if (idx < built.length) setTimeout(tick, 800);
       else {
         setStage("content");
-        const art = { scenario: "courseware", icon: "slides", title: `《${meta.topic}》课件`, meta: `${meta.edition} · ${meta.subject}` };
+        const grade = meta.grade || "";
+        const stage = /高/.test(grade) ? "高中" : /[一二三四五六]年级/.test(grade) ? "小学" : "初中";
+        const book = textbook ? textbook.book || "" : "";
+        const art = { scenario: "courseware", icon: "slides", title: `《${meta.topic}》课件`, meta: `${meta.edition} · ${meta.subject}`, stage: stage, subject: meta.subject, edition: meta.edition, book: book || grade, _uid: "cw" + Date.now() };
+        window.__activeArtifactKey = "courseware:" + art._uid;
+        window.dispatchEvent(new CustomEvent("artifact-select", { detail: "courseware:" + art._uid }));
         setMessages((m) => [...m, { role: "ai", artifact: art, node: <span>《<b>{meta.topic}</b>》的课件内容已经生成好了，共 <b>{built.length}</b> 个模块。点右下角「生成课件」就可以挑模板、进编辑器成稿。</span> }]);
         setSugs(["突出情境导入", "加一页随堂练习", "换个主题重做"]);
       }
@@ -503,7 +511,7 @@ function CoursewareWorkspace({ scenario, query, onHome, onSwitch, fromIntent, re
     if (isResume || pendingA) {
       const t = (resume && resume.title) || (pendingA && pendingA.title) || "课件";
       const hist = window.ChatSession.take();
-      return [...hist, { role: "ai", node: <span>已为你恢复《{t.replace(/[《》]/g, "")}》的课件，右侧接着编辑就行。</span> }];
+      return [...hist];
     }
     const hist = window.ChatSession.take();
     if (fromIntent && query) {

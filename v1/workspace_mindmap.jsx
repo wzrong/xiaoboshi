@@ -182,7 +182,7 @@ function MindmapWorkspace({ scenario, query, onHome, onSwitch, fromIntent, resum
     setGenerating(true);
     setTimeout(() => { const m2 = buildMindmap(q); setMap(m2); setCollapsed({}); setGenerating(false); after && after(m2); }, 1200);
   };
-  const artFor = (m) => ({ scenario: "mindmap", icon: "mindmap", title: `《${m.topic}》思维导图`, meta: `${countNodes(m.root)} 个节点` });
+  const artFor = (m) => { const a = { scenario: "mindmap", icon: "mindmap", title: `《${m.topic}》思维导图`, meta: `${countNodes(m.root)} 个节点`, _uid: "mm" + Date.now() }; window.__activeArtifactKey = "mindmap:" + a._uid; window.dispatchEvent(new CustomEvent("artifact-select", { detail: "mindmap:" + a._uid })); return a; };
   const doneNote = (m) => <span>《<b>{m.topic}</b>》的思维导图画好了——{m.root.children.length} 个一级分支、共 {countNodes(m.root) - 1} 个知识点，结构对齐<b style={{ color: "var(--auth-ink)" }}>权威教材</b>。点击节点可以直接改文字，选中后还能加子节点；也可以继续吩咐我调整。</span>;
 
   const [messages, setMessages] = mS(() => {
